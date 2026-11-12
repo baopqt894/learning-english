@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  camera: "M3 7h4l2-3h6l2 3h4v13H3V7Zm13 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+  sliders: "M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9M7 4v4m6 2v4m-6 2v4",
+  grid: "M3 3h18v18H3V3Zm6 0v18m6-18v18M3 9h18M3 15h18",
+  menu: "M4 6h16M4 12h16M4 18h16",
   chat: "M4 4h16v12H9l-5 4V4Zm4 4h8m-8 4h5",
   computer: "M3 3h18v13H3V3Zm9 13v5m-5 0h10M6 6h12",
   ball: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-4 4 3-2 5h-4l-2-5 4-3Zm0-5v5m9 4-5-1m2 8-4-3m-8 3 4-3m-7-4 5-1",
@@ -19,6 +23,7 @@ const paths: Record<string, string> = {
   lock: "M6 10h12v11H6V10Zm3 0V6a3 3 0 0 1 6 0v4m-3 5v2",
   mic: "M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5Zm-3 6v1a6 6 0 0 0 12 0v-1m-6 7v4m-4 0h8",
   sound: "m11 4-6 5H2v6h3l6 5V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14",
+  mute: "m11 4-6 5H2v6h3l6 5V4Zm5 5 5 6m0-6-5 6",
   bulb: "M9 18h6m-6 3h6M8 15a7 7 0 1 1 8 0v1H8v-1ZM12 6v4",
   send: "m22 2-7 20-4-9L2 9l20-7Zm0 0L11 13",
   user: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2",

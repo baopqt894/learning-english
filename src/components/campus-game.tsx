@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   useCallback,
@@ -25,6 +24,7 @@ import {
 } from "@/lib/game";
 import { useProgress } from "@/lib/progress-store";
 import type { WorldHandle } from "./campus-world";
+import { CampusPhotoMode } from "./campus-photo-mode";
 import { Icon } from "./icon";
 import { NpcPortrait } from "./npc-portrait";
 import { CampusMap, mapPosition } from "./campus-map";
@@ -61,7 +61,7 @@ type SpeechWindow = Window & {
   SpeechRecognition?: new () => Recognition;
   webkitSpeechRecognition?: new () => Recognition;
 };
-type Tab = "explore" | "journey" | "teacher";
+type Tab = "explore" | "journey" | "teacher" | "menu";
 
 function Cadet({
   variant = 0,
@@ -72,15 +72,9 @@ function Cadet({
 }) {
   return (
     <span
-      className={`cadet-avatar avatar-${variant}${small ? " avatar-small" : ""}`}
+      className={`cadet-portrait avatar-${variant}${small ? " avatar-small" : ""}`}
       aria-hidden="true"
-    >
-      <span className="cadet-body" />
-      <span className="cadet-head">
-        <span className="cadet-eyes">••</span>
-      </span>
-      <span className="cadet-cap">★</span>
-    </span>
+    />
   );
 }
 
@@ -104,19 +98,20 @@ export function CampusGame() {
   const [help, setHelp] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState("");
-  const [muted, setMuted] = useState(false);
+  const [autoVoiceMuted, setAutoVoiceMuted] = useState(false);
   const [speaking, setSpeaking] = useState<Place | null>(null);
   const [reward, setReward] = useState<number | null>(null);
   const [retryReset, setRetryReset] = useState(false);
   const [ready, setReady] = useState(false);
-  const [questVisible, setQuestVisible] = useState(true);
   const [mapVisible, setMapVisible] = useState(true);
   const [artGallery, setArtGallery] = useState(false);
   const [highQuality, setHighQuality] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [areaName, setAreaName] = useState("Khu trung tâm");
   const worldRef = useRef<WorldHandle>(null);
+  const photoTrigger = useRef<HTMLButtonElement>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const speechToken = useRef(0);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -152,35 +147,58 @@ export function CampusGame() {
   useEffect(() => {
     messagesRef.current?.scrollTo({
       top: messagesRef.current.scrollHeight,
-      behavior: "smooth",
+      behavior: "instant",
     });
-  }, [progress.messages.length, talking]);
+  }, [progress.messages.length, talking, showHistory]);
   useEffect(() => {
     const sync = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
+  const closePhoto = useCallback(() => {
+    worldRef.current?.endPhoto();
+    setPhotoOpen(false);
+    requestAnimationFrame(() => photoTrigger.current?.focus());
+  }, []);
+  const openPhoto = () => {
+    if (worldRef.current?.beginPhoto()) {
+      setNotice("");
+      setPhotoOpen(true);
+    } else {
+      setNotice("Máy ảnh cần cảnh 3D. Chờ cảnh tải xong rồi thử lại.");
+    }
+  };
   const modalOpen =
+    tab !== "explore" ||
     (ready && !progress.name) ||
     help ||
     reward !== null ||
     retryReset ||
     artGallery ||
-    atlasOpen || reviewOpen;
+    atlasOpen || reviewOpen || photoOpen;
+  useEffect(() => {
+    if (!notice || talking || modalOpen) return;
+    const timer = window.setTimeout(() => setNotice(""), 4200);
+    return () => window.clearTimeout(timer);
+  }, [notice, talking, modalOpen]);
+
   useEffect(() => {
     if (!modalOpen) return;
     const previousFocus = document.activeElement as HTMLElement | null;
+    const getDialog = () => {
+      const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+      return dialogs[dialogs.length - 1];
+    };
     const oldOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const getFocusable = () => {
-      const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
-      const dialog = dialogs[dialogs.length - 1];
+      const dialog = getDialog();
       return dialog
         ? Array.from(
             dialog.querySelectorAll<HTMLElement>(
-              'button:not(:disabled),a[href],input:not(:disabled),[tabindex="0"]',
+              'button:not(:disabled),a[href],input:not(:disabled),summary,[tabindex="0"]',
             ),
-          )
+          ).filter((item) => !item.closest("[inert]") && item.getClientRects().length > 0)
         : [];
     };
     const frame = requestAnimationFrame(() => {
@@ -190,12 +208,15 @@ export function CampusGame() {
     });
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (reviewOpen) setReviewOpen(false);
+        event.preventDefault();
+        if (photoOpen) closePhoto();
+        else if (reviewOpen) setReviewOpen(false);
         else if (atlasOpen) setAtlasOpen(false);
         else if (artGallery) setArtGallery(false);
         else if (help) setHelp(false);
         else if (retryReset) setRetryReset(false);
         else if (reward !== null) setReward(null);
+        else if (tab !== "explore") setTab("explore");
       }
       if (event.key !== "Tab") return;
       const items = getFocusable();
@@ -216,7 +237,7 @@ export function CampusGame() {
       document.removeEventListener("keydown", trap);
       previousFocus?.focus();
     };
-  }, [modalOpen, help, retryReset, reward, artGallery, atlasOpen, reviewOpen]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto]);
 
   const updateMapPlayer = useCallback((x: number, z: number) => {
     const position = mapPosition(x, z);
@@ -251,8 +272,8 @@ export function CampusGame() {
     }
   };
 
-  const speak = useCallback((text: string, place: Place) => {
-    if (muted) return;
+  const speak = useCallback((text: string, place: Place, automatic = false) => {
+    if (automatic && autoVoiceMuted) return;
     if (!("speechSynthesis" in window)) {
       setNotice("Voice playback is unavailable. You can still read the dialogue.");
       return;
@@ -274,7 +295,7 @@ export function CampusGame() {
       if(event.error!=="interrupted"&&event.error!=="canceled")setNotice("Voice playback failed. You can still read the dialogue.");
     };
     window.speechSynthesis.speak(utterance);
-  }, [muted]);
+  }, [autoVoiceMuted]);
 
   const openConversation = useCallback(() => {
     if (!near) return;
@@ -301,6 +322,7 @@ export function CampusGame() {
   };
 
   const goTo = (place: Place) => {
+    setTab("explore");
     setAtlasOpen(false);
     setTalking(null);
     setHint(false);
@@ -318,7 +340,7 @@ export function CampusGame() {
     if (!cleanName) return;
     saveProgress({ ...progress, name: cleanName.slice(0, 30), avatar });
     setNotice(
-      "Chào mừng em! Chọn Sân trường để đến gặp Minh và bắt đầu nhiệm vụ.",
+      "Đến gặp Minh để bắt đầu nhiệm vụ đầu tiên.",
     );
   };
 
@@ -337,7 +359,7 @@ export function CampusGame() {
         ? "Conversation goal complete!"
         : "Try saying it another way, or ask for a hint.",
     );
-    speak(result.reply, talking);
+    speak(result.reply, talking, true);
   };
 
   const microphone = () => {
@@ -428,7 +450,6 @@ export function CampusGame() {
     setName("");
     setTab("explore");
     setNotice("");
-    setQuestVisible(true);
     setMapVisible(true);
   };
 
@@ -437,7 +458,7 @@ export function CampusGame() {
     if (!talking) { autoSpokenPlace.current=null; return; }
     if (autoSpokenPlace.current === talking) return;
     autoSpokenPlace.current=talking;
-    speak(conversationPrompt(progress,talking),talking);
+    speak(conversationPrompt(progress, talking), talking, true);
   }, [talking, progress, speak]);
   function closeConversation() {
     setTalking(null);
@@ -449,9 +470,9 @@ export function CampusGame() {
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".interact-button")?.focus());
   }
   useEffect(() => {
-    if (!talking) return;
+    if (!talking || modalOpen) return;
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !modalOpen) {
+      if (event.key === "Escape") {
         setTalking(null);
         recognitionRef.current?.abort();
         setListening(false);
@@ -460,448 +481,136 @@ export function CampusGame() {
       }
     };
     document.addEventListener("keydown", escape);
-    const frame = requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".encounter-options button:not(:disabled)")?.focus());
+    const frame = requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".encounter-exit")?.focus());
     return () => { document.removeEventListener("keydown", escape); cancelAnimationFrame(frame); };
   }, [talking, modalOpen, stopSpeech]);
 
+  const questTitle = quest.title.split(" · ")[1] || quest.title;
+
   return (
-    <div
-      className={`game-app ${tab === "explore" ? "game-mode" : ""} ${questVisible ? "" : "quests-collapsed"} ${mapVisible ? "" : "map-collapsed"} ${talking ? "conversation-open" : ""}`}
-    >
-      <header className="app-header">
-        <Link
-          href="/"
-          className="brand"
-          aria-label="CampusQuest AI – Trang chủ"
-        >
-          <span className="brand-icon">
-            <Icon name="compass" size={29} />
-          </span>
-          <span>
-            <strong>
-              CampusQuest<span>AI</span>
-            </strong>
-            <small>PHÂN HIỆU 1 · THIẾU SINH QUÂN MIỀN TRUNG</small>
-          </span>
-        </Link>
-        <nav className="main-nav" aria-label="Điều hướng chính">
-          {(
-            [
-              { id: "explore", name: "Khám phá", icon: "compass" },
-              { id: "journey", name: "Hành trình", icon: "map" },
-              { id: "teacher", name: "Góc giáo viên", icon: "school" },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.id)}
-              aria-current={tab === item.id ? "page" : undefined}
-              className={tab === item.id ? "nav-active" : ""}
-            >
-              <Icon name={item.icon} size={18} />
-              {item.name}
-            </button>
-          ))}
-        </nav>
-        <div className="header-profile">
-          <span className="xp-pill">
-            <Icon name="star" size={16} />
-            {xp} XP
-          </span>
-          <Cadet variant={progress.avatar} small />
-          <span className="profile-name">
-            {progress.name || "Học viên mới"}
-            <small>Cấp độ {Math.floor(xp / 150) + 1}</small>
-          </span>
-        </div>
-      </header>
-
-      {tab === "explore" && (
-        <div className="game-tools" aria-label="Điều khiển màn chơi">
-          <button
-            onClick={() => setQuestVisible(!questVisible)}
-            aria-pressed={questVisible}
-            aria-label="Hiện/ẩn nhiệm vụ"
-            title="Hiện/ẩn nhiệm vụ"
-          >
-            <Icon name="book" size={18} />
-            <span>Nhiệm vụ</span>
-          </button>
-          <button
-            onClick={() => setMapVisible(!mapVisible)}
-            aria-pressed={mapVisible}
-            aria-label="Hiện/ẩn bản đồ"
-            title="Hiện/ẩn bản đồ"
-          >
-            <Icon name="map" size={18} />
-            <span>Bản đồ</span>
-          </button>
-          <span className="tool-divider" />
-          <button
-            onClick={() => worldRef.current?.overview()}
-            aria-label="Xem toàn cảnh 3D"
-            title="Xem toàn cảnh 3D"
-          >
-            <Icon name="compass" size={18} />
-          </button>
-          <button
-            onClick={() => worldRef.current?.zoom(0.15)}
-            aria-label="Phóng to cảnh"
-          >
-            <Icon name="plus" size={18} />
-          </button>
-          <button
-            onClick={() => worldRef.current?.zoom(-0.15)}
-            aria-label="Thu nhỏ cảnh"
-          >
-            <Icon name="minus" size={18} />
-          </button>
-          <button
-            onClick={() => worldRef.current?.recenter()}
-            aria-label="Đặt lại camera"
-          >
-            <Icon name="target" size={18} />
-          </button>
-          <button
-            onClick={() => {
-              worldRef.current?.setQuality(!highQuality);
-              setHighQuality(!highQuality);
-            }}
-            aria-label={
-              highQuality
-                ? "Đồ họa chi tiết – chuyển sang nhẹ"
-                : "Đồ họa nhẹ – chuyển sang chi tiết"
-            }
-            title={highQuality ? "Đồ họa: Chi tiết" : "Đồ họa: Nhẹ"}
-          >
-            <Icon name="leaf" size={18} />
-            <span>{highQuality ? "Chi tiết" : "Nhẹ"}</span>
-          </button>
-          <button
-            onClick={() => setArtGallery(true)}
-            aria-label="Mở bộ sưu tập hình ảnh"
-            title="Bộ sưu tập hình ảnh"
-          >
-            <Icon name="image" size={18} />
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            aria-label={
-              fullscreen ? "Thoát toàn màn hình" : "Bật toàn màn hình"
-            }
-            title="Toàn màn hình"
-          >
-            <Icon name="fullscreen" size={18} />
-          </button>
-          <button onClick={() => setHelp(true)} aria-label="Hướng dẫn chơi">
-            <Icon name="info" size={18} />
-          </button>
-        </div>
-      )}
-
-      <main className="app-main">
-        <div className="school-strip">
-          <Image
-            src="/images/school-logo.jpg"
-            alt="Logo Phân hiệu 1 Trường Thiếu sinh quân miền Trung"
-            width={34}
-            height={34}
+    <div className={`campus-shell${talking ? " conversation-open" : ""}`}>
+      <main className="campus-stage" aria-label="Khám phá khuôn viên">
+        <div className="scene-layer" inert={(modalOpen && !photoOpen) || !!talking}>
+          <World
+            ref={worldRef}
+            avatar={progress.avatar}
+            objective={goal?.place}
+            conversation={talking}
+            speaking={speaking}
+            highQuality={highQuality}
+            photoMode={photoOpen}
+            enabled={!!progress.name && !modalOpen && !talking}
+            onNear={setNear}
+            onInteract={openConversation}
+            onMove={updateMapPlayer}
+            onAreaChange={setAreaName}
           />
-          <span>
-            Phân hiệu 1 <i /> Trường Thiếu sinh quân miền Trung
-          </span>
-          <a
-            href="https://103.72.97.24/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Website nhà trường ↗
-          </a>
         </div>
-        {tab === "explore" && (
-          <>
-            <div className="page-heading">
-              <div>
-                <p className="eyebrow">
-                  <span className="tiny-sun">☀</span> MỖI NGÀY MỘT BƯỚC TIẾN
-                </p>
-                <h1>
-                  Chào {progress.name || "học viên mới"},{" "}
-                  <span>cùng khám phá nhé!</span>
-                </h1>
-                <p>
-                  Rèn tiếng Anh qua những câu chuyện ngay trong mái trường của
-                  em.
-                </p>
-              </div>
-              <button
-                className="outline-button help-button"
-                onClick={() => setHelp(true)}
-              >
-                <Icon name="info" size={17} />
-                Cách chơi
+        {progress.name && !talking && !photoOpen && (
+          <div className={`campus-hud${mapVisible ? " hud-has-map" : ""}`} inert={modalOpen}>
+            <div className="hud-left">
+              <button className="player-badge" onClick={() => navigate("journey")} aria-label="Mở nhật ký và xem tiến độ">
+                <Cadet variant={progress.avatar} small />
+                <span className="player-identity">
+                  <strong>{progress.name}</strong>
+                  <small>Cấp {Math.floor(xp / 150) + 1} <span>·</span> {xp} XP</small>
+                </span>
+                <span className="player-journal" aria-hidden="true"><Icon name="book" size={16} /></span>
               </button>
-            </div>
-            <div className="play-layout">
-              <aside
-                className="mission-sidebar"
-                inert={!questVisible || !!talking}
-              >
-                <section className="panel mission-panel">
-                  <div className="section-top">
-                    <span className="eyebrow">NHIỆM VỤ HIỆN TẠI</span>
-                    <span className="mission-count">
-                      {String(progress.active + 1).padStart(2, "0")}
-                      <small> / 06</small>
-                    </span>
-                  </div>
-                  <div className="mission-illustration">
-                    <span className="mission-icon">
-                      <Icon
-                        name={
-                          progress.active < 2
-                            ? "compass"
-                            : progress.active < 4
-                              ? "book"
-                              : "food"
-                        }
-                        size={38}
-                      />
-                    </span>
-                    <span className="orbit orbit-one" />
-                    <span className="orbit orbit-two" />
-                    <span className="illustration-star">✦</span>
-                  </div>
-                  <div className="mission-meta">
-                    <span>ENGLISH DISCOVERY DAY · TEAM PREPARATIONS</span>
-                  </div>
-                  <h2>{quest.title}</h2>
-                  <p className="mission-description">{quest.description}</p>
-                  <div className="lesson-brief"><strong>{lesson.skill}</strong><p>{lesson.pattern}</p><details><summary>Useful words · Từ vựng</summary>{lesson.words.map(word=><p key={word}>{word}</p>)}</details></div>
-                  <div className="mission-stats">
-                    <span>
-                      <Icon name="clock" size={15} />
-                      {quest.minutes}
-                    </span>
-                    <span className="gold-text">
-                      <Icon name="star" size={15} />+{quest.xp} XP
-                    </span>
-                  </div>
-                  <div className="objectives-title">
-                    <strong>Mục tiêu của em</strong>
-                    <span>
-                      {progress.goals.length}/{quest.goals.length}
-                    </span>
-                  </div>
-                  <div className="progress-track">
-                    <span
-                      style={{
-                        width: `${(progress.goals.length / quest.goals.length) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <ul className="objectives">
-                    {quest.goals.map((g) => (
-                      <li
-                        key={g.id}
-                        className={
-                          progress.goals.includes(g.id)
-                            ? "objective-done"
-                            : g.id === goal?.id
-                              ? "objective-current"
-                              : ""
-                        }
-                      >
-                        <span className="objective-check">
-                          {progress.goals.includes(g.id) ? (
-                            <Icon name="check" size={12} />
-                          ) : null}
-                        </span>
-                        <span>{g.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {finished && !allDone ? (
-                    <button
-                      className="primary-button full-width"
-                      onClick={claim}
-                    >
-                      <Icon name="trophy" size={17} />
-                      Nhận thưởng
-                    </button>
-                  ) : (
-                    <button
-                      className="primary-button full-width"
-                      onClick={() => goal && goTo(goal.place)}
-                      disabled={allDone}
-                    >
-                      <Icon name={allDone ? "trophy" : "map"} size={17} />
-                      {allDone ? "Đại sứ học đường" : "Đến nơi làm nhiệm vụ"}
-                      <Icon name="arrow" size={17} />
-                    </button>
-                  )}
-                </section>
-                <div className="encouragement">
-                  <span>
-                    <Icon name="leaf" size={22} />
+              <section className="quest-tracker" aria-label="Nhiệm vụ hiện tại">
+                <button className="quest-heading" onClick={() => navigate("journey")}>
+                  <Icon name={allDone ? "trophy" : "book"} size={18} />
+                  <strong lang={allDone ? "vi" : "en"}>{allDone ? "Đại sứ học đường" : questTitle}</strong>
+                  <span aria-label={`Nhiệm vụ ${allDone ? QUESTS.length : progress.active + 1} trên ${QUESTS.length}`}>
+                    {allDone ? QUESTS.length : progress.active + 1}/{QUESTS.length}
                   </span>
-                  <p>
-                    Mỗi câu nói là một bước tự tin.
-                    <strong>Cứ thử, em sẽ làm được!</strong>
-                  </p>
-                </div>
-                <button
-                  className="journey-link"
-                  onClick={() => setTab("journey")}
-                >
-                  Xem cả hành trình <Icon name="arrow" size={16} />
                 </button>
-              </aside>
-
-              <section
-                className="exploration-column"
-                aria-label="Khám phá khuôn viên"
-              >
-                <button
-                  className="mobile-mission-summary"
-                  onClick={() =>
-                    goal
-                      ? goTo(goal.place)
-                      : finished && !allDone
-                        ? claim()
-                        : navigate("journey")
-                  }
-                >
-                  <span>{String(progress.active + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{quest.title}</strong>
-                    <small>
-                      {goal?.label || "Em đã hoàn thành các mục tiêu!"}
-                    </small>
-                  </div>
-                  <Icon name="arrow" size={18} />
-                </button>
-                <div className="world-panel">
-                  <div className="world-topbar">
-                    <div>
-                      <span className="live-dot" />
-                      <strong>{areaName}</strong>
-                      <span className="world-subtitle">Bản đồ mô phỏng</span>
-                    </div>
-                    <button
-                      onClick={() => worldRef.current?.recenter()}
-                      className="icon-button"
-                      aria-label="Đặt lại góc nhìn"
-                    >
-                      <Icon name="target" size={18} />
-                    </button>
-                  </div>
-                  <div className="world-stage">
-                    <div className="scene-atmosphere" aria-hidden="true">
-                      <span className="sun-rays" />
-                      <span className="scene-vignette" />
-                      <span className="cloud-shade" />
-                    </div>
-                    <div className="chapter-pill">
-                      <span>01</span>
-                      <div>
-                        English Discovery Day
-                        <small>Hành trình của em bắt đầu từ đây</small>
-                      </div>
-                    </div>
-                    <div className="world-north" aria-hidden="true">
-                      N<Icon name="compass" size={26} />
-                    </div>
-                    <World
-                      ref={worldRef}
-                      avatar={progress.avatar}
-                      objective={goal?.place}
-                      conversation={talking}
-                      speaking={speaking}
-                      highQuality={highQuality}
-                      enabled={
-                        !!progress.name &&
-                        tab === "explore" &&
-                        !talking &&
-                        reward === null &&
-                        !help &&
-                        !artGallery &&
-                        !atlasOpen
-                      }
-                      onNear={setNear}
-                      onInteract={openConversation}
-                      onMove={updateMapPlayer}
-                      onAreaChange={setAreaName}
-                    />
-                    <div className="world-bottom-hud">
-                      <span>
-                        <span className="player-dot" />
-                        {near ? PLACES[near].name : "Đang khám phá"}
-                      </span>
-                      {near && !talking && (
-                        <button
-                          className="interact-button"
-                          onClick={openConversation}
-                        >
-                          Trò chuyện với {PLACES[near].npc}
-                          <kbd>E</kbd>
-                        </button>
-                      )}
-                      <span className="weather">
-                        ☀ <span>Buổi sáng</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="world-controls">
-                    <span>
-                      <kbd>W</kbd>
-                      <kbd>A</kbd>
-                      <kbd>S</kbd>
-                      <kbd>D</kbd> hoặc bấm vào sân để di chuyển
+                {!allDone && (
+                  <div className="quest-progress" aria-label={`${progress.goals.length} trên ${quest.goals.length} mục tiêu hoàn thành`}>
+                    <span className="quest-progress-track" aria-hidden="true">
+                      {quest.goals.map((step) => (
+                        <i key={step.id} data-complete={progress.goals.includes(step.id)} data-current={goal?.id === step.id} />
+                      ))}
                     </span>
-                    <span>
-                      <kbd>E</kbd> Trò chuyện
-                    </span>
+                    <small aria-hidden="true">{progress.goals.length}/{quest.goals.length} mục tiêu</small>
                   </div>
-                </div>
-                <div className="location-shortcuts" aria-label="Đến địa điểm">
-                  {(Object.keys(PLACES) as Place[]).map((id) => (
-                    <button
-                      key={id}
-                      onClick={() => goTo(id)}
-                      className={near === id ? "location-active" : ""}
-                    >
-                      <Icon
-                        name={
-                          id === "library"
-                            ? "book"
-                            : id === "canteen"
-                              ? "food"
-                              : "school"
-                        }
-                        size={18}
-                      />
-                      {PLACES[id].name}
-                      <Icon name="arrow" size={15} />
-                    </button>
-                  ))}
-                </div>
+                )}
+                {goal ? (
+                  <button className="quest-waypoint" onClick={() => goTo(goal.place)}>
+                    <span className="quest-pin" aria-hidden="true" />
+                    <span className="waypoint-copy">
+                      <strong lang="en">{goal.label}</strong>
+                      <small>{PLACES[goal.place].npc} · {PLACES[goal.place].name}</small>
+                    </span>
+                    <Icon name="arrow" size={17} />
+                  </button>
+                ) : !allDone && (
+                  <button className="quest-waypoint" onClick={claim}>
+                    <span>Ôn nhanh và nhận XP</span><Icon name="arrow" size={18} />
+                  </button>
+                )}
+              </section>
+            </div>
 
+            <div className="hud-right">
+              <div className="hud-actions" aria-label="Công cụ khuôn viên">
+                <button className="hud-button photo-launch" ref={photoTrigger} onClick={openPhoto} aria-label="Mở máy ảnh" title="Máy ảnh"><Icon name="camera" size={20} /></button>
+                <button className="hud-button" onClick={() => setAtlasOpen(true)} aria-label="Mở bản đồ toàn trường" title="Bản đồ toàn trường"><Icon name="map" size={20} /></button>
+                <button className="hud-button" onClick={() => navigate("menu")} aria-label="Mở menu" title="Menu"><Icon name="menu" size={20} /></button>
+              </div>
+              {mapVisible && (
+                <div className="hud-minimap">
+                  <CampusMap objective={goal?.place} near={near} onPlace={goTo} onZone={goToZone} />
+                  <span className="minimap-north" aria-hidden="true">N</span>
+                  <p className="minimap-area"><Icon name="target" size={14} />{areaName}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="hud-area">
+              <Icon name="target" size={16} />
+              <span className="hud-area-name">{areaName}</span>
+              <small className="desktop-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển</small>
+            </div>
+            {near && (
+              <button className="interact-button" onClick={openConversation}>
+                <kbd>E</kbd><Icon name="chat" size={19} /> Trò chuyện với {PLACES[near].npc}
+              </button>
+            )}
+            <div className="camera-tools" aria-label="Camera">
+              <button className="hud-button" onClick={() => worldRef.current?.zoom(0.15)} aria-label="Phóng to cảnh" title="Phóng to"><Icon name="plus" size={18} /></button>
+              <button className="hud-button" onClick={() => worldRef.current?.zoom(-0.15)} aria-label="Thu nhỏ cảnh" title="Thu nhỏ"><Icon name="minus" size={18} /></button>
+              <button className="hud-button" onClick={() => worldRef.current?.recenter()} aria-label="Đặt lại camera" title="Đặt lại camera"><Icon name="target" size={18} /></button>
+            </div>
+            <p className="travel-notice" role="status">{notice}</p>
+          </div>
+        )}
                 {talking && (
-                  <section className="encounter" lang="en" aria-label={`Talk to ${dialogueName}`} data-speaking={speaking === talking}>
+                  <section className="encounter" lang="en" aria-label={`Talk to ${dialogueName}`} data-speaking={speaking === talking} inert={modalOpen}>
                     <NpcPortrait key={talking} place={talking} speaking={speaking === talking} turn={conversationMessages.length} mood={turnFeedback === "success" ? "encouraging" : turnFeedback === "retry" ? "thoughtful":"welcoming"} />
                     <div className="encounter-topline">
-                      <span><span className="live-dot" /> In conversation · {person.english}</span>
-                      <button className="encounter-exit" onClick={closeConversation} aria-label="Close conversation">
+                      <span><Icon name="target" size={16} /> {person.english}</span>
+                      <button className="encounter-exit" onClick={closeConversation}>
                         Back to campus <Icon name="close" size={18} />
                       </button>
                     </div>
                     <div className="encounter-caption">
                       <div className="learning-objective"><span>{lesson.level}</span><strong>{encounterGoal?.label || (goal ? `Next: ${goal.label}` : "Mission complete")}</strong><span>{progress.goals.length}/{quest.goals.length}</span></div>
                       <div className="encounter-speaker">
-                        <span className="speaker-monogram">{person.npc === "Minh" ? "M" : talking === "library" ? "L" : "H"}</span>
-                        <div><strong>{dialogueName}</strong><span>{dialogueRole}</span></div><span className="encounter-turn">{speaking === talking ? "Speaking" : "Listening"}</span>
-                        <button onClick={() => { setMuted(!muted); stopSpeech(); }} className="icon-button" aria-label={muted ? "Unmute voice" : "Mute voice"} aria-pressed={muted}><Icon name="sound" size={20} /></button>
+                        <div><strong>{dialogueName}</strong><span>{dialogueRole}</span></div>{speaking === talking && <span className="encounter-turn">Speaking</span>}
+                        <button
+                          onClick={() => {
+                            setAutoVoiceMuted((muted) => !muted);
+                            stopSpeech();
+                          }}
+                          className="icon-button auto-voice"
+                          aria-label="Auto voice"
+                          aria-pressed={!autoVoiceMuted}
+                          title={autoVoiceMuted ? "Automatic voice off" : "Automatic voice on"}
+                        >
+                          <Icon name={autoVoiceMuted ? "mute" : "sound"} size={18} />
+                          <span>Auto voice {autoVoiceMuted ? "off" : "on"}</span>
+                        </button>
                       </div>
                       <div className="encounter-line" aria-live="polite" aria-atomic="true">
                         <p>{conversationMessages.findLast((m) => m.role === "npc")?.text || conversationPrompt(progress,talking)}</p>
@@ -909,214 +618,131 @@ export function CampusGame() {
                       </div>
                       {conversationMessages.at(-2)?.role === "student" && <p className="encounter-your-line">You: {conversationMessages.at(-2)?.text}</p>}
                       {turnFeedback && <div className={`learning-feedback learning-${turnFeedback}`} role="status"><strong>{turnFeedback === "success" ? "Message understood" : "Keep practising"}</strong><span>{turnFeedback === "success" ? "You completed a real communication goal. Listen for your next step." : lesson.tip}</span></div>}
-                      {encounterGoal && <div className="learning-support"><button aria-expanded={practiceFirst} onClick={()=>{setPracticeFirst(!practiceFirst);setHint(false);}}>Listen to a model</button><span>Listen → try your own words → check the response</span></div>}
+                      {encounterGoal && <div className="learning-support"><button aria-expanded={practiceFirst} onClick={()=>{setPracticeFirst(!practiceFirst);setHint(false);}}>Listen to a model</button></div>}
                       {practiceFirst && encounterGoal && <div className="model-practice"><p>{encounterGoal.hint}</p><button onClick={()=>speak(encounterGoal.hint,talking)}>Play model</button><small>Try saying it yourself. Then choose Speak or Type to answer.</small></div>}
                       {near !== talking && <p className="inline-notice">Move closer to continue this conversation.</p>}
-                      {hint && encounterGoal && <div className="encounter-hint" id="encounter-hint"><span>!</span><div><small>Try saying</small><p>{encounterGoal.hint}</p></div><button onClick={() => { setResponseMode("text"); setDraft(encounterGoal.hint); requestAnimationFrame(() => draftRef.current?.focus()); }} title="Fill in the suggested reply">Use this <Icon name="arrow" size={16} /></button></div>}
+                      {hint && encounterGoal && <div className="encounter-hint" id="encounter-hint"><Icon name="bulb" size={20} /><div><small>Try saying</small><p>{encounterGoal.hint}</p></div><button onClick={() => { setResponseMode("text"); setDraft(encounterGoal.hint); requestAnimationFrame(() => draftRef.current?.focus()); }} title="Fill in the suggested reply">Use this <Icon name="arrow" size={16} /></button></div>}
                       {responseMode && encounterGoal && !finished && <form className="encounter-form" onSubmit={send}>
                         {listening && <span className="voice-wave" aria-hidden="true"><i /><i /><i /><i /><i /></span>}
                         <input ref={draftRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={listening ? "Listening…" : responseMode === "voice" ? "Review your words, then send…" : "Type your reply…"} aria-label="Your English reply" maxLength={600} disabled={near !== talking || listening} />
                         <button type="submit" disabled={!draft.trim() || near !== talking || listening} aria-label="Send reply"><Icon name="send" size={20} /><span>Send</span></button>
                       </form>}
                       {finished && !allDone ? <button className="encounter-claim" onClick={claim}><Icon name="trophy" size={22} /> Mission complete · Quick review <Icon name="arrow" size={20} /></button> : !allDone && encounterGoal && <div className="encounter-options" aria-label="Reply options">
-                        <button onClick={() => setHint(!hint)} aria-expanded={hint} aria-controls="encounter-hint" className={hint ? "option-active" : ""} disabled={!encounterGoal} title={!encounterGoal ? "Hints are available at your current quest character" : "Show hint"}><span className="hint-glyph">!</span><span>Hint<small>A little help</small></span></button>
-                        <button onClick={() => { setResponseMode("voice"); microphone(); }} aria-pressed={listening} className={listening ? "option-listening" : responseMode === "voice" ? "option-active" : ""} disabled={near !== talking}><Icon name="mic" size={23} /><span>{listening ? "Stop mic" : "Speak"}<small>{listening ? "Listening…" : "Use your microphone"}</small></span></button>
-                        <button onClick={() => { recognitionRef.current?.abort(); setListening(false); setResponseMode("text"); requestAnimationFrame(() => draftRef.current?.focus()); }} className={responseMode === "text" ? "option-active" : ""} disabled={near !== talking}><Icon name="chat" size={23} /><span>Type<small>Write your reply</small></span></button>
+                        <button onClick={() => setHint(!hint)} aria-expanded={hint} aria-controls="encounter-hint" className={hint ? "option-active" : ""} disabled={!encounterGoal} title={!encounterGoal ? "Hints are available at your current quest character" : "Show hint"}><Icon name="bulb" size={19} /><span>Hint</span></button>
+                        <button onClick={() => { setResponseMode("voice"); microphone(); }} aria-pressed={listening} className={listening ? "option-listening" : responseMode === "voice" ? "option-active" : ""} disabled={near !== talking}><Icon name="mic" size={23} /><span>{listening ? "Stop mic" : "Speak"}</span></button>
+                        <button onClick={() => { recognitionRef.current?.abort(); setListening(false); setResponseMode("text"); requestAnimationFrame(() => draftRef.current?.focus()); }} className={responseMode === "text" ? "option-active" : ""} disabled={near !== talking}><Icon name="chat" size={23} /><span>Type</span></button>
                       </div>}
                       {goal && goal.place !== talking && <button className="learning-next-stop" onClick={()=>goTo(goal.place)}>Next: {PLACES[goal.place].english} <Icon name="arrow" size={18}/></button>}
-                      <div className="encounter-footer"><span role="status">{notice || (allDone ? "Journey complete. Keep exploring the campus." : "Choose how to reply")}</span><button onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory}>{showHistory ? "Hide history" : "History"}<Icon name="clock" size={14} /></button></div>
+                      <div className="encounter-footer"><span role="status">{notice || (allDone ? "Journey complete. Keep exploring the campus." : "")}</span><button onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory}>{showHistory ? "Hide history" : "History"}<Icon name="clock" size={14} /></button></div>
                       {showHistory && <div className="encounter-history" role="log" aria-label="Conversation history" ref={messagesRef}><p><strong>{dialogueName}</strong>{person.greeting}</p>{conversationMessages.map((m, i) => <p key={i}><strong>{m.role === "npc" ? dialogueName : "You"}</strong>{m.text}</p>)}</div>}
                     </div>
                   </section>
                 )}
-                <div className="game-notice" role="status">
-                  {notice ||
-                    "Bản mẫu học tập · Hội thoại theo kịch bản, chưa kết nối AI tạo sinh."}
-                </div>
-              </section>
+      </main>
 
-              <aside className="companion-sidebar" inert={!mapVisible}>
-                <section className="panel mini-map-panel">
-                  <div className="section-top">
-                    <h2>Bản đồ nhỏ</h2>
-                    <button
-                      className="atlas-expand"
-                      onClick={() => setAtlasOpen(true)}
-                      aria-label="Mở bản đồ toàn trường"
-                      title="Mở bản đồ toàn trường"
-                    >
-                      <Icon name="fullscreen" size={16} />
-                    </button>
-                  </div>
-                  <CampusMap objective={goal?.place} near={near} onPlace={goTo} onZone={goToZone} />
-                  <div className="mini-map-legend">
-                    <span className="player-dot" />
-                    Chọn địa điểm để di chuyển
-                  </div>
-                  <button
-                    className="atlas-open-button"
-                    onClick={() => setAtlasOpen(true)}
-                  >
-                    Khám phá toàn trường <Icon name="arrow" size={13} />
+      {photoOpen && (
+        <CampusPhotoMode
+          area={areaName}
+          onClose={closePhoto}
+          onLight={(light) => worldRef.current?.lightPhoto(light)}
+          onFrame={(wholeCampus) => worldRef.current?.framePhoto(wholeCampus)}
+          onAdjust={(adjustment) => worldRef.current?.adjustPhoto(adjustment)}
+          onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
+        />
+      )}
+
+      {tab === "menu" && (
+        <div className="modal-backdrop">
+          <section className="pause-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng menu"><Icon name="close" /></button>
+            <h2 id="menu-title">Tạm dừng</h2>
+            <button className="primary-button full-width" onClick={() => navigate("explore")}>Tiếp tục chơi <Icon name="arrow" size={18} /></button>
+            <div className="pause-list">
+              <button onClick={() => navigate("journey")}><Icon name="book" /> Nhật ký nhiệm vụ</button>
+              <button onClick={() => navigate("teacher")}><Icon name="school" /> Góc giáo viên</button>
+              <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> Hướng dẫn chơi</button>
+              <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> Bộ sưu tập hình ảnh</button>
+              <button onClick={() => { navigate("explore"); worldRef.current?.overview(); }}><Icon name="compass" /> Xem toàn cảnh 3D</button>
+              <button className="minimap-setting" onClick={() => setMapVisible(!mapVisible)} aria-pressed={mapVisible}><Icon name="map" /> Bản đồ nhỏ <span>{mapVisible ? "Bật" : "Tắt"}</span></button>
+              <button onClick={() => setHighQuality((quality) => !quality)}><Icon name="leaf" /> Đồ họa <span>{highQuality ? "Chi tiết" : "Nhẹ"}</span></button>
+              <button onClick={toggleFullscreen}><Icon name="fullscreen" /> {fullscreen ? "Thoát toàn màn hình" : "Bật toàn màn hình"}</button>
+            </div>
+            <p className="save-status" role="status">{notice || (saveAvailable ? "Tiến độ được lưu trên trình duyệt này." : "Không lưu được tiến độ sau khi đóng trang.")}</p>
+          </section>
+        </div>
+      )}
+
+      {tab === "journey" && (
+        <div className="modal-backdrop">
+          <section className="quest-journal" role="dialog" aria-modal="true" aria-labelledby="journal-title">
+            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng nhật ký"><Icon name="close" /></button>
+            <header className="journal-heading">
+              <h2 id="journal-title">Nhật ký nhiệm vụ</h2>
+              <span>{progress.completed.length}/{QUESTS.length} hoàn thành <b><Icon name="star" size={14} />{xp} XP</b></span>
+            </header>
+            <div className="journal-layout">
+              <div className="journal-brief">
+                <h3 lang="en">{allDone ? "English Discovery Day" : questTitle}</h3>
+                <p lang="en">{allDone ? "All missions complete." : quest.description}</p>
+                {!allDone && <>
+                  <ol className="journal-goals" lang="en">
+                    {quest.goals.map((objective) => {
+                      const done = progress.goals.includes(objective.id);
+                      return <li key={objective.id} className={done ? "is-complete" : ""} aria-current={goal?.id === objective.id ? "step" : undefined}>
+                        <Icon name={done ? "check" : "target"} size={17} /> {objective.label}
+                      </li>;
+                    })}
+                  </ol>
+                  <details className="journal-words">
+                    <summary>Câu mẫu và từ vựng</summary>
+                    <strong lang="en">{lesson.skill}</strong>
+                    <p lang="en">{lesson.pattern}</p>
+                    <ul>{lesson.words.map((word) => <li key={word}>{word}</li>)}</ul>
+                  </details>
+                  <button className="primary-button full-width" onClick={() => {
+                    if (goal) goTo(goal.place);
+                    else { setTab("explore"); claim(); }
+                  }}>
+                    {goal ? `Đến ${PLACES[goal.place].name.toLowerCase()}` : "Ôn nhanh và nhận XP"}
+                    <Icon name="arrow" size={18} />
                   </button>
-                </section>
-                <section className="panel companions-panel">
-                  <div className="section-top">
-                    <h2>Người đồng hành</h2>
-                    <span className="subtle-count">03</span>
-                  </div>
-                  {(Object.keys(PLACES) as Place[]).map((id) => (
-                    <button
-                      key={id}
-                      className={`companion-card ${near === id ? "companion-near" : ""}`}
-                      onClick={() => goTo(id)}
-                    >
-                      <span className={`npc-avatar npc-${id}`}>
-                        {id === "courtyard" ? (
-                          <Cadet small />
-                        ) : (
-                          <Icon
-                            name={id === "library" ? "book" : "food"}
-                            size={22}
-                          />
-                        )}
-                      </span>
-                      <span>
-                        <strong>{PLACES[id].npc}</strong>
-                        <small>{PLACES[id].name}</small>
-                      </span>
-                      <Icon name="chevron" size={15} />
-                    </button>
-                  ))}
-                </section>
-                <section className="panel inventory-panel">
-                  <div className="section-top">
-                    <h2>Hành trang</h2>
-                    <Icon name="bag" size={17} />
-                  </div>
-                  <div className="inventory-items">
-                    <span className="inventory-slot" title="Ba lô học viên">
-                      <Icon name="bag" size={25} />
-                    </span>
-                    <span
-                      className={`inventory-slot ${progress.completed.includes(2) ? "item-earned" : "item-locked"}`}
-                      title="Hoàn thành nhiệm vụ 3 để nhận sách"
-                    >
-                      <Icon name="book" size={25} />
-                    </span>
-                    <span
-                      className={`inventory-slot ${progress.completed.includes(4) ? "item-earned" : "item-locked"}`}
-                      title="Hoàn thành nhiệm vụ 5 để nhận bữa ăn"
-                    >
-                      <Icon name="food" size={25} />
-                    </span>
-                  </div>
-                  <p>
-                    {progress.completed.length
-                      ? `${progress.completed.length} huy hiệu đã nhận`
-                      : "Những phần thưởng đang chờ em!"}
-                  </p>
-                </section>
-                <div className="ambassador-card">
-                  <div className="ambassador-badge">
-                    <Icon name="trophy" size={30} />
-                  </div>
-                  <span>MỤC TIÊU HÀNH TRÌNH</span>
-                  <h3>Đại sứ học đường</h3>
-                  <p>
-                    Tự tin giao tiếp.
-                    <br />
-                    Sẵn sàng kết nối.
-                  </p>
-                  <div className="progress-track">
-                    <span
-                      style={{
-                        width: `${(progress.completed.length / 6) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <small>
-                    {progress.completed.length}/6 nhiệm vụ hoàn thành
-                  </small>
-                </div>
-              </aside>
-            </div>
-          </>
-        )}
-
-        {tab === "journey" && (
-          <section className="journey-page">
-            <div className="page-heading">
-              <div>
-                <p className="eyebrow">HÀNH TRÌNH CỦA EM</p>
-                <h1>
-                  Sáu thử thách. <span>Một bước trưởng thành.</span>
-                </h1>
-                <p>Hoàn thành từng nhiệm vụ để trở thành Đại sứ học đường.</p>
+                </>}
               </div>
-              <span className="large-xp">
-                <Icon name="star" />
-                {xp} XP
-              </span>
-            </div>
-            <div className="journey-grid">
-              {QUESTS.map((q, index) => {
-                const done = progress.completed.includes(index);
-                const unlocked = index <= progress.completed.length;
-                return (
-                  <article
-                    key={q.title}
-                    className={`journey-card ${done ? "quest-complete" : ""} ${!unlocked ? "quest-locked" : ""}`}
-                  >
-                    <div className="journey-card-top">
-                      <span className="journey-number">0{index + 1}</span>
-                      <Icon
-                        name={done ? "check" : unlocked ? "compass" : "lock"}
-                        size={24}
-                      />
-                    </div>
-                    <h2>{q.title}</h2>
-                    <p>{q.description}</p>
-                    <div className="journey-details">
+              <div className="journal-record">
+                <ol className="journal-missions">
+                  {QUESTS.map((mission, index) => {
+                    const done = progress.completed.includes(index);
+                    return <li key={mission.title} aria-current={!allDone && index === progress.active ? "step" : undefined}>
+                      <Icon name={done ? "check" : index === progress.active ? "compass" : "lock"} size={18} />
                       <span>
-                        <Icon name="clock" size={15} />
-                        {q.minutes}
+                        <strong lang="en">{mission.title.replace(/^\d+ · /, "")}</strong>
+                        <small>{done ? mission.badge : index === progress.active ? "Đang thực hiện" : mission.minutes}</small>
                       </span>
-                      <span>+{q.xp} XP</span>
-                    </div>
-                    <span className="badge-label">
-                      <Icon name="trophy" size={15} />
-                      {q.badge}
-                    </span>
-                    <button
-                      className={
-                        unlocked && !done ? "primary-button" : "outline-button"
-                      }
-                      disabled={!unlocked || done}
-                      onClick={() => setTab("explore")}
-                    >
-                      {done
-                        ? "Đã nhận huy hiệu"
-                        : unlocked
-                          ? "Tiếp tục nhiệm vụ"
-                          : "Hoàn thành nhiệm vụ trước"}
-                      {unlocked && !done && <Icon name="arrow" size={16} />}
-                    </button>
-                  </article>
-                );
-              })}
+                      <span>+{mission.xp} XP</span>
+                    </li>;
+                  })}
+                </ol>
+                <section className="journal-inventory" aria-label="Hành trang">
+                  <h3>Hành trang</h3>
+                  <ul>
+                    <li><span className="inventory-art" /> Ba lô</li>
+                    <li className={progress.completed.includes(2) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(2) && <Icon name="lock" size={21} />}</span> Sách{!progress.completed.includes(2) && <small>Chưa mở</small>}</li>
+                    <li className={progress.completed.includes(4) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(4) && <Icon name="lock" size={21} />}</span> Đồ ăn{!progress.completed.includes(4) && <small>Chưa mở</small>}</li>
+                  </ul>
+                </section>
+              </div>
             </div>
           </section>
-        )}
+        </div>
+      )}
 
         {tab === "teacher" && (
-          <section className="teacher-page">
+          <div className="modal-backdrop">
+          <section className="teacher-page" role="dialog" aria-modal="true" aria-labelledby="teacher-title" inert={retryReset}>
+            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng góc giáo viên"><Icon name="close" /></button>
             <div className="page-heading">
               <div>
-                <p className="eyebrow">GÓC GIÁO VIÊN · BẢN MẪU CỤC BỘ</p>
-                <h1>
-                  Cùng học viên <span>tiến bộ mỗi ngày.</span>
-                </h1>
+                <h2 id="teacher-title">Góc giáo viên</h2>
                 <p>
                   Dữ liệu của một học viên trên trình duyệt này; chưa có quản lý
                   lớp hay tài khoản trực tuyến.
@@ -1170,7 +796,7 @@ export function CampusGame() {
                   />
                   <span>
                     <strong>Làm quen</strong>
-                    <small>Bấm ! để xem và điền câu gợi ý khi trò chuyện.</small>
+                    <small>Chọn Hint để xem và điền câu gợi ý khi trò chuyện.</small>
                   </span>
                 </label>
                 <label
@@ -1248,26 +874,8 @@ export function CampusGame() {
               </section>
             </div>
           </section>
+          </div>
         )}
-
-        <footer className="app-footer">
-          <span>
-            <span
-              className={`save-dot ${!saveAvailable ? "save-error" : ""}`}
-            />
-            {saveAvailable
-              ? "Tiến độ lưu trên trình duyệt này"
-              : "Không lưu được · Tiến độ chỉ giữ trong phiên này"}
-          </span>
-          <span>
-            CampusQuest AI <i /> Tri thức · Kỷ luật · Bản lĩnh
-          </span>
-          <button onClick={() => setHelp(true)}>
-            Về bản mẫu
-            <Icon name="info" size={14} />
-          </button>
-        </footer>
-      </main>
 
       {ready && !progress.name && (
         <div className="modal-backdrop">
@@ -1277,50 +885,16 @@ export function CampusGame() {
             aria-modal="true"
             aria-labelledby="welcome-title"
           >
-            <div className="welcome-photo">
-              <Image
-                src="/art/campus-keyart.png"
-                alt="Tranh ý tưởng CampusQuest lấy cảm hứng từ Phân hiệu 1"
-                fill
-                sizes="(max-width: 600px) 90vw, 580px"
-                priority
-              />
-              <span
-                className="welcome-walker sprite-preview"
-                aria-hidden="true"
-              />
-              <div className="welcome-art-title">
-                <small>CHÀO MỪNG ĐẾN PHÂN HIỆU 1</small>
-                <strong>
-                  Học điều mới.
-                  <br />
-                  Khám phá điều hay.
-                </strong>
-                <p>Một hành trình tiếng Anh dưới mái trường Thiếu sinh quân.</p>
-              </div>
-              <div className="photo-caption">
-                <Image
-                  src="/images/school-logo.jpg"
-                  alt=""
-                  width={50}
-                  height={50}
-                />
-                <span>
-                  PHÂN HIỆU 1<small>Trường Thiếu sinh quân miền Trung</small>
-                </span>
-              </div>
+            <div className="welcome-photo" aria-hidden="true">
+              <Image src="/art/campus-keyart.png" alt="" fill sizes="(max-width: 620px) 1200px, 100vw" priority />
+            </div>
+            <div className="welcome-brand">
+              <Icon name="compass" size={40} />
+              <h1>CampusQuest<span> AI</span></h1>
+              <p>Phiêu lưu học đường bằng tiếng Anh</p>
             </div>
             <form onSubmit={start} className="welcome-content">
-              <p className="eyebrow">CHÀO MỪNG HỌC VIÊN MỚI</p>
-              <h2 id="welcome-title">
-                Một mái trường.
-                <br />
-                <span>Vạn điều để khám phá.</span>
-              </h2>
-              <p>
-                Gặp bạn mới, khám phá trường và rèn tiếng Anh qua từng nhiệm vụ
-                nhỏ.
-              </p>
+              <h2 id="welcome-title">Tạo học viên</h2>
               <label htmlFor="player-name">Em muốn được gọi là gì?</label>
               <input
                 id="player-name"
@@ -1333,7 +907,7 @@ export function CampusGame() {
                 autoComplete="off"
               />
               <fieldset className="avatar-options">
-                <legend>Chọn nhân vật đồng hành cùng em</legend>
+                <legend>Chọn nhân vật</legend>
                 {[0, 1].map((v) => (
                   <label
                     key={v}
@@ -1397,7 +971,7 @@ export function CampusGame() {
             <div className="reward-trophy">
               <span className="item-art item-trophy" />
             </div>
-            <p className="eyebrow">THÊM MỘT BƯỚC TIẾN BỘ</p>
+
             <h2 id="reward-title">
               {reward === 5 ? "Chào Đại sứ học đường!" : "Em làm tốt lắm!"}
             </h2>
@@ -1456,7 +1030,7 @@ export function CampusGame() {
               <li>
                 <strong>Nhận nhiệm vụ</strong>
                 <span>
-                  Xem mục tiêu ở cột trái. Làm theo thứ tự để mở nhiệm vụ mới.
+                  Mở nhật ký để xem mục tiêu, câu mẫu và từ vựng. Chọn mục tiêu trên màn chơi để đến gặp nhân vật.
                 </span>
               </li>
               <li>
@@ -1525,8 +1099,7 @@ export function CampusGame() {
               <Icon name="close" />
             </button>
             <div className="atlas-heading">
-              <p className="eyebrow">CAMPUSQUEST · WORLD MAP</p>
-              <h2 id="atlas-title">Một ngôi trường. Muôn hành trình.</h2>
+              <h2 id="atlas-title">Bản đồ khuôn viên</h2>
               <p>Chọn điểm đến để bắt đầu khám phá.</p>
             </div>
             <div className="atlas-content">
@@ -1535,7 +1108,13 @@ export function CampusGame() {
                 className="atlas-destinations"
                 aria-label="Các khu vực trong trường"
               >
-                <p>KHÁM PHÁ KHUÔN VIÊN</p>
+                {(Object.keys(PLACES) as Place[]).map((place) => (
+                  <button key={place} onClick={() => goTo(place)}>
+                    <Icon name={place === "library" ? "book" : place === "canteen" ? "food" : "school"} size={19} />
+                    <span>{PLACES[place].name}<small>{PLACES[place].npc}</small></span>
+                    <Icon name="arrow" size={15} />
+                  </button>
+                ))}
                 {EXPLORATION_ZONES.map((zone) => (
                   <button key={zone.id} onClick={() => goToZone(zone.id)}>
                     {ZONE_ART[zone.id] !== undefined ? (
@@ -1598,8 +1177,7 @@ export function CampusGame() {
             >
               <Icon name="close" />
             </button>
-            <p className="eyebrow">THE ART OF CAMPUSQUEST</p>
-            <h2 id="gallery-title">Một thế giới, nhiều câu chuyện.</h2>
+            <h2 id="gallery-title">Bộ sưu tập hình ảnh</h2>
             <p>
               Hình ảnh được tạo riêng cho hành trình tại Phân hiệu 1. Chọn một
               hình để tải bản chi tiết.

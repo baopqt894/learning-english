@@ -3,6 +3,10 @@ import { createCampusCharacter, type CharacterKind } from "./campus-character";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { PLACES, type Place } from "./game";
+import { createCampusSurfaces, createContactMaterial, seededRandom, worldAlignedUV } from "./campus-surfaces";
+import { addCampusRoofs } from "./campus-roofs";
+import { createCampusTrees } from "./campus-trees";
+import { addCampusGrass } from "./campus-planting";
 import {
   CORE_BUILDINGS,
   EXPANSION_BUILDINGS,
@@ -12,11 +16,13 @@ import {
 
 const BUILDINGS = CORE_BUILDINGS;
 
-/** Authored diorama geometry, ceramic paving and articulated toy characters. */
+/** The playable campus, with batched architecture and articulated characters. */
 export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   const palette = new Map<string, THREE.MeshStandardMaterial>();
   const windUniform = { value: 0 };
-  const foliageMaterials = new Set<THREE.MeshStandardMaterial>();
+  const finish = createCampusSurfaces();
+  const random = seededRandom(49257);
+  const roofs: Parameters<typeof addCampusRoofs>[1] = [];
   const characterGroups: THREE.Group[] = [];
   const mat = (color: number, roughness = 0.8, metalness = 0) => {
     const key = `${color}/${roughness}/${metalness}`;
@@ -133,51 +139,35 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     );
   };
 
-  // A continuous landscaped setting replaces the small floating board.
-  const landscape = mesh(
-    new THREE.PlaneGeometry(180, 180, 36, 36),
-    mat(0x8ba56b),
-    [0, -0.11, 0],
-  );
-  landscape.rotation.x = -Math.PI / 2;
-  landscape.castShadow = false;
-  landscape.receiveShadow = false;
-  const landscapeMaterial = landscape.material as THREE.MeshStandardMaterial;
-  landscapeMaterial.transparent = true;
-  landscapeMaterial.onBeforeCompile = (shader) => {
-    shader.vertexShader =
-      "varying vec3 vLandscapeWorld;\n" + shader.vertexShader;
-    shader.vertexShader = shader.vertexShader.replace(
-      "#include <begin_vertex>",
-      "#include <begin_vertex>\nvLandscapeWorld=(modelMatrix*vec4(position,1.0)).xyz;",
-    );
-    shader.fragmentShader =
-      "varying vec3 vLandscapeWorld;\n" + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <color_fragment>",
-      "#include <color_fragment>\ndiffuseColor.a*=1.0-smoothstep(46.0,100.0,length(vLandscapeWorld.xz));",
-    );
+  const surfaceBox = (
+    w: number, h: number, d: number, material: THREE.MeshStandardMaterial,
+    x: number, y: number, z: number, repeat: number,
+  ) => {
+    const geometry = new THREE.BoxGeometry(w, h, d);
+    worldAlignedUV(geometry, new THREE.Vector3(x, y, z), repeat);
+    return mesh(geometry, material, [x, y, z]);
   };
-  const lawn = mesh(
-    new RoundedBoxGeometry(76, 0.18, 64, 2, 0.08),
-    mat(0xa1b97d),
-    [0, -0.12, 0],
-  );
-  lawn.receiveShadow = true;
-  const pavingMap = canvasTexture(256, 256, (ctx) => {
-    ctx.fillStyle = "#ddd7bd";
-    ctx.fillRect(0, 0, 256, 256);
-    for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
-      ctx.fillStyle = ["#e8e0c8", "#e2dac0", "#eee6d0"][(row * 3 + col * 7) % 3];
-      ctx.fillRect(col * 64 + 2, row * 64 + 2, 60, 60);
-    }
-  });
-  pavingMap.wrapS = pavingMap.wrapT = THREE.RepeatWrapping;
-  pavingMap.repeat.set(9, 8);
-  pavingMap.anisotropy = 4;
-  const paving = new THREE.MeshStandardMaterial({ map: pavingMap, roughness: 1 });
-  mesh(new THREE.BoxGeometry(24, 0.1, 13.6), paving, [0, 0.015, 1.8]);
-  mesh(new THREE.BoxGeometry(3.3, 0.12, 8), paving, [0, 0.03, -6]);
+
+  const contact = createContactMaterial();
+  const shade = (x: number, z: number, w: number, d: number, y = 0.083) => {
+    const decal = mesh(new THREE.PlaneGeometry(w, d), contact, [x, y, z]);
+    decal.rotation.x = -Math.PI / 2;
+    decal.castShadow = decal.receiveShadow = false;
+    return decal;
+  };
+  const landscape = surfaceBox(180, 0.12, 180, finish("turf", 0x798c4f), 0, -0.23, 0, 5);
+  landscape.castShadow = false;
+  const lawn = surfaceBox(76, 0.18, 64, finish("turf", 0x91a65f), 0, -0.12, 0, 4.5);
+  lawn.castShadow = false;
+
+  const paving = finish("pavers", 0xe4d2ad);
+  const paved = (w: number, h: number, d: number, x: number, y: number, z: number) => {
+    const surface = surfaceBox(w, h, d, paving, x, y, z, 3.8);
+    surface.castShadow = false;
+    return surface;
+  };
+  paved(24, 0.1, 13.6, 0, 0.015, 1.8);
+  paved(3.3, 0.12, 8, 0, 0.03, -6);
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(76, 64),
     new THREE.MeshBasicMaterial({ visible: false }),
@@ -185,36 +175,66 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
   for (const x of [-12.1, 12.1]) box(0.13, 0.13, 14, 0xe5dfc9, x, 0.1, 1.5);
-  for (const z of [-5, 8.7]) box(24, 0.13, 0.13, 0xe5dfc9, 0, 0.1, z);
-  // Campus avenues connect all districts without crossing the central school.
-  for (const x of [-15, 15])
-    mesh(new THREE.BoxGeometry(3.2, 0.09, 44), paving, [x, 0.005, 3]);
-  for (const z of [-18, 18])
-    mesh(new THREE.BoxGeometry(61, 0.1, 3.4), paving, [0, 0.012, z]);
-  mesh(new THREE.BoxGeometry(18, 0.1, 3.2), paving, [-23, 0.015, 4]);
-  mesh(new THREE.BoxGeometry(3.4, 0.1, 16), paving, [0, 0.02, 22]);
-  mesh(new THREE.BoxGeometry(3.4, 0.1, 7), paving, [0, 0.02, -20]);
-  mesh(new THREE.BoxGeometry(3.2, 0.1, 18), paving, [-20, 0.015, -5]);
+  for (const z of [-5, 8.7]) box(24, 0.13, 0.13, 0xd4c29e, 0, 0.1, z);
+  const brickTrim = finish("clay", 0xa87454);
+  for (const x of [-11.77, 11.77]) {
+    surfaceBox(0.22, 0.016, 13.23, brickTrim, x, 0.069, 1.8, 1.9).castShadow = false;
+  }
+  for (const z of [-4.82, 8.42]) {
+    surfaceBox(23.75, 0.016, 0.22, brickTrim, 0, 0.069, z, 1.9).castShadow = false;
+  }
+  // Avenues use the same tile scale as the courtyard.
+  for (const x of [-15, 15]) paved(3.2, 0.09, 44, x, 0.005, 3);
+  for (const z of [-18, 18]) paved(61, 0.1, 3.4, 0, 0.012, z);
+  paved(18, 0.1, 3.2, -23, 0.015, 4);
+  paved(3.4, 0.1, 16, 0, 0.02, 22);
+  paved(3.4, 0.1, 7, 0, 0.02, -20);
+  paved(3.2, 0.1, 18, -20, 0.015, -5);
+
+  const glass = canvasTexture(128, 128, (ctx) => {
+    const reflection = ctx.createLinearGradient(5, 0, 95, 128);
+    reflection.addColorStop(0, "#85a8ad");
+    reflection.addColorStop(0.27, "#4d7677");
+    reflection.addColorStop(0.69, "#284744");
+    reflection.addColorStop(1, "#162f29");
+    ctx.fillStyle = reflection;
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = "#d9efdf28";
+    ctx.beginPath();
+    ctx.moveTo(0, 26);
+    ctx.lineTo(128, 67);
+    ctx.lineTo(128, 81);
+    ctx.lineTo(0, 42);
+    ctx.fill();
+    ctx.fillStyle = "#d0e4c41a";
+    ctx.fillRect(7, 0, 3, 128);
+  });
+  const glazed = new THREE.MeshStandardMaterial({ map: glass, color: 0x9fb8ad, roughness: 0.26, metalness: 0.15 });
 
   // Windows have reveals, frames, mullions, lintels and warm interior depth.
-  const windowPane = (x: number, y: number, z: number, w = 0.74, h = 1.02) => {
-    box(w + 0.18, h + 0.18, 0.12, 0xd9ceab, x, y, z);
-    const glass = mesh(
-      new THREE.PlaneGeometry(w, h),
-      mat(0x456c69, 0.26, 0.2),
-      [x, y, z + 0.071],
-    );
-    glass.castShadow = false;
-    box(0.04, h, 0.05, 0x3c5149, x, y, z + 0.1);
-    box(w, 0.04, 0.05, 0x3c5149, x, y, z + 0.1);
-    box(w + 0.27, 0.1, 0.22, 0xffedc6, x, y - h / 2 - 0.08, z + 0.03);
-    box(w + 0.12, 0.045, 0.015, 0xbac9ad, x, y + h * 0.25, z + 0.11);
+  const windowPane = (x: number, y: number, z: number, w = 0.74, h = 1.02, turn = 0) => {
+    const frame = new THREE.Group();
+    frame.position.set(x, y, z);
+    frame.rotation.y = turn;
+    scene.add(frame);
+    box(w + 0.2, h + 0.17, 0.11, 0x806f50, 0, 0, 0, frame);
+    const pane = mesh(new THREE.PlaneGeometry(w, h), glazed, [0, 0, 0.061], frame);
+    pane.castShadow = false;
+    for (const side of [-1, 1]) {
+      box(0.065, h + 0.12, 0.085, 0xd2c4a0, side * (w / 2 + 0.034), 0, 0.065, frame);
+    }
+    box(w + 0.14, 0.065, 0.085, 0xd2c4a0, 0, h / 2 + 0.025, 0.065, frame);
+    box(0.04, h, 0.049, 0x3e5349, 0, 0, 0.085, frame);
+    box(w, 0.044, 0.053, 0x3e5349, 0, 0.02, 0.085, frame);
+    box(w + 0.22, 0.105, 0.23, 0xead7af, 0, -h / 2 - 0.055, 0.052, frame);
+    box(w + 0.21, 0.075, 0.19, 0xdbc297, 0, h / 2 + 0.09, 0.052, frame);
   };
 
   BUILDINGS.forEach((b, index) => {
     box(b.w + 0.65, 0.22, b.d + 0.65, 0xc2bba4, b.x, 0.15, b.z);
-    box(b.w, b.h, b.d, 0xf2ddab, b.x, b.h / 2 + 0.25, b.z);
-    box(b.w + 0.07, 0.42, b.d + 0.08, 0xc9ba91, b.x, 0.45, b.z);
+    surfaceBox(b.w, b.h, b.d, finish("stucco", 0xf1d49d), b.x, b.h / 2 + 0.25, b.z, 2.6);
+    surfaceBox(b.w + 0.09, 0.51, b.d + 0.09, finish("stone", 0xbaa986), b.x, 0.42, b.z, 2.8);
+    shade(b.x, b.z + 0.7, b.w + 3.6, b.d + 2.5);
     box(b.w + 0.28, 0.18, b.d + 0.3, 0xffedc8, b.x, b.h + 0.25, b.z);
     const triangle = new THREE.Shape();
     triangle.moveTo(-b.d / 2 - 0.35, 0);
@@ -230,23 +250,20 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       [b.x - b.w / 2 - 0.325, b.h + 0.34, b.z],
     );
     roof.rotation.y = Math.PI / 2;
-    // Thin rows and terracotta barrel caps provide actual roof detail.
-    const slope = Math.atan2(1.15, b.d / 2 + 0.35);
-    for (let i = 0; i < 7; i++) {
-      const t = (i + 0.2) / 7,
-        z = b.d / 2 + 0.35;
-      for (const side of [-1, 1]) {
-        const row = box(
-          b.w + 0.7,
-          0.035,
-          0.045,
-          index === 2 ? 0x668159 : 0xc37753,
-          b.x,
-          b.h + 0.36 + 1.15 * (1 - t),
-          b.z + side * z * t,
-        );
-        row.rotation.x = -side * slope;
+    roofs.push({
+      x: b.x, y: b.h + 0.34, z: b.z,
+      width: b.w + 0.68, run: b.d / 2 + 0.35, rise: 1.15,
+      color: index === 2 ? 0x537052 : index === 1 ? 0xb66a48 : 0xa6543b,
+      metal: index === 2,
+    });
+    for (const side of [-1, 1]) {
+      const edge = b.z + side * (b.d / 2 + 0.35);
+      box(b.w + 0.77, 0.075, 0.11, 0x514a37, b.x, b.h + 0.32, edge);
+      for (let x = -b.w / 2 + 0.28; x < b.w / 2; x += 0.48) {
+        box(0.09, 0.095, 0.43, 0x6a5840, b.x + x, b.h + 0.19, edge - side * 0.13);
       }
+      const pipeX = b.x + side * (b.w / 2 - 0.18);
+      cylinder(0.033, 0.033, b.h - 0.15, 0x656453, pipeX, b.h / 2 + 0.16, b.z + side * (b.d / 2 + 0.12));
     }
     for (let x = -b.w / 2; x < b.w / 2; x += 0.33) {
       const cap = mesh(
@@ -257,6 +274,13 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       cap.rotation.z = Math.PI / 2;
     }
     const front = b.z + b.d / 2 + 0.07;
+    for (const offset of [-b.w / 2 + 0.12, b.w / 2 - 0.12]) {
+      surfaceBox(0.22, b.h, 0.16, finish("stone", 0xe5cda6), b.x + offset, b.h / 2 + 0.22, front - 0.035, 2.4);
+      for (let y = 0.7; y < b.h; y += 0.29) {
+        box(0.23, 0.014, 0.17, 0xb6a185, b.x + offset, y, front - 0.035);
+      }
+    }
+    if (index === 0) box(b.w + 0.08, 0.15, 0.18, 0xe5cfa5, b.x, 2.14, front);
     for (let row = 0; row < (index === 0 ? 2 : 1); row++)
       for (
         let offset = -b.w / 2 + 0.85;
@@ -272,10 +296,18 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
           index === 0 ? 1.0 : 1.2,
         );
       }
-    // Side walls and tall windows remain visible when the camera rotates.
-    for (let offset = -b.d / 2 + 0.65; offset < b.d / 2; offset += 1.15) {
-      box(0.055, 1.1, 0.7, 0x4f7165, b.x + b.w / 2 + 0.02, 1.5, b.z + offset);
-      box(0.08, 0.05, 0.76, 0xe9dcb5, b.x + b.w / 2 + 0.05, 1.5, b.z + offset);
+    for (const side of [-1, 1]) {
+      for (let offset = -b.d / 2 + 0.74; offset < b.d / 2 - 0.25; offset += 1.16) {
+        for (let row = 0; row < (index === 0 ? 2 : 1); row++) {
+          windowPane(b.x + side * (b.w / 2 + 0.06), 1.22 + row * 1.56, b.z + offset, 0.7, 0.96, side * Math.PI / 2);
+        }
+      }
+      box(0.13, 0.11, b.d + 0.02, 0xe2cba1, b.x + side * b.w / 2, index === 0 ? 2.14 : 0.72, b.z);
+    }
+    for (let offset = -b.w / 2 + 0.84; offset < b.w / 2 - 0.3; offset += 1.36) {
+      for (let row = 0; row < (index === 0 ? 2 : 1); row++) {
+        windowPane(b.x + offset, 1.22 + row * 1.56, b.z - b.d / 2 - 0.055, 0.72, 0.96, Math.PI);
+      }
     }
     box(1.05, 1.8, 0.12, 0x365344, b.x, 1.15, front + 0.025);
     box(0.035, 1.8, 0.08, 0xc4b57c, b.x, 1.15, front + 0.1);
@@ -492,7 +524,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       }
       return;
     }
-    box(b.w, b.h, b.d, 0xe9d6ad, b.x, b.h / 2 + 0.23, b.z);
+    surfaceBox(b.w, b.h, b.d, finish("stucco", 0xe7d1a9), b.x, b.h / 2 + 0.23, b.z, 2.6);
     box(b.w + 0.25, 0.15, b.d + 0.25, 0xffebc6, b.x, b.h + 0.24, b.z);
     const section = new THREE.Shape();
     section.moveTo(-b.d / 2 - 0.3, 0);
@@ -508,6 +540,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       [b.x - b.w / 2 - 0.3, b.h + 0.32, b.z],
     );
     roof.rotation.y = Math.PI / 2;
+    roofs.push({ x: b.x, y: b.h + 0.32, z: b.z, width: b.w + 0.64, run: b.d / 2 + 0.3, rise: 1.2, color: b.roof, metal: false });
     for (let row = 0; row < (b.h > 3 ? 2 : 1); row++)
       for (let x = -b.w / 2 + 0.8; x < b.w / 2 - 0.3; x += 1.4)
         windowPane(b.x + x, 1.2 + row * 1.8, b.z + b.d / 2 + 0.06, 0.8, 1.05);
@@ -521,6 +554,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         box(0.035, 0.5, 0.035, 0x708466, b.x + x, 2.65, b.z + b.d / 2 + 0.45);
     }
   });
+
+  addCampusRoofs(scene, roofs, finish("clay", 0xffffff));
 
   ROOM_FURNITURE.forEach((f) => {
     if (f.kind === "stage") return;
@@ -561,7 +596,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
 
   // Eastern sports district: a playable field, goals, track and bleachers.
   box(20, 0.08, 25, 0xba956e, 24, 0.005, 2);
-  box(16, 0.09, 20, 0x6c995d, 24, 0.02, 2);
+  surfaceBox(16, 0.09, 20, finish("turf", 0x739253), 24, 0.02, 2, 3.5);
   for (const x of [16.25, 31.75]) box(0.09, 0.012, 19.5, 0xf1edd4, x, 0.073, 2);
   for (const z of [-7.75, 2, 11.75])
     box(15.5, 0.012, 0.09, 0xf1edd4, 24, 0.073, z);
@@ -605,44 +640,14 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   }
   sign("PHÂN HIỆU 1 · CHÀO MỪNG HỌC VIÊN", 8.2, 0.5, 0, 3.5, 30, "#3f6349");
 
-  const treeCrowns: THREE.Group[] = [];
-  function tree(x: number, z: number, scale = 1, flowering = false) {
-    const trunk = cylinder(
-      0.11 * scale,
-      0.2 * scale,
-      1.8 * scale,
-      0x80664a,
-      x,
-      0.8 * scale,
-      z,
-    );
-    trunk.rotation.z = Math.sin(x) * 0.08;
-    const crown = new THREE.Group();
-    crown.position.set(x, 1.7 * scale, z);
-    scene.add(crown);
-    treeCrowns.push(crown);
-    const colors = flowering
-      ? [0xc46c4e, 0xe09b64, 0xa9ad65]
-      : [0x648b50, 0x7da25c, 0x8ead68, 0x4f794b];
-    for (let i = 0; i < 7; i++) {
-      const angle = i * 2.399;
-      const r = i ? 0.57 * scale : 0;
-      const foliageMaterial = mat(colors[i % colors.length]);
-      foliageMaterials.add(foliageMaterial);
-      const foliage = mesh(
-        new THREE.SphereGeometry((i ? 0.76 : 1.05) * scale, 18, 12),
-        foliageMaterial,
-        [
-          Math.cos(angle) * r,
-          0.3 * scale + (i % 3) * 0.25 * scale,
-          Math.sin(angle) * r,
-        ],
-        crown,
-      );
-      foliage.scale.y = 0.9;
-    }
-    cylinder(0.72 * scale, 0.79 * scale, 0.18, 0xb6af8a, x, 0.04, z);
-  }
+  const trees = createCampusTrees(scene, finish("bark", 0x8c7050), windUniform);
+  const tree = (x: number, z: number, scale = 1, flowering = false) => {
+    trees.add(x, z, scale, flowering);
+    if (Math.hypot(x, z) > 40) return;
+    cylinder(0.64 * scale, 0.71 * scale, 0.16, 0xb9aa88, x, 0.02, z, scene, 24);
+    cylinder(0.56 * scale, 0.56 * scale, 0.016, 0x5c513b, x, 0.111, z, scene, 24);
+    shade(x, z, 2.2 * scale, 2.0 * scale, 0.13);
+  };
   [
     [-11, -8],
     [-11, -1],
@@ -713,6 +718,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     group.position.set(x, 0, z);
     group.rotation.y = angle;
     scene.add(group);
+    shade(x, z, 2.8, 1.35);
     for (let i = 0; i < 4; i++)
       box(2.2, 0.08, 0.14, 0xad8351, 0, 0.6, -0.27 + i * 0.18, group, true);
     for (let i = 0; i < 3; i++)
@@ -810,7 +816,29 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
 
   // A small ornamental fountain with animated ripples and falling water.
   cylinder(0.9, 1.05, 0.26, 0xc6bfa2, -3, 0.15, -0.7, scene, 32);
-  cylinder(0.78, 0.78, 0.02, 0x76b7ad, -3, 0.3, -0.7, scene, 32);
+  const water = new THREE.MeshStandardMaterial({ color: 0x5e9e95, roughness: 0.26, metalness: 0.24 });
+  water.onBeforeCompile = (shader) => {
+    shader.uniforms.uFountainTime = windUniform;
+    shader.vertexShader = "varying vec2 vBasin;\n" + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      "#include <begin_vertex>",
+      "#include <begin_vertex>\nvBasin = position.xz;",
+    );
+    shader.fragmentShader = "uniform float uFountainTime;\nvarying vec2 vBasin;\n" + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <color_fragment>",
+      `#include <color_fragment>
+       float ripple = sin(length(vBasin) * 55.0 - uFountainTime * 4.0);
+       float lattice = sin(vBasin.x * 47.0 + vBasin.y * 24.0 + uFountainTime)
+         * sin(vBasin.x * -23.0 + vBasin.y * 39.0 - uFountainTime * 1.4);
+       diffuseColor.rgb *= .93 + .1 * ripple + .19 * pow(max(0., lattice), 3.0);`,
+    );
+  };
+  const basin = mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.02, 48), water, [-3, 0.3, -0.7]);
+  basin.castShadow = false;
+  const basinRim = mesh(new THREE.TorusGeometry(0.865, 0.067, 10, 48), finish("stone", 0xd5c8a7), [-3, 0.31, -0.7]);
+  basinRim.rotation.x = Math.PI / 2;
+  shade(-3, -0.7, 2.7, 2.55);
   cylinder(0.18, 0.24, 0.75, 0xe2d2a6, -3, 0.6, -0.7);
   cylinder(0.45, 0.15, 0.13, 0xcbb88d, -3, 0.98, -0.7, scene, 24);
   const ripples: THREE.Mesh[] = [];
@@ -834,6 +862,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     rig.group.position.set(x,.13,z);
     rig.group.scale.setScalar(1.16);
     scene.add(rig.group);characterGroups.push(rig.group);
+    const feet = shade(x, z, 1.2, 0.9, 0.105);
+    rig.group.attach(feet);
     return rig;
   }
   const player=character(0,6,avatar===1 ? "linh":"cadet",true);
@@ -923,18 +953,35 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
     butterflies.push(group);
   }
-  foliageMaterials.forEach((material) => {
-    material.onBeforeCompile = (shader) => {
-      shader.uniforms.uCampusWind = windUniform;
-      shader.vertexShader =
-        "uniform float uCampusWind;\n" + shader.vertexShader;
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <begin_vertex>",
-        "#include <begin_vertex>\nfloat windWeight=min(max(position.y-1.5,0.0),4.0);transformed.x+=sin(uCampusWind*0.75+position.x*0.43+position.z*0.22)*windWeight*0.026;",
-      );
-    };
-    material.customProgramCacheKey = () => "campus-foliage-wind-v1";
-  });
+  const leafDetail = trees.finish();
+  const grassDetail = addCampusGrass(scene, windUniform);
+
+  // Dry leaves collect along the paving edges, out of the main footpath.
+  const litterGeometry = new THREE.CircleGeometry(0.085, 5);
+  litterGeometry.rotateX(-Math.PI / 2);
+  const litter = new THREE.InstancedMesh(
+    litterGeometry,
+    new THREE.MeshStandardMaterial({ roughness: 0.98 }),
+    460,
+  );
+  const ochres = [0xa77539, 0x9f6435, 0xc7a264, 0xb79149, 0x797c45];
+  for (let i = 0; i < litter.count; i++) {
+    const side = i % 2 ? 1 : -1;
+    const across = i % 4 > 1;
+    const edge = (0.4 + random() * 1.65) * side;
+    dummy.position.set(
+      across ? (random() - 0.5) * 21.5 : side * 11.6 - edge,
+      0.077 + random() * 0.008,
+      across ? 1.8 + side * 6.6 - edge : (random() - 0.5) * 11.2 + 1.6,
+    );
+    dummy.scale.set(0.4 + random() * 0.5, 1, 0.75 + random() * 0.65);
+    dummy.rotation.set(0, random() * Math.PI * 2, 0);
+    dummy.updateMatrix();
+    litter.setMatrixAt(i, dummy.matrix);
+    litter.setColorAt(i, new THREE.Color(ochres[i % ochres.length]));
+  }
+  litter.receiveShadow = true;
+  scene.add(litter);
   // Small campus stories: planted borders, bicycle racks and a study pergola.
   for (const x of [-12.8, 12.8]) for (const z of [-1, 3, 7]) {
     box(0.85, 0.42, 1.9, 0xe2c7ab, x, 0.23, z, scene, true);
@@ -1032,7 +1079,9 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     selection,
     destination,
     flag,
-    treeCrowns,
+    leafDetail,
+    grassDetail,
+    litter,
     windUniform,
     ripples,
     motes,

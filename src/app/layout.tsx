@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./game.css";
-import "./field-dialogue.css";
+import "./campus-ui.css";
+import "./campus-photo.css";
 
 export const metadata: Metadata = {
   title: "CampusQuest AI | Phân hiệu 1 – Trường Thiếu sinh quân miền Trung",
