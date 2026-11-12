@@ -1,0 +1,74 @@
+{
+  "mode": "built-in image_gen",
+  "generatedOn": "2026-11-11",
+  "assets": [
+    {
+      "key": "campus-keyart",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-1ba2a8a8-7a90-4102-a9a2-d5a7a0a34fcb.png",
+      "prompt": "Use case: stylized-concept. Create a premium highly detailed wide 16:9 game key art illustration for CampusQuest, an English-learning exploration RPG at Branch 1 Central Vietnam Cadet School in Gia Lai. Input image is architectural reference only: reinterpret the cream yellow school facade, triangular pediment and red tile roofs, do not copy real people. Scene: breathtaking warm Vietnamese Central Highlands school campus morning, broad stone courtyard, central red flag with yellow star, flowering flamboyant trees, lush tropical gardens, terracotta library, open airy canteen, distant layered misty pine hills, a few tiny friendly teenage cadets with olive uniforms and backpacks exploring. Sophisticated stylized 3D game concept art with hand-painted PBR texture detail, architectural trim, roof tiles, realistic atmospheric depth, volumetric sunlight, exquisite foliage, crisp inviting shapes and lush jewel green/gold palette. Camera slightly elevated cinematic wide establishing shot, buildings occupy middle, generous sky above. Polished console adventure art, not simplistic low-poly, no UI, no typography, no watermarks, no weapons. This is a new original game asset, not a copy of another game.",
+      "transparent": false
+    },
+    {
+      "key": "highlands-horizon",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-a5e6461a-0dbe-4250-908e-c7f75ec78394.png",
+      "prompt": "Use case: stylized-concept. Asset: seamless-feeling wide 16:9 distant environment backdrop for a premium Vietnamese school adventure RPG. Beautiful Central Highlands morning panorama: layered pine covered rolling mountains, atmospheric teal mist in valleys, warm pale turquoise sky and luminous soft cream clouds, golden sun light coming from upper left, dense tropical green treetops along lower third. Environment only, no buildings, no people, no foreground objects, no text, no UI. Sophisticated hand-painted 3D adventure game matte painting with rich foliage detail, soft atmospheric perspective and cinematic lighting. The central lower area should remain uncluttered to composite a playable 3D school campus. Bright welcoming and sophisticated, forest emerald, sage and amber. Wide landscape composition.",
+      "transparent": false
+    },
+    {
+      "key": "minh-portrait",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-cc2085c5-c14f-4089-97a2-cb7da4f05dfe.png",
+      "prompt": "Use case: illustration-story. Asset: isolated transparent-background dialogue character portrait for premium 3D stylized school adventure game. A fictional friendly Vietnamese boy cadet, age 15, short neat dark hair, warm brown eyes, expressive kind smile, forest olive-green school cadet uniform with small red shoulder tabs, olive cadet cap with tiny gold star, canvas tan backpack, holding one English notebook at his side. Waist-up three-quarter character portrait looking toward viewer, entire head and cap comfortably within frame, no cropping of hands. Detailed polished hand-painted 3D game character rendering, attractive natural youthful face proportions, nuanced cloth seams and folds, warm sunlight rim, soft ambient occlusion, vibrant but refined forest green and antique gold palette. Family-friendly school student, no weapon, no text, no UI, no watermark. Genuine transparent background and clean alpha silhouette.",
+      "transparent": true
+    },
+    {
+      "key": "lan-portrait",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-ec5c33fd-a967-4c03-903a-2cfe952d85c2.png",
+      "prompt": "Use case: illustration-story. Asset: isolated transparent-background dialogue NPC portrait for a polished 3D Vietnamese school exploration RPG, consistent sophisticated hand-painted 3D animation aesthetic. Fictional Vietnamese female librarian about 38, kind intelligent face, warm brown eyes, neat dark hair in a low bun, delicate oval glasses, ivory blouse with sage-green cardigan and long modest skirt, holding two beautifully textured hardcover books. Waist-up three-quarter pose facing viewer, entire hair and hands comfortably in frame. Detailed subtle facial expression, realistic cloth folds and bookbinding, warm morning rim light, soft ambient occlusion, rich refined cream sage antique gold palette, friendly learning atmosphere. Not a photograph, not simplistic vector or chibi, polished console game character portrait. No text, UI, watermark. Genuine transparent background with clean alpha.",
+      "transparent": true
+    },
+    {
+      "key": "hung-portrait",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-e3558085-8122-4ff5-80d2-939402bbdb96.png",
+      "prompt": "Use case: illustration-story. Asset: isolated transparent-background dialogue NPC portrait for a premium stylized 3D Vietnamese school exploration RPG. Fictional friendly Vietnamese canteen vendor about 45, kind smiling face, warm eyes, short dark hair, tan short-sleeve polo and forest-green apron with finely detailed cloth stitching, holding a wooden tray with a Vietnamese baguette sandwich and a clear bottle of water. Waist-up three-quarter portrait looking at viewer; entire head and hands comfortably within the frame. Sophisticated hand-painted 3D animated film game aesthetic, rich subtle textures and believable anatomy, soft golden rim lighting, olive/cream/amber palette, approachable and school appropriate. No text, labels, brand logos, UI, watermark. Genuine transparent background with crisp clean alpha.",
+      "transparent": true
+    },
+    {
+      "key": "reward-atlas",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-2ae5bffa-6658-4222-afce-ac88791796c0.png",
+      "prompt": "Use case: stylized-concept. Asset: a single beautifully detailed game inventory icon ATLAS on a genuinely transparent background, exactly SIX isolated reward objects on a precise equal 3-column by 2-row grid, each object centered with generous transparent padding in its own equal cell, no overlap, no extra objects. TOP ROW left to right: (1) olive green school backpack with leather straps and polished brass buckles (2) closed teal adventure story book with gold embossed compass on cover and cream pages (3) wooden tray with Vietnamese baguette sandwich and water bottle. BOTTOM ROW left to right: (4) ornate antique gold ambassador trophy with laurel and green gemstone (5) vintage brass explorer compass with detailed needle and glass (6) circular gold achievement medal with emerald ribbon and star. Premium hand-painted 3D RPG item icons, exquisite material texture, warm studio light, coherent emerald and antique gold palette, crisply readable silhouettes. Square overall canvas, exactly three columns, two rows. No text, no numbers, no frames, no background rectangles, no fake checkerboard, no UI, no watermark.",
+      "transparent": true
+    },
+    {
+      "key": "courtyard-paving",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-8108ae43-e56b-4e78-826f-7b8a776724d1.png",
+      "prompt": "Use case: stylized-concept. Asset: perfectly top-down seamless tileable albedo texture for a high-quality 3D Vietnamese school courtyard. Light warm beige limestone paving, carefully fitted rectangular sandstone blocks in a restrained staggered pattern, fine mineral grains, gentle worn edges and narrow clean grout seams, subtle natural color variation cream/tan/sage-gray. High detail hand-painted PBR game environment texture, very uniform diffuse flat lighting without baked directional shadows or highlights. Edges tile seamlessly, no perspective, no objects, no grass, no text, no watermark. Square image.",
+      "transparent": false
+    },
+    {
+      "key": "linh-portrait",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-35e106c9-04d3-4542-9ab6-9d57e3cc4482.png",
+      "prompt": "Use case: illustration-story. Asset: isolated transparent-background playable character portrait for the premium 3D Vietnamese school exploration RPG CampusQuest. A fictional Vietnamese girl cadet age 15, friendly confident kind smile, brown eyes, neat dark hair tied into a short practical ponytail, olive-green school cadet uniform with red shoulder tabs and forest-green cap with a tiny gold star, tan canvas school backpack, holding a notebook. Natural young teen face, modest school uniform, waist-up three-quarter portrait toward viewer, entire head and hands inside frame. Highly detailed warm polished hand-painted 3D animated film game art, visible nuanced fabric weave and seams, brass buttons, realistic folds, warm golden rim light, refined emerald olive cream antique gold colors. No text, UI, weapon, watermark. Genuine transparent background and crisp alpha silhouette.",
+      "transparent": true
+    },
+    {
+      "key": "cadet-walk",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-76d884d0-ce33-480a-b06b-29b2a72ff1e0.png",
+      "prompt": "Create one production game character WALK-CYCLE SPRITE SHEET, transparent PNG atlas, exactly EIGHT animation frames in a perfectly regular 4 COLUMNS by 2 ROWS grid. Every cell is exactly the same size. No gutters. Every frame must show the SAME entire full-body character, same camera, same scale, feet baseline and center anchor, with generous empty transparent margin in each cell. Frames 1 through 8 in reading order form a smooth complete walk loop: left foot contact, down, passing, up, right foot contact, down, passing, up. Feet and arms visibly alternate, natural subtle head bob and backpack sway. All eight frames present, no extra frame, no cropped limbs. Character facing a fixed three-quarter front view toward viewer's right in every cell. High quality detailed stylized 3D painted RPG rendering, olive green Vietnamese cadet school uniform, red shoulder tabs, cadet cap with small gold star, brass buttons, tan school backpack, dark shoes; youthful, friendly, modest, school appropriate. Camera orthographic, eye level, consistent warm soft light, no cast background shadows, no floor, no background, no text, numbers, grid lines, borders or watermark. Single square overall atlas, each cell is a tall 1:2 portrait rectangle. Truly transparent background. Fictional Vietnamese boy cadet age 15 with short dark hair and kind face. The reference image defines the character identity, clothing, face and art style; extend him into full-body frames, maintain consistent identity.",
+      "alphaCleanupPrompt": "Edit the supplied 4-column by 2-row EIGHT-FRAME game animation sprite sheet. Change ONLY background/alpha: remove every background pixel, gray cloud, mottled noise, grid line, border line, floor and cast shadow. The entire area outside the eight characters must be genuinely fully transparent, alpha 0, with perfectly clean edges. Preserve each of the eight cadet character poses, colors, detailed clothing, identity, scale, framing and exact frame cell location unchanged. Do not rearrange frames, do not change the character, do not add anything. The result remains exactly the same regular 4 by 2 animation atlas, no gutter or visible cell boundary. True transparent PNG, absolutely no gray/white/checkerboard background.",
+      "transparent": true,
+      "frames": 8,
+      "columns": 4,
+      "rows": 2
+    },
+    {
+      "key": "linh-walk",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a1c97f-e7bb-7110-968e-b3bee8d0cb68\\exec-f6952b26-f3f9-4316-812c-ebd98a792526.png",
+      "prompt": "Create one production game character WALK-CYCLE SPRITE SHEET, transparent PNG atlas, exactly EIGHT animation frames in a perfectly regular 4 COLUMNS by 2 ROWS grid. Every cell is exactly the same size. No gutters. Every frame must show the SAME entire full-body character, same camera, same scale, feet baseline and center anchor, with generous empty transparent margin in each cell. Frames 1 through 8 in reading order form a smooth complete walk loop: left foot contact, down, passing, up, right foot contact, down, passing, up. Feet and arms visibly alternate, natural subtle head bob and backpack sway. All eight frames present, no extra frame, no cropped limbs. Character facing a fixed three-quarter front view toward viewer's right in every cell. High quality detailed stylized 3D painted RPG rendering, olive green Vietnamese cadet school uniform, red shoulder tabs, cadet cap with small gold star, brass buttons, tan school backpack, dark shoes; youthful, friendly, modest, school appropriate. Camera orthographic, eye level, consistent warm soft light, no cast background shadows, no floor, no background, no text, numbers, grid lines, borders or watermark. Single square overall atlas, each cell is a tall 1:2 portrait rectangle. Truly transparent background. Fictional Vietnamese girl cadet age 15 with neat short black ponytail under cap, friendly dark brown eyes, olive-green shirt and trousers. Entire full body, same identity and clothing across all eight frames, attractive premium game animation artwork.",
+      "alphaCleanupPrompt": "Edit the supplied 4-column by 2-row EIGHT-FRAME game animation sprite sheet. Change ONLY background/alpha: remove every background pixel, gray cloud, mottled noise, grid line, border line, floor and cast shadow. The entire area outside the eight characters must be genuinely fully transparent, alpha 0, with perfectly clean edges. Preserve each of the eight cadet character poses, colors, detailed clothing, identity, scale, framing and exact frame cell location unchanged. Do not rearrange frames, do not change the character, do not add anything. The result remains exactly the same regular 4 by 2 animation atlas, no gutter or visible cell boundary. True transparent PNG, absolutely no gray/white/checkerboard background.",
+      "transparent": true,
+      "frames": 8,
+      "columns": 4,
+      "rows": 2
+    }
+  ]
+}
