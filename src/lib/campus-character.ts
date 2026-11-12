@@ -9,17 +9,39 @@ export function createCampusCharacter(kind: CharacterKind, backpack = false) {
   const body = new THREE.Group();
   group.add(body);
   const uniform = kind === "cadet" || kind === "linh";
-  const fabricCanvas=document.createElement("canvas");fabricCanvas.width=64;fabricCanvas.height=64;
-  const fabricContext=fabricCanvas.getContext("2d")!;
-  for(let y=0;y<64;y++)for(let x=0;x<64;x++){
-    const shade=218+((x*17+y*31+x*y)%31);
-    fabricContext.fillStyle=`rgb(${shade},${shade},${shade})`;fabricContext.fillRect(x,y,1,1);
+  const fabricCanvas = document.createElement("canvas");
+  fabricCanvas.width = fabricCanvas.height = 64;
+  const fabricContext = fabricCanvas.getContext("2d")!;
+  const pixels = fabricContext.createImageData(64, 64);
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const warp = Math.sin(x * Math.PI / 2);
+      const weft = Math.sin(y * Math.PI / 2);
+      const weave = 216 + 10 * Math.max(warp, weft) + ((x * 17 + y * 31) % 9);
+      const i = (y * 64 + x) * 4;
+      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = weave;
+      pixels.data[i + 3] = 255;
+    }
   }
-  const fabric=new THREE.CanvasTexture(fabricCanvas);fabric.wrapS=fabric.wrapT=THREE.RepeatWrapping;fabric.repeat.set(4,6);
+  fabricContext.putImageData(pixels, 0, 0);
+  const fabric = new THREE.CanvasTexture(fabricCanvas);
+  fabric.wrapS = fabric.wrapT = THREE.RepeatWrapping;
+  fabric.repeat.set(3, 4);
   const materials = new Map<number, THREE.MeshStandardMaterial>();
   const material = (color: number) => {
-    if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: color===colors.skin ? .68:.92, map: color===colors.cloth || color===colors.pants ? fabric:null }));
-    return materials.get(color)!;
+    const cached = materials.get(color);
+    if (cached) return cached;
+    const textile = color === colors.cloth || color === colors.pants || color === 0x9b8354 || color === 0x806a42;
+    const surface = new THREE.MeshStandardMaterial({
+      color,
+      roughness: color === colors.skin ? 0.64 : color === colors.boots ? 0.53 : color === colors.gold ? 0.38 : 0.94,
+      metalness: color === colors.gold ? 0.4 : 0,
+      map: textile ? fabric : null,
+      bumpMap: textile ? fabric : null,
+      bumpScale: 0.025,
+    });
+    materials.set(color, surface);
+    return surface;
   };
   const colors = {
     skin: 0xe7b58e, cheek: 0xd9a083, hair: 0x302a25,
@@ -158,6 +180,9 @@ export function createCampusCharacter(kind: CharacterKind, backpack = false) {
   if(backpack) {
     rounded(.33,.42,.17,0x9b8354,body,0,1.21,-.19);
     rounded(.26,.19,.07,0x806a42,body,0,1.1,-.29);
+    rounded(.28,.027,.024,0x604e32,body,0,1.2,-.323);
+    rounded(.04,.04,.022,colors.gold,body,.11,1.178,-.337);
+    rounded(.12,.035,.045,0x594d31,body,0,1.438,-.224);
     for(const side of [-1,1]) rounded(.045,.47,.035,0xb49a69,body,side*.185,1.22,.152).rotation.z=side*.08;
   }
   if(kind === "linh") for(const side of [-1,1]) ellipsoid(side*.15,-.035,-.16,.06,.18,.06,colors.hair,head);

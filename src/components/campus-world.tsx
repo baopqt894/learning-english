@@ -6,6 +6,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { animateCharacter } from "@/lib/campus-character";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { PLACES, type Place } from "@/lib/game";
+import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
 import {
   MAP_BOUNDS,
   EXPLORATION_ZONES,
@@ -22,6 +23,12 @@ export type WorldHandle = {
   setQuality: (high: boolean) => void;
   goToZone: (zone: ZoneId) => void;
   overview: () => void;
+  beginPhoto: () => boolean;
+  endPhoto: () => void;
+  framePhoto: (wholeCampus: boolean) => void;
+  lightPhoto: (light: PhotoLight) => void;
+  adjustPhoto: (adjustment: PhotoAdjustment) => void;
+  capturePhoto: (format: PhotoFormat) => Promise<PhotoCapture | null>;
 };
 type Props = {
   avatar: number;
@@ -30,6 +37,7 @@ type Props = {
   conversation?: Place | null;
   speaking?: Place | null;
   highQuality?: boolean;
+  photoMode?: boolean;
   onNear: (place: Place | null) => void;
   onInteract: () => void;
   onMove?: (x: number, z: number) => void;
@@ -42,6 +50,12 @@ const emptyActions = (): WorldHandle => ({
   setQuality: () => {},
   goToZone: () => {},
   overview: () => {},
+  beginPhoto: () => false,
+  endPhoto: () => {},
+  framePhoto: () => {},
+  lightPhoto: () => {},
+  adjustPhoto: () => {},
+  capturePhoto: async () => null,
 });
 
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
@@ -52,6 +66,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     conversation = null,
     speaking = null,
     highQuality = true,
+    photoMode = false,
     onNear,
     onInteract,
     onMove,
@@ -94,6 +109,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       setQuality: (high) => actionRef.current.setQuality(high),
       goToZone: (zone) => actionRef.current.goToZone(zone),
       overview: () => actionRef.current.overview(),
+      beginPhoto: () => actionRef.current.beginPhoto(),
+      endPhoto: () => actionRef.current.endPhoto(),
+      framePhoto: (wholeCampus) => actionRef.current.framePhoto(wholeCampus),
+      lightPhoto: (light) => actionRef.current.lightPhoto(light),
+      adjustPhoto: (adjustment) => actionRef.current.adjustPhoto(adjustment),
+      capturePhoto: (format) => actionRef.current.capturePhoto(format),
     }),
     [],
   );
@@ -110,7 +131,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       const fallback = document.createElement("div");
       fallback.className = "world-fallback";
       fallback.textContent =
-        "Thiết bị chưa hỗ trợ WebGL. Em vẫn có thể dùng các nút địa điểm bên dưới để khám phá và luyện hội thoại ở chế độ 2D.";
+        "Thiết bị chưa hỗ trợ WebGL. Em vẫn có thể dùng nút Bản đồ toàn trường để khám phá và luyện hội thoại ở chế độ 2D.";
       host.appendChild(fallback);
       actionRef.current.goTo = (place) => callbacks.current.onNear(place);
       actionRef.current.goToZone = (zone) =>
@@ -124,20 +145,22 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.needsUpdate = true;
     renderer.setClearColor(0xe7eee1, 0);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.04;
+    renderer.toneMappingExposure = PHOTO_LIGHTS.daylight.exposure;
     renderer.domElement.setAttribute("aria-hidden", "true");
     renderer.domElement.tabIndex = -1;
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xd5dfca);
-    scene.fog = new THREE.FogExp2(0xc1d3b8, 0.007);
-    const camera = new THREE.OrthographicCamera(-15, 15, 12, -12, 0.1, 220);
+    const background = new THREE.Color(PHOTO_LIGHTS.daylight.sky);
+    const fog = new THREE.Fog(background, 56, 155);
+    scene.background = background;
+    scene.fog = fog;
+    const camera = new THREE.OrthographicCamera(-15, 15, 12, -12, 0.1, 420);
     const controls = new OrbitControls(camera, renderer.domElement);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     controls.enableDamping = !reducedMotion.matches;
@@ -156,7 +179,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let followPlayer = false,
       overviewMode = false;
     const resetCamera = (x = 0, z = -1) => {
-      camera.position.set(x + 16, 21, z + 26);
+      // Keep the same orthographic framing with enough clearance for portrait screens.
+      camera.position.set(x + 21, 26.6, z + 39.2);
       camera.zoom = 1.2;
       controls.target.set(x, 0, z);
       camera.lookAt(controls.target);
@@ -164,12 +188,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       controls.update();
     };
     resetCamera();
-    scene.add(new THREE.HemisphereLight(0xfff8e7, 0x728d68, 1.8));
-    const sun = new THREE.DirectionalLight(0xfff3d5, 2.5);
-    sun.position.set(-12, 22, 8);
+    const daylight = PHOTO_LIGHTS.daylight;
+    const hemisphere = new THREE.HemisphereLight(daylight.ambient, daylight.bounce, daylight.fill);
+    scene.add(hemisphere);
+    const sun = new THREE.DirectionalLight(daylight.sun, daylight.power);
+    const sunOffset = new THREE.Vector3(...daylight.direction);
+    sun.position.copy(sunOffset);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.radius = 2;
+    sun.shadow.mapSize.set(1536, 1536);
+    sun.shadow.radius = 2.1;
     Object.assign(sun.shadow.camera, {
       left: -18,
       right: 18,
@@ -177,7 +204,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       bottom: -18,
       far: 60,
     });
-    sun.shadow.normalBias = 0.06;
+    sun.shadow.normalBias = 0.037;
+    sun.shadow.bias = -0.00022;
     scene.add(sun);
     scene.add(sun.target);
 
@@ -220,6 +248,139 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       destination.position.set(x, 0.15, z);
       destination.visible = true;
     };
+    const frameCampus = () => {
+      resetCamera(0, 0);
+      camera.updateMatrixWorld(true);
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+      for (const x of [MAP_BOUNDS.minX, MAP_BOUNDS.maxX])
+        for (const z of [MAP_BOUNDS.minZ, MAP_BOUNDS.maxZ]) {
+          const p = new THREE.Vector3(x, 0, z).project(camera);
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+          minY = Math.min(minY, p.y);
+          maxY = Math.max(maxY, p.y);
+        }
+      camera.zoom = THREE.MathUtils.clamp(
+        Math.min(1.65 / (maxX - minX), 1.65 / (maxY - minY)),
+        0.28,
+        0.7,
+      );
+      camera.updateProjectionMatrix();
+      // Orthographic composition stays fixed when the camera retreats along its axis.
+      const clearance = camera.top / camera.zoom + 2;
+      if (camera.position.y < clearance) camera.position.multiplyScalar(clearance / camera.position.y);
+      controls.update();
+    };
+    const snapshotCamera = () => ({
+      position: camera.position.clone(),
+      target: controls.target.clone(),
+      zoom: camera.zoom,
+    });
+    type CameraPose = ReturnType<typeof snapshotCamera>;
+    let photoSession: CameraPose | null = null;
+    const moveCameraTo = (pose: CameraPose) => {
+      controls.enableDamping = false;
+      controls.update();
+      camera.position.copy(pose.position);
+      controls.target.copy(pose.target);
+      camera.zoom = pose.zoom;
+      camera.updateProjectionMatrix();
+      controls.update();
+    };
+    const lightPhoto = (light: PhotoLight) => {
+      const look = PHOTO_LIGHTS[light];
+      background.setHex(look.sky);
+      fog.color.copy(background);
+      hemisphere.color.setHex(look.ambient);
+      hemisphere.groundColor.setHex(look.bounce);
+      hemisphere.intensity = look.fill;
+      sun.color.setHex(look.sun);
+      sun.intensity = look.power;
+      const [x, y, z] = look.direction;
+      sunOffset.set(x, y, z);
+      sun.position.copy(sun.target.position).add(sunOffset);
+      renderer.toneMappingExposure = look.exposure;
+      renderer.shadowMap.needsUpdate = true;
+    };
+    const beginPhoto = () => {
+      if (photoSession || conversationPlace || renderer.getContext().isContextLost()) return false;
+      // Finish a dialogue camera return before saving the player's view.
+      if (returningFromConversation) {
+        moveCameraTo(savedCamera);
+        returningFromConversation = false;
+      }
+      photoSession = snapshotCamera();
+      keys.clear();
+      controls.enablePan = true;
+      controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+      controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+      controls.maxTargetRadius = 47;
+      selection.visible = destination.visible = false;
+      for (const marker of Object.values(environment.npcMarkers)) marker.visible = false;
+      return true;
+    };
+    const endPhoto = () => {
+      if (!photoSession) return;
+      controls.enablePan = false;
+      controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+      controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+      controls.maxTargetRadius = Infinity;
+      moveCameraTo(photoSession);
+      photoSession = null;
+      lightPhoto("daylight");
+      for (const marker of Object.values(environment.npcMarkers)) marker.visible = true;
+    };
+    const framePhoto = (wholeCampus: boolean) => {
+      if (!photoSession) return;
+      moveCameraTo(photoSession);
+      if (wholeCampus) frameCampus();
+    };
+    const adjustPhoto = (adjustment: PhotoAdjustment) => {
+      if (!photoSession) return;
+      if (adjustment === "in" || adjustment === "out") {
+        camera.zoom = THREE.MathUtils.clamp(camera.zoom + (adjustment === "in" ? 0.15 : -0.15), 0.28, 2.4);
+        camera.updateProjectionMatrix();
+      } else if (adjustment === "left" || adjustment === "right") {
+        controls.rotateLeft(adjustment === "left" ? 0.15 : -0.15);
+      } else {
+        controls.rotateUp(adjustment === "up" ? 0.12 : -0.12);
+      }
+    };
+    const capturePhoto = async (format: PhotoFormat): Promise<PhotoCapture | null> => {
+      if (!photoSession || renderer.getContext().isContextLost()) return null;
+      const size = renderer.getSize(new THREE.Vector2());
+      if (!size.x || !size.y) return null;
+      const crop = photoCrop(size.x, size.y, format);
+      const longEdge = Math.min(2048, renderer.capabilities.maxTextureSize);
+      const scale = longEdge / Math.max(crop.width, crop.height);
+      const width = Math.max(1, Math.round(crop.width * scale));
+      const height = Math.max(1, Math.round(crop.height * scale));
+      const pixels = document.createElement("canvas");
+      pixels.width = width;
+      pixels.height = height;
+      const ctx = pixels.getContext("2d", { alpha: false });
+      if (!ctx) return null;
+      const ratio = renderer.getPixelRatio();
+      try {
+        camera.setViewOffset(size.x, size.y, crop.x, crop.y, crop.width, crop.height);
+        renderer.setPixelRatio(1);
+        renderer.setSize(width, height, false);
+        renderer.render(scene, camera);
+        // Copy this frame before WebGL clears its default drawing buffer.
+        ctx.drawImage(renderer.domElement, 0, 0);
+      } finally {
+        camera.clearViewOffset();
+        renderer.setPixelRatio(ratio);
+        renderer.setSize(size.x, size.y, false);
+        renderer.render(scene, camera);
+      }
+      return new Promise((resolve) => {
+        pixels.toBlob((blob) => resolve(blob ? { blob, width, height } : null), "image/png");
+      });
+    };
     actionRef.current = {
       goTo: (place) => {
         renderer.domElement.focus({ preventScroll: true });
@@ -237,27 +398,14 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         followPlayer = false;
         route = [];
         destination.visible = false;
-        resetCamera(0, 0);
-        camera.updateMatrixWorld(true);
-        let minX = Infinity,
-          maxX = -Infinity,
-          minY = Infinity,
-          maxY = -Infinity;
-        for (const x of [MAP_BOUNDS.minX, MAP_BOUNDS.maxX])
-          for (const z of [MAP_BOUNDS.minZ, MAP_BOUNDS.maxZ]) {
-            const p = new THREE.Vector3(x, 0, z).project(camera);
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y);
-            maxY = Math.max(maxY, p.y);
-          }
-        camera.zoom = THREE.MathUtils.clamp(
-          Math.min(1.65 / (maxX - minX), 1.65 / (maxY - minY)),
-          0.28,
-          0.7,
-        );
-        camera.updateProjectionMatrix();
+        frameCampus();
       },
+      beginPhoto,
+      endPhoto,
+      framePhoto,
+      lightPhoto,
+      adjustPhoto,
+      capturePhoto,
       recenter: () => {
         overviewMode = false;
         followPlayer = true;
@@ -273,6 +421,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         );
         renderer.shadowMap.enabled = high;
         renderer.shadowMap.needsUpdate = true;
+        environment.leafDetail.visible = high;
+        environment.grassDetail.visible = high;
+        environment.litter.visible = high;
         environment.motes.visible = high;
         environment.butterflies.forEach((b) => (b.visible = high));
         renderer.setSize(host.clientWidth, host.clientHeight);
@@ -283,7 +434,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       (target.matches("input,textarea,select,button,a") ||
         target.isContentEditable);
     const keydown = (event: KeyboardEvent) => {
-      if (typing(event.target) || !callbacks.current.enabled) return;
+      if (photoSession || typing(event.target) || !callbacks.current.enabled) return;
       const key = event.key.toLowerCase();
       if (key === "shift") {
         keys.add(key);
@@ -313,7 +464,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       keys.delete(event.key.toLowerCase());
     const blur = () => keys.clear();
     const click = (event: PointerEvent) => {
-      if (!callbacks.current.enabled || event.button !== 0) return;
+      if (photoSession || !callbacks.current.enabled || event.button !== 0) return;
       renderer.domElement.focus({ preventScroll: true });
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.set(
@@ -343,6 +494,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
               place ? place.position[1] : zone!.z,
             )
             .project(camera);
+          const horizontalMargin = ((zone ? 65 : 46) * 2) / width;
           label.style.display =
             (!overviewMode &&
               zone &&
@@ -350,7 +502,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
                 player.group.position.x - zone.x,
                 player.group.position.z - zone.z,
               ) > 17) ||
-            Math.abs(vector.x) > 1.05 ||
+            Math.abs(vector.x) > 1 - horizontalMargin ||
             Math.abs(vector.y) > 1.05 ||
             vector.z > 1
               ? "none"
@@ -385,7 +537,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         lastTime = time;
         return;
       }
-      if (time - lastTime < (callbacks.current.enabled || callbacks.current.conversation ? 15 : 66)) return;
+      if (time - lastTime < (callbacks.current.enabled || callbacks.current.conversation || photoSession ? 15 : 66)) return;
       const dt = Math.min((time - lastTime) / 1000, 0.08);
       lastTime = time;
       const activeConversation = callbacks.current.conversation ?? null;
@@ -402,7 +554,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           const npcPosition = environment.npcs[activeConversation].group.position;
           // Aim above the subtitle area, with a slightly offset, face-to-face view.
           focusTarget.set(npcPosition.x - 2, 0.8, npcPosition.z);
-          focusPosition.set(npcPosition.x + 7, 8, npcPosition.z + 13);
+          focusPosition.set(npcPosition.x + 21.4, 19.52, npcPosition.z + 33.8);
           environment.npcs[activeConversation].group.rotation.y = 0.11;
           player.group.visible = false;
           returningFromConversation = false;
@@ -413,7 +565,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         conversationPlace = activeConversation;
       }
       if (!callbacks.current.enabled) keys.clear();
-      controls.enabled = callbacks.current.enabled && !returningFromConversation;
+      controls.enabled = (callbacks.current.enabled || !!photoSession) && !returningFromConversation;
       controls.enableDamping = !reducedMotion.matches;
       const cameraEase = reducedMotion.matches ? 1 : 1 - Math.exp(-dt * 5);
       if (conversationPlace || returningFromConversation) {
@@ -437,7 +589,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       let dx = 0,
         dz = 0;
       let routeDistance = Infinity;
-      if (callbacks.current.enabled) {
+      if (callbacks.current.enabled && !photoSession) {
         const horizontal =
           Number(keys.has("d") || keys.has("arrowright")) -
           Number(keys.has("a") || keys.has("arrowleft"));
@@ -480,7 +632,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         const turn = Math.atan2(Math.sin(desiredAngle - player.group.rotation.y), Math.cos(desiredAngle - player.group.rotation.y));
         player.group.rotation.y += turn * (1 - Math.exp(-dt * 14));
       }
-      const moving = distance > 0 && callbacks.current.enabled;
+      const moving = distance > 0 && callbacks.current.enabled && !photoSession;
       movementBlend = THREE.MathUtils.lerp(movementBlend, moving ? 1 : 0, 1 - Math.exp(-dt * 12));
       const running = keys.has("shift");
       animateCharacter(player,time/1000,false,reducedMotion.matches);
@@ -503,7 +655,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if (!route.length) destination.visible = false;
       selection.position.set(pos.x, 0.15, pos.z);
       if (
-        !conversationPlace && !returningFromConversation && !overviewMode &&
+        !photoSession && !conversationPlace && !returningFromConversation && !overviewMode &&
         (followPlayer || Math.abs(pos.x) > 10 || Math.abs(pos.z) > 9)
       ) {
         followPlayer = true;
@@ -515,20 +667,19 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         camera.position.add(delta);
       }
       sun.target.position.set(
-        overviewMode ? 0 : pos.x,
+        photoSession ? controls.target.x : overviewMode ? 0 : pos.x,
         0,
-        overviewMode ? 0 : pos.z,
+        photoSession ? controls.target.z : overviewMode ? 0 : pos.z,
       );
-      sun.position.set(
-        sun.target.position.x - 12,
-        22,
-        sun.target.position.z + 8,
-      );
+      sun.position.copy(sun.target.position).add(sunOffset);
+      const fogShift = Math.max(0, camera.position.distanceTo(controls.target) - 55);
+      fog.near = 56 + fogShift;
+      fog.far = 155 + fogShift;
       if (time - lastMapUpdate > 180) {
         callbacks.current.onMove?.(pos.x, pos.z);
         host.dataset.playerX = pos.x.toFixed(2);
         host.dataset.playerZ = pos.z.toFixed(2);
-        host.dataset.mapView = conversationPlace ? "conversation" : overviewMode ? "overview" : "follow";
+        host.dataset.mapView = photoSession ? "photo" : conversationPlace ? "conversation" : overviewMode ? "overview" : "follow";
         const name = campusAreaName(pos);
         if (name !== lastArea) {
           lastArea = name;
@@ -583,9 +734,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
             : 1,
         );
       }
-      labels.style.opacity = conversationPlace ? "0" : "1";
-      selection.visible = !conversationPlace;
-      updateLabels();
+      labels.style.opacity = conversationPlace || photoSession ? "0" : "1";
+      selection.visible = !conversationPlace && !photoSession;
+      destination.visible = !photoSession && route.length > 0;
+      if (!photoSession) updateLabels();
       if (time - lastShadowTime > 250) {
         renderer.shadowMap.needsUpdate = true;
         lastShadowTime = time;
@@ -645,7 +797,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   return (
     <div className="campus-world">
       <div className="world-canvas" ref={hostRef} />
-      <div className="world-labels" ref={labelsRef} inert={!!conversation}>
+      <div className="world-labels" ref={labelsRef} inert={!!conversation || photoMode}>
         {EXPLORATION_ZONES.map((zone) => (
           <button
             key={zone.id}
@@ -664,7 +816,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
             onClick={() => actionRef.current.goTo(id)}
             className={`map-label label-${id} ${objective === id ? "label-objective" : ""}`}
           >
-            <span className="quest-dot">{objective === id ? "!" : "·"}</span>
+            {objective === id && <span className="quest-dot" aria-hidden="true" />}
             {PLACES[id].name}
             <small>{PLACES[id].npc}</small>
           </button>

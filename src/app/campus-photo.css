@@ -1,0 +1,166 @@
+.photo-launch { color: var(--accent); }
+.campus-photo {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  container-type: size;
+}
+.photo-header {
+  position: absolute;
+  z-index: 2;
+  top: var(--top);
+  left: var(--left);
+  right: var(--right);
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 8px;
+}
+.photo-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 7px 13px 7px 7px;
+  border-radius: 10px;
+  background: var(--deep);
+  box-shadow: var(--lift);
+}
+.photo-emblem {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 37px;
+  height: 37px;
+  border-radius: 6px;
+  background: #304638;
+  color: var(--accent);
+}
+.photo-heading h2 { margin: 0; color: var(--ink); font-size: 18px; line-height: 1.2; font-weight: 760; }
+.photo-heading p { margin: 3px 0 0; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.photo-actions { display: flex; gap: 5px; }
+.photo-actions button, .photo-controls, .photo-shutter, .photo-retake, .photo-review-actions a { pointer-events: auto; }
+.photo-actions button[aria-pressed="true"], .photo-actions button[aria-expanded="true"] { color: var(--accent); background: #284333; }
+.photo-viewfinder {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+}
+.photo-viewfinder[data-crop="true"] {
+  width: min(100cqw, calc(100cqh * var(--photo-ratio)));
+  height: min(100cqh, calc(100cqw / var(--photo-ratio)));
+  box-shadow: 0 0 0 100vmax #0d211cc9;
+}
+.photo-corners, .photo-thirds { position: absolute; inset: 0; }
+.photo-viewfinder[data-crop="false"] .photo-corners { inset: clamp(8px, 1.4vw, 18px); }
+.photo-corners i { position: absolute; width: 16px; height: 16px; border: solid #fff2cdcf; border-width: 0; }
+.photo-corners i:nth-child(1) { top: 0; left: 0; border-width: 2px 0 0 2px; }
+.photo-corners i:nth-child(2) { top: 0; right: 0; border-width: 2px 2px 0 0; }
+.photo-corners i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+.photo-corners i:nth-child(4) { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+.photo-thirds i { position: absolute; background: #fff7de55; }
+.photo-thirds i:nth-child(-n+2) { top: 0; bottom: 0; width: 1px; }
+.photo-thirds i:nth-child(n+3) { left: 0; right: 0; height: 1px; }
+.photo-thirds i:nth-child(1) { left: 33.333%; }
+.photo-thirds i:nth-child(2) { left: 66.666%; }
+.photo-thirds i:nth-child(3) { top: 33.333%; }
+.photo-thirds i:nth-child(4) { top: 66.666%; }
+
+.photo-deck {
+  position: absolute;
+  z-index: 1;
+  right: var(--right);
+  bottom: var(--bottom);
+  display: grid;
+  gap: 8px;
+  width: min(348px, calc(100% - var(--left) - var(--right)));
+}
+.photo-controls {
+  display: grid;
+  gap: 8px;
+  max-height: max(108px, calc(100dvh - 160px));
+  padding: 11px;
+  overflow: auto;
+  border-radius: 11px;
+  background: var(--deep);
+  box-shadow: var(--lift);
+}
+.photo-control-row { display: grid; gap: 4px; }
+.photo-control-row > span { color: var(--muted); font-size: 12px; font-weight: 680; }
+.photo-segments { display: flex; gap: 3px; }
+.photo-segments button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 5px;
+  min-height: 43px;
+  min-width: 0;
+  padding: 5px 4px;
+  border-radius: 5px;
+  background: #233931;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.photo-segments button[aria-pressed="true"] { background: #3d5038; color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
+.photo-segments button:hover { background: #375044; }
+.photo-framing button:nth-last-child(-n+2) { flex: 0 0 41px; }
+.photo-swatch { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.swatch-daylight { background: #e4bd77; }
+.swatch-sunset { background: #ee956c; }
+.swatch-moonlight { background: #9ebbec; }
+.photo-shutter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--deep);
+  box-shadow: var(--lift);
+}
+.photo-hints { flex: 1; padding-left: 3px; color: var(--muted); font-size: 10px; }
+.photo-hints p { margin: 0; line-height: 1.4; }
+.photo-hints kbd { margin-right: 3px; background: #354d42; color: var(--ink); }
+.photo-hints .photo-error { margin-top: 4px; color: #ffc4aa; }
+.photo-hints .photo-error:empty { display: none; }
+.photo-touch-hint { display: none; }
+.photo-shutter { flex: none; white-space: nowrap; }
+
+.photo-review {
+  pointer-events: auto;
+  background: #10221e;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: max(78px, calc(var(--top) + 60px)) var(--right) var(--bottom) var(--left);
+}
+.photo-print { position: relative; min-width: 0; min-height: 0; }
+.photo-print img { position: absolute; inset: 0; margin: auto; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 10px 28px #06120d91; }
+.photo-review-actions { display: flex; gap: 8px; justify-content: center; }
+.photo-retake { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 7px; background: #294239; }
+.photo-retake:hover { background: #375549; }
+
+@media (max-width: 620px) {
+  .hud-left .player-badge { max-width: calc(100vw - var(--left) - var(--right) - 151px); }
+  .photo-header { gap: 6px; }
+  .photo-heading { gap: 7px; }
+  .photo-heading h2 { font-size: 16px; }
+  .photo-deck { width: calc(100% - var(--left) - var(--right)); }
+  .photo-controls { gap: 6px; padding: 8px; }
+  .photo-control-row { grid-template-columns: minmax(49px, 65px) 1fr; align-items: center; }
+  .photo-control-row > span { padding-inline: 1px; }
+  .photo-segments button { font-size: 11px; }
+  .photo-framing button:nth-last-child(-n+2) { flex-basis: 37px; }
+  .photo-corners i { width: 12px; height: 12px; }
+}
+@media (pointer: coarse) {
+  .photo-touch-hint { display: block; }
+  .photo-mouse-hint, .photo-key-hint { display: none; }
+}
