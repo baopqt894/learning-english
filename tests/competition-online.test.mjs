@@ -33,3 +33,10 @@ test('leaving and disconnected racers are replaced by bots without changing comp
 test('every mode uses the same fair answer mechanics and finishes in its physical course distance',()=>{
  for(const mode of ['swimming','sprint','hurdles','sack','relay']){const a=create(mode),r=roomAction({action:'start',code:a.room.code,token:a.token},now).room,m=r.members[0];const first=makeAnswer(r,m,raceQuestion(r,m).answer,1);m.answers.push(first);assert.ok(raceDistance(r,m,2)>raceDistance(r,{...m,answers:[]},2));const result=roomSnapshot(a.room.code,a.token,now+68000);assert.equal(result.phase,'finished');assert.ok(result.members.every(m=>m.finishedAt!==null));}
 });
+
+test('a new human can host an abandoned waiting room instead of leaving it permanently without a host',()=>{
+ const a=create();roomAction({action:'leave',code:a.room.code,token:a.token},now+1);
+ const b=roomAction({action:'join',code:a.room.code,name:'New host'},now+2);assert.equal(b.room.hostId,b.playerId);
+ roomAction({action:'ready',code:b.room.code,token:b.token,ready:true},now+3);
+ assert.equal(roomAction({action:'start',code:b.room.code,token:b.token},now+4).room.phase,'racing');
+});

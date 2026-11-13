@@ -53,7 +53,7 @@ export function roomAction(input:Record<string,unknown>,now=Date.now()){
  if(action==='join'){
   if(v.phase!=='lobby')throw new RoomError('This race has started. Join after the host returns to the lobby.',409);
   if(v.members.length===4){const replace=v.members.findIndex(m=>m.kind==='bot');if(replace<0)throw new RoomError('This room is full.',409);v.members.splice(replace,1);}
-  const member=freshMember(id(),name(input.name),'human',v.members.length,input.avatar===1?1:0),token=id()+id();member.ready=false;v.members.push(member);r.tokens.set(member.id,token);r.seen.set(member.id,now);bump(r,now);return {room:roomSnapshot(v.code,token,now),playerId:member.id,token};
+  const member=freshMember(id(),name(input.name),'human',v.members.length,input.avatar===1?1:0),token=id()+id();member.ready=false;v.members.push(member);if(!v.hostId)v.hostId=member.id;r.tokens.set(member.id,token);r.seen.set(member.id,now);bump(r,now);return {room:roomSnapshot(v.code,token,now),playerId:member.id,token};
  }
  const m=v.members.find(m=>r.tokens.get(m.id)===input.token);if(!m)throw new RoomError('You do not have access to this seat.',401);r.seen.set(m.id,now);
  const hostOnly=()=>{if(v.hostId!==m.id)throw new RoomError('Only the host can do that.',403);};
