@@ -1,13 +1,16 @@
 import * as THREE from "three";
+import { SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK, BLEACHERS, SPORT_GOAL_ZS } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { PLACES, type Place } from "./game";
 import { createCampusSurfaces, createContactMaterial, seededRandom, worldAlignedUV } from "./campus-surfaces";
+import { createRoomShell, roomContainsPlayer } from "./campus-room-shell";
 import { addCampusRoofs } from "./campus-roofs";
 import { createCampusTrees } from "./campus-trees";
 import { addCampusGrass } from "./campus-planting";
 import {
+  MAP_BOUNDS, DORM_EXTRA_BEDS, ROOM_EXHIBITS,
   CORE_BUILDINGS,
   EXPANSION_BUILDINGS,
   ROOM_FURNITURE,
@@ -24,6 +27,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   const random = seededRandom(49257);
   const roofs: Parameters<typeof addCampusRoofs>[1] = [];
   const characterGroups: THREE.Group[] = [];
+  const roomShells: {building:(typeof EXPANSION_BUILDINGS)[number];shell:THREE.Group}[]=[];
   const mat = (color: number, roughness = 0.8, metalness = 0) => {
     const key = `${color}/${roughness}/${metalness}`;
     if (!palette.has(key))
@@ -155,9 +159,9 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     decal.castShadow = decal.receiveShadow = false;
     return decal;
   };
-  const landscape = surfaceBox(180, 0.12, 180, finish("turf", 0x798c4f), 0, -0.23, 0, 5);
+  const landscape = surfaceBox(270, 0.12, 240, finish("turf", 0x798c4f), 0, -0.23, 0, 5);
   landscape.castShadow = false;
-  const lawn = surfaceBox(76, 0.18, 64, finish("turf", 0x91a65f), 0, -0.12, 0, 4.5);
+  const lawn = surfaceBox(MAP_BOUNDS.maxX-MAP_BOUNDS.minX+4, 0.18, MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ+4, finish("turf", 0x91a65f), (MAP_BOUNDS.maxX+MAP_BOUNDS.minX)/2, -0.12, (MAP_BOUNDS.maxZ+MAP_BOUNDS.minZ)/2, 4.5);
   lawn.castShadow = false;
 
   const paving = finish("pavers", 0xe4d2ad);
@@ -166,31 +170,24 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     surface.castShadow = false;
     return surface;
   };
-  paved(24, 0.1, 13.6, 0, 0.015, 1.8);
+  paved(28, 0.1, 16.6, 0, 0.015, 1.8);
   paved(3.3, 0.12, 8, 0, 0.03, -6);
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(76, 64),
+    new THREE.PlaneGeometry(MAP_BOUNDS.maxX-MAP_BOUNDS.minX, MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ),
     new THREE.MeshBasicMaterial({ visible: false }),
   );
   floor.rotation.x = -Math.PI / 2;
+  floor.position.set((MAP_BOUNDS.maxX+MAP_BOUNDS.minX)/2,0,(MAP_BOUNDS.maxZ+MAP_BOUNDS.minZ)/2);
   scene.add(floor);
-  for (const x of [-12.1, 12.1]) box(0.13, 0.13, 14, 0xe5dfc9, x, 0.1, 1.5);
-  for (const z of [-5, 8.7]) box(24, 0.13, 0.13, 0xd4c29e, 0, 0.1, z);
+  for (const x of [-14.1, 14.1]) box(0.13, 0.13, 14, 0xe5dfc9, x, 0.1, 1.5);
+  for (const z of [-6.5, 10.2]) box(28, 0.13, 0.13, 0xd4c29e, 0, 0.1, z);
   const brickTrim = finish("clay", 0xa87454);
-  for (const x of [-11.77, 11.77]) {
-    surfaceBox(0.22, 0.016, 13.23, brickTrim, x, 0.069, 1.8, 1.9).castShadow = false;
+  for (const x of [-13.77, 13.77]) {
+    surfaceBox(0.22, 0.016, 16.23, brickTrim, x, 0.069, 1.8, 1.9).castShadow = false;
   }
-  for (const z of [-4.82, 8.42]) {
-    surfaceBox(23.75, 0.016, 0.22, brickTrim, 0, 0.069, z, 1.9).castShadow = false;
+  for (const z of [-6.32, 9.92]) {
+    surfaceBox(27.75, 0.016, 0.22, brickTrim, 0, 0.069, z, 1.9).castShadow = false;
   }
-  // Avenues use the same tile scale as the courtyard.
-  for (const x of [-15, 15]) paved(3.2, 0.09, 44, x, 0.005, 3);
-  for (const z of [-18, 18]) paved(61, 0.1, 3.4, 0, 0.012, z);
-  paved(18, 0.1, 3.2, -23, 0.015, 4);
-  paved(3.4, 0.1, 16, 0, 0.02, 22);
-  paved(3.4, 0.1, 7, 0, 0.02, -20);
-  paved(3.2, 0.1, 18, -20, 0.015, -5);
-
   const glass = canvasTexture(128, 128, (ctx) => {
     const reflection = ctx.createLinearGradient(5, 0, 95, 128);
     reflection.addColorStop(0, "#85a8ad");
@@ -433,7 +430,9 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   EXPANSION_BUILDINGS.forEach((b) => {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);
     if (isOpenRoom(b)) {
-      // Cutaway rooms expose the furniture and preserve a real walkable doorway.
+      // Interiors are revealed only after the player crosses the doorway.
+      const shell=createRoomShell(b);scene.add(shell);roomShells.push({building:b,shell});
+      shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
       box(
         b.w,
         0.06,
@@ -457,15 +456,15 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         );
         box(
           0.18,
-          b.h,
+          b.kind === "housing" ? .8 : b.h,
           0.18,
           0xcab78d,
           b.x + side * 1.3,
-          b.h / 2 + 0.25,
+          b.kind === "housing" ? .65 : b.h / 2 + 0.25,
           b.z + b.d / 2,
         );
       }
-      box(2.75, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
+      if(b.kind!=="housing")box(2.75, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
       sign(
         b.name,
         b.w * 0.8,
@@ -480,7 +479,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         sign(
           b.kind === "language"
             ? "HELLO! · LET’S SPEAK ENGLISH"
-            : "WELCOME TO CLASS",
+            : b.x<0?"GREEN TEAM · MISSION BRIEFING":"WELCOME TO CLASS",
           3.8,
           0.4,
           b.x,
@@ -491,6 +490,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         box(1.5, 0.8, 0.7, 0xba956d, b.x, 0.7, b.z - b.d / 2 + 0.9);
       }
       if (b.kind === "hall") {
+        sign("ENGLISH DISCOVERY DAY",Math.min(10,b.w-2),.65,b.x,2.35,b.z-b.d/2+.23,"#31553d");
         box(b.w - 1.2, 0.45, 1.5, 0xa77c58, b.x, 0.48, b.z - b.d / 2 + 1.1);
         for (const x of [b.x - 3.5, b.x + 3.5])
           box(0.06, 0.02, 5.2, 0xf3ead0, x, 0.3, b.z + 0.6);
@@ -594,28 +594,40 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   });
 
+  for(const exhibit of ROOM_EXHIBITS){
+    box(exhibit.w,.12,exhibit.d,0xb59664,exhibit.x,1,exhibit.z);
+    for(const side of [-1,1])for(const end of [-1,1])box(.08,.8,.08,0x63765b,exhibit.x+side*1.1,.58,exhibit.z+end*.45);
+    sign(exhibit.label,2.5,.32,exhibit.x,1.5,exhibit.z-.48,"#486b4b");
+    if(exhibit.kind===0){for(let i=0;i<5;i++)box(.42,.08,.3,[0x91684f,0x4d7461,0xb99e62][i%3],exhibit.x-.6+i*.3,1.1+(i%2)*.1,exhibit.z);}
+    else if(exhibit.kind===1){for(const side of [-1,1]){cylinder(.32,.27,.24,0xb69c62,exhibit.x+side*.65,1.16,exhibit.z);for(let i=0;i<5;i++){const vegetable=sphere(.12,0x729a4e,exhibit.x+side*.65+Math.sin(i*2.4)*.12,1.33,exhibit.z+Math.cos(i*2.4)*.12);vegetable.scale.y=.65;}}}
+    else if(exhibit.kind===2){box(1.8,.025,.75,0xe6dcb6,exhibit.x,1.08,exhibit.z);for(let i=0;i<5;i++)box(.23,.035,.18,[0x8f6650,0x66886e][i%2],exhibit.x-.65+i*.33,1.11,exhibit.z+(i%2?-.16:.16));}
+    else {for(const side of [-1,1]){const life=mesh(new THREE.TorusGeometry(.22,.055,8,24),mat(0xd9ab65),[exhibit.x+side*.62,1.15,exhibit.z]);life.rotation.x=-Math.PI/2;}box(.4,.04,.55,0xe6dcb6,exhibit.x,1.08,exhibit.z);}
+  }
+  for(const bed of DORM_EXTRA_BEDS){
+    box(bed.w,.12,bed.d,0x52675b,bed.x,.72,bed.z);box(bed.w-.08,.18,bed.d-.13,0xd9d5bf,bed.x,.86,bed.z);
+    box(bed.w-.16,.08,1.7,0x71815c,bed.x,1.0,bed.z+.2);box(.75,.13,.42,0xe8e0c7,bed.x,.99,bed.z-.86);
+    for(const side of [-1,1])for(const end of [-1,1])box(.065,.66,.065,0x53655b,bed.x+side*.58,.5,bed.z+end*1.05);
+  }
   // Eastern sports district: a playable field, goals, track and bleachers.
-  box(20, 0.08, 25, 0xba956e, 24, 0.005, 2);
-  surfaceBox(16, 0.09, 20, finish("turf", 0x739253), 24, 0.02, 2, 3.5);
-  for (const x of [16.25, 31.75]) box(0.09, 0.012, 19.5, 0xf1edd4, x, 0.073, 2);
-  for (const z of [-7.75, 2, 11.75])
-    box(15.5, 0.012, 0.09, 0xf1edd4, 24, 0.073, z);
+  box(SPORTS_FIELD.w+4, 0.08, SPORTS_FIELD.d+3, 0xba956e, SPORTS_FIELD.x, 0.005, SPORTS_FIELD.z);
+  surfaceBox(SPORTS_FIELD.w, 0.09, SPORTS_FIELD.d, finish("turf", 0x739253), SPORTS_FIELD.x, 0.02, SPORTS_FIELD.z, 3.5);
+  for (const x of [SPORTS_FIELD.x-SPORTS_FIELD.w/2+.25,SPORTS_FIELD.x+SPORTS_FIELD.w/2-.25]) box(.09,.012,SPORTS_FIELD.d-.5,0xf1edd4,x,.073,SPORTS_FIELD.z);
+  for (const z of [SPORTS_FIELD.z-SPORTS_FIELD.d/2+.25,SPORTS_FIELD.z,SPORTS_FIELD.z+SPORTS_FIELD.d/2-.25]) box(SPORTS_FIELD.w-.5,.012,.09,0xf1edd4,SPORTS_FIELD.x,.073,z);
   const centreCircle = mesh(
     new THREE.RingGeometry(2.1, 2.18, 48),
     mat(0xf1edd4),
-    [24, 0.076, 2],
+    [SPORTS_FIELD.x, 0.076, SPORTS_FIELD.z],
   );
   centreCircle.rotation.x = -Math.PI / 2;
-  for (const z of [-7.5, 11.5]) {
-    for (const x of [21.5, 26.5])
-      cylinder(0.045, 0.045, 2.1, 0xf0ead3, x, 1.1, z);
-    box(5.1, 0.09, 0.09, 0xf0ead3, 24, 2.15, z);
+  for (const z of SPORT_GOAL_ZS) {
+    for (const x of [SPORTS_FIELD.x-2.5,SPORTS_FIELD.x+2.5])
+      cylinder(0.045, 0.045, 2.75, 0xf0ead3, x, 1.45, z);
+    box(5.1, 0.09, 0.09, 0xf0ead3, SPORTS_FIELD.x, 2.85, z);
     for (let i = 0; i < 12; i++)
-      box(0.015, 1.8, 0.015, 0xd4ddbd, 21.6 + i * 0.43, 1, z + 0.5);
+      box(0.015, 2.55, 0.015, 0xd4ddbd, SPORTS_FIELD.x-2.4 + i * 0.43, 1.4, z + 0.5);
   }
-  for (let row = 0; row < 3; row++)
-    box(14, 0.28, 0.75, 0xc1b69a, 24, 0.17 + row * 0.28, 14 + row * 0.8);
-  sign("SÂN BÓNG ĐÁ · FOOTBALL", 7, 0.45, 24, 1.4, 16.2, "#3b6545");
+  for(const row of BLEACHERS)box(row.w,.28,row.d,0xc1b69a,row.x,row.y,row.z);
+  sign("SÂN BÓNG ĐÁ · FOOTBALL", 7, 0.45, SPORTS_FIELD.x, 1.4, 24.2, "#3b6545");
   sphere(0.24, 0xf1ead5, 25.5, 0.3, 4.5);
 
   // Southern learning garden with a circular path and planted reading nooks.
@@ -625,14 +637,10 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     [0, 0.045, 24],
   );
   gardenPath.rotation.x = -Math.PI / 2;
-  for (const side of [-1, 1]) {
-    box(5, 0.17, 8, 0xc6b694, side * 10, 0.02, 23);
-    box(4.7, 0.18, 7.7, 0x738b54, side * 10, 0.04, 23);
-    for (let i = 0; i < 30; i++) {
-      const x = side * 10 + Math.sin(i * 8.4) * 2;
-      const z = 23 + Math.cos(i * 2.4) * 3.3;
-      sphere(0.14, [0xe1b974, 0xc88d98, 0xd8d49b][i % 3], x, 0.35, z, scene, 6);
-    }
+  for(const bed of READING_PLANTERS){
+    box(bed.w+.25,.17,bed.d+.25,0xc6b694,bed.x,.02,bed.z);
+    box(bed.w,.18,bed.d,0x738b54,bed.x,.04,bed.z);
+    for(let i=0;i<30;i++)sphere(.14,[0xe1b974,0xc88d98,0xd8d49b][i%3],bed.x+Math.sin(i*8.4)*(bed.w/2-.25),.35,bed.z+Math.cos(i*2.4)*(bed.d/2-.3),scene,6);
   }
   for (const x of [-4.2, 4.2]) {
     cylinder(0.17, 0.22, 3.7, 0xd5c79f, x, 1.8, 30);
@@ -648,40 +656,21 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     cylinder(0.56 * scale, 0.56 * scale, 0.016, 0x5c513b, x, 0.111, z, scene, 24);
     shade(x, z, 2.2 * scale, 2.0 * scale, 0.13);
   };
-  [
-    [-11, -8],
-    [-11, -1],
-    [-11, 5],
-    [-8, 9],
-    [-4.7, 9],
-    [4.7, 9],
-    [9, 8],
-    [11.5, 3],
-    [11, -8],
-    [-3.1, -5],
-    [3.1, -5],
-  ].forEach(([x, z], i) =>
-    tree(x, z, 0.78 + (i % 3) * 0.14, i === 3 || i === 8),
-  );
-  for (let i = 0; i < 44; i++) {
-    const a = (i / 44) * Math.PI * 2;
-    const r = 42 + (i % 4) * 3;
-    tree(Math.cos(a) * r, Math.sin(a) * r, 1.25 + (i % 3) * 0.3, i % 9 === 0);
+  for(const t of CAMPUS_TREES)tree(t.x,t.z,t.scale,t.flowering);
+  // A continuous distant ridge replaces the old overlapping sphere-shaped hills.
+  const ridgeGeometry=new THREE.PlaneGeometry(260,140,65,35);
+  ridgeGeometry.rotateX(-Math.PI/2);
+  const ridgePosition=ridgeGeometry.attributes.position,ridgeColors:number[]=[];
+  for(let i=0;i<ridgePosition.count;i++){
+    const x=ridgePosition.getX(i)+17,z=ridgePosition.getZ(i)-145;
+    const envelope=Math.sin(Math.PI*THREE.MathUtils.clamp((-z-75)/140,0,1))**1.2;
+    const height=(6+Math.sin(x*.035)*2.2+Math.sin(x*.081+z*.04)*1.5)*envelope;
+    ridgePosition.setXYZ(i,x,height-.4,z);
+    const tint=new THREE.Color(0x7e9e73).lerp(new THREE.Color(0x8ca993),THREE.MathUtils.clamp((-z-90)/125,0,1));
+    tint.multiplyScalar(.93+height*.012);ridgeColors.push(tint.r,tint.g,tint.b);
   }
-  // Distant hills with haze; the sky art remains visible above them.
-  for (let i = 0; i < 12; i++) {
-    const hill = sphere(
-      12 + (i % 3) * 5,
-      0x7a9d7a,
-      Math.sin(i * 1.7) * 70,
-      -2,
-      -68 - (i % 3) * 10,
-      scene,
-      20,
-    );
-    hill.scale.y = 0.5;
-    hill.castShadow = false;
-  }
+  ridgeGeometry.setAttribute('color',new THREE.Float32BufferAttribute(ridgeColors,3));ridgeGeometry.computeVertexNormals();
+  scene.add(new THREE.Mesh(ridgeGeometry,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1})));
 
   // Dense planting is instanced, keeping draw calls low on classroom PCs.
   const flowerGeometry = new THREE.IcosahedronGeometry(0.075, 1);
@@ -710,9 +699,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       leaves.setMatrixAt(i, dummy.matrix);
     }
   }
-  for (const x of [-10.7, 10.7])
-    for (const z of [-0.6, 6])
-      box(1.4, 0.18, 2.5, 0xc7b799, x, 0.05, z, scene, true);
+  for(const b of COURTYARD_PLANTERS)box(b.w,.18,b.d,0xc7b799,b.x,.05,b.z,scene,true);
   const bench = (x: number, z: number, angle = 0) => {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
@@ -728,37 +715,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       box(0.07, 0.6, 0.08, 0x445b45, side, 0.9, 0.36, group);
     }
   };
-  bench(-7, 5.8);
-  bench(7, 5.8);
-  bench(-3.7, -3, Math.PI / 2);
-  for (const [x, z] of [
-    [-18, 8],
-    [-18, 11],
-    [-12, 22],
-    [12, 22],
-    [-5, -18],
-    [5, -18],
-    [17, 18],
-    [31, 18],
-  ])
-    bench(x, z);
-  for (const [x, z] of [
-    [-34, -17],
-    [-34, -6],
-    [-34, 5],
-    [-30, 17],
-    [-18, -25],
-    [-18, 25],
-    [18, -25],
-    [33, -17],
-    [33, 22],
-    [-5, 29],
-    [5, 29],
-    [-9, 16],
-    [9, 16],
-    [18, 24],
-  ])
-    tree(x, z, 0.85 + (Math.abs(x) % 3) * 0.13, z > 15);
+  for(const b of CAMPUS_BENCHES)bench(b.x,b.z,b.angle);
   for (const x of [-10, 10])
     for (const z of [-3, 7]) {
       cylinder(0.055, 0.09, 3.4, 0x4e614b, x, 1.7, z);
@@ -773,16 +730,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         [x, 3.2, z],
       );
     }
-  for (let x = -37; x <= 37; x += 1.5) {
-    box(0.07, 0.85, 0.07, 0xc7c4a1, x, 0.42, -31);
-    if (Math.abs(x) > 4.5) box(0.07, 0.85, 0.07, 0xc7c4a1, x, 0.42, 31);
-  }
-  for (let z = -31; z <= 31; z += 1.5)
-    for (const x of [-37, 37]) box(0.07, 0.85, 0.07, 0xc7c4a1, x, 0.42, z);
-  box(74, 0.06, 0.06, 0xc7c4a1, 0, 0.75, -31);
-  for (const x of [-37, 37]) box(0.06, 0.06, 62, 0xc7c4a1, x, 0.75, 0);
-  for (const x of [-20.5, 20.5]) box(33, 0.06, 0.06, 0xc7c4a1, x, 0.75, 31);
-
   // Flag cloth is subdivided so its silhouette moves in the wind.
   cylinder(0.8, 0.95, 0.24, 0xc9bea2, 2.7, 0.1, -1.9);
   cylinder(0.65, 0.8, 0.2, 0xdbcfb0, 2.7, 0.3, -1.9);
@@ -983,8 +930,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   litter.receiveShadow = true;
   scene.add(litter);
   // Small campus stories: planted borders, bicycle racks and a study pergola.
-  for (const x of [-12.8, 12.8]) for (const z of [-1, 3, 7]) {
-    box(0.85, 0.42, 1.9, 0xe2c7ab, x, 0.23, z, scene, true);
+  for (const {x,z,w,d} of EDGE_PLANTERS) {
+    box(w, 0.42, d, 0xe2c7ab, x, 0.23, z, scene, true);
     box(0.7, 0.06, 1.7, 0x655b45, x, 0.47, z, scene, true);
     for (let i = 0; i < 5; i++) {
       const stemZ = z - 0.65 + i * 0.32;
@@ -993,7 +940,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   }
   for (let i = 0; i < 4; i++) {
-    const x = -11 + i * 0.85, z = -12;
+    const x = BICYCLE_RACK.xs[i], z = BICYCLE_RACK.z;
     for (const wheelX of [-0.32, 0.32]) {
       mesh(new THREE.TorusGeometry(0.28, 0.035, 5, 14), mat(0x405c56), [x + wheelX, 0.39, z]);
     }
@@ -1001,15 +948,11 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     frame.rotation.z = Math.PI / 2;
     box(0.2, 0.055, 0.12, 0x4a5045, x + 0.1, 0.91, z, scene, true);
   }
-  for (const x of [-4, 4]) for (const z of [21, 24]) {
+  for (const x of PERGOLA.xs) for (const z of PERGOLA.zs) {
     box(0.17, 2.8, 0.17, 0xb29c75, x, 1.4, z);
   }
-  for (let i = 0; i < 12; i++) box(0.16, 0.16, 3.8, 0xc9b18b, -4.3 + i * 0.78, 2.85, 22.5);
-  sign("CAMPUS · EXPLORE & CONNECT", 4.5, 0.44, 0, 2.5, 24.12, "#416f64");
-  for (let i = 0; i < 18; i++) {
-    const x = 17.6 + (i % 6) * 2.9, z = 8.8 + Math.floor(i / 6) * 1.6;
-    cylinder(0.3, 0.34, 0.08, 0xe4dcc7, x, 0.08, z, scene, 6);
-  }
+  for (let i = 0; i < 12; i++) box(0.16, 0.16, PERGOLA.depth, 0xc9b18b, -4.3 + i * 0.78, PERGOLA.height, PERGOLA.centerZ);
+  sign("READING GARDEN · READ & SHARE", 4.5, 0.44, 0, 2.5, 22.15, "#416f64");
   // Discovery Day dressing belongs on existing building faces, clear of walking routes.
   sign("ENGLISH DISCOVERY DAY",7.4,.55,0,3.15,-6.94,"#315845");
   sign("READ · SHARE · DISCOVER",3.7,.4,-7,2.15,-3.39,"#5d6d48");
@@ -1026,6 +969,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   // avoiding a separate GPU draw for every tile, frame, branch and flowerpot.
   const protectedObjects = new Set<THREE.Object3D>([
     ...characterGroups,
+    ...roomShells.map(r=>r.shell),
     ...butterflies,
     ...ripples,
     ...Object.values(npcMarkers),
@@ -1035,6 +979,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     floor,
   ]);
   const buckets = new Map<string, THREE.Mesh[]>();
+  const batchCentre=new THREE.Vector3();
   scene.updateMatrixWorld(true);
   scene.traverse((object) => {
     if (
@@ -1048,7 +993,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       if (protectedObjects.has(ancestor)) return;
       ancestor = ancestor.parent;
     }
-    const key = `${object.material.uuid}/${object.castShadow}/${object.receiveShadow}`;
+    object.geometry.computeBoundingBox();object.geometry.boundingBox!.getCenter(batchCentre).applyMatrix4(object.matrixWorld);
+    const key = `${object.material.uuid}/${object.castShadow}/${object.receiveShadow}/${Math.floor(batchCentre.x/24)},${Math.floor(batchCentre.z/24)}`;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(object);
   });
@@ -1073,6 +1019,14 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     });
   }
   return {
+    updateRooms(point:{x:number;z:number},overview=false){
+      let interior="outside";
+      for(const {building:b,shell} of roomShells){
+        const inside=!overview&&roomContainsPlayer(b,point,!shell.visible);
+        shell.visible=!inside;if(inside)interior=b.name;
+      }
+      return interior;
+    },
     floor,
     player,
     npcs,

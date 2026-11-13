@@ -1,8 +1,12 @@
+import {normalizePetCare,type PetCare} from './pet-care.ts';
+import {restoreCampaign,campaignXP,type CampaignProgress} from './campaign.ts';
+import { activityXP, normalizeActivities, type ActivityRecords } from './activities.ts';
+import { restoreFieldwork, type Fieldwork } from './fieldwork.ts';
 export type Place = "courtyard" | "library" | "canteen";
 export type Goal = { id: string; label: string; hint: string; place: Place };
 export type Quest = { title: string; description: string; minutes: string; xp: number; badge: string; goals: Goal[] };
 export type Message = { role: "student" | "npc"; text: string; place: Place };
-export type Progress = { version: 1; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[] };
+export type Progress = { version: 1; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[]; activities?: ActivityRecords; fieldwork?: Fieldwork; campaign?: CampaignProgress; pets?: PetCare };
 
 export const SCHOOL = "Phân hiệu 1 – Trường Thiếu sinh quân miền Trung";
 export const STORAGE_KEY = "campusquest-phan-hieu-1-v1";
@@ -62,7 +66,7 @@ export function restoreProgress(raw: string | null): Progress {
     const active = Math.min(completed.length, QUESTS.length - 1);
     const validGoals = QUESTS[active].goals.map(g => g.id);
     return {
-      version: 1, name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0,
+      version: 1, pets:normalizePetCare(value.pets), name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0, campaign:restoreCampaign(value.campaign), activities: normalizeActivities(value.activities), fieldwork: restoreFieldwork(value.fieldwork),
       mode: value.mode === "independent" ? "independent" : "guided", active, completed,
       goals: Array.isArray(value.goals) ? [...new Set<string>(value.goals.filter((id: unknown) => typeof id === "string" && validGoals.includes(id)))] : [],
       messages: Array.isArray(value.messages) ? value.messages.filter((m: Message) => m && (m.role === "student" || m.role === "npc") && typeof m.text === "string" && m.text.length <= 600 && Object.hasOwn(PLACES, m.place)).slice(-80) : [],
@@ -70,7 +74,7 @@ export function restoreProgress(raw: string | null): Progress {
   } catch { return freshProgress(); }
 }
 
-export function earnedXP(progress: Progress) { return progress.completed.reduce((sum, index) => sum + QUESTS[index].xp, 0); }
+export function earnedXP(progress: Progress) { return progress.completed.reduce((sum, index) => sum + QUESTS[index].xp, 0) + activityXP(progress.activities) + campaignXP(progress.campaign); }
 export function nextGoal(progress: Progress) { return QUESTS[progress.active].goals.find(g => !progress.goals.includes(g.id)); }
 
 export function evaluateTurn(progress: Progress, place: Place, input: string): { progress: Progress; reply: string; achieved: boolean; finished: boolean } {

@@ -1,0 +1,82 @@
+{
+  "scope": "Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.",
+  "playableAreaMetresSquared": 22776,
+  "roomAreas": [
+    {
+      "name": "NHÀ Ở HỌC VIÊN A",
+      "width": 12,
+      "depth": 8,
+      "area": 96
+    },
+    {
+      "name": "NHÀ Ở HỌC VIÊN B",
+      "width": 12,
+      "depth": 10,
+      "area": 120
+    },
+    {
+      "name": "PHÒNG HỌC A1",
+      "width": 15,
+      "depth": 10,
+      "area": 150
+    },
+    {
+      "name": "PHÒNG HỌC A2",
+      "width": 15,
+      "depth": 10,
+      "area": 150
+    },
+    {
+      "name": "PHÒNG TIN HỌC",
+      "width": 16,
+      "depth": 11,
+      "area": 176
+    },
+    {
+      "name": "PHÒNG NGOẠI NGỮ",
+      "width": 16,
+      "depth": 9,
+      "area": 144
+    },
+    {
+      "name": "NHÀ ĂN HỌC VIÊN",
+      "width": 16,
+      "depth": 12,
+      "area": 192
+    },
+    {
+      "name": "NHÀ ĐA NĂNG",
+      "width": 20,
+      "depth": 14,
+      "area": 280
+    },
+    {
+      "name": "NHÀ CHÒI ĐỌC SÁCH",
+      "width": 9,
+      "depth": 7,
+      "area": 63
+    }
+  ],
+  "zones": 16,
+  "workStations": 12,
+  "districtPracticeStations": 7,
+  "expandedDistrictObstacles": 65,
+  "namedDestinations": 42,
+  "orderedRoutes": 1722,
+  "solidFootprints": 260,
+  "sharedTrees": 110,
+  "circulationPaths": 36,
+  "productiveBeds": 8,
+  "productiveSoilArea": 135.27999999999997,
+  "farmAreaMetresSquared": 478.97,
+  "trainingBedAislesMetres": [
+    1.7000000000000002,
+    1.7000000000000002
+  ],
+  "gateWidthMetres": 3.2,
+  "gateHeadClearanceMetres": 0.56,
+  "farmFenceSegments": 5,
+  "farmSolidObjects": 31,
+  "failures": [],
+  "passed": true
+}

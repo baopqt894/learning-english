@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  MAP_BOUNDS,
+  MAP_BOUNDS, CORE_BUILDINGS,
   EXPLORATION_ZONES,
   MAP_OBSTACLES,
   EXPANSION_BUILDINGS,
@@ -11,12 +11,16 @@ import {
   findCampusPath,
 } from "../src/lib/campus-map.ts";
 
-test("expanded map gives approximately eight times the previous travel area", () => {
+test("expanded campus triples the previous campus area", () => {
   const area =
     (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) * (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ);
-  assert.ok(area / (25 * 20.6) > 8);
-  assert.equal(canWalkCampus(35, 29), true);
-  assert.equal(canWalkCampus(37, 0), false);
+  assert.ok(area / (72 * 60) >= 3);
+  assert.equal(canWalkCampus(35.5, 27), true);
+  // The relocated eastern tree remains a solid trunk outside the enlarged farm.
+  assert.equal(canWalkCampus(35.3, 18.2), true);
+  assert.equal(canWalkCampus(40.5,24),false);
+  assert.equal(canWalkCampus(37, 0), true);
+  assert.equal(canWalkCampus(MAP_BOUNDS.maxX,0),false);
   for (const b of MAP_OBSTACLES) assert.equal(canWalkCampus(b.x, b.z), false);
 });
 
@@ -58,8 +62,8 @@ test("routes go around the main school building and reject blocked targets", () 
     to = { x: 0, z: -18 };
   assert.equal(canWalkSegment(from, to), false);
   assert.ok(findCampusPath(from, to).length > 1);
-  assert.deepEqual(findCampusPath(from, { x: 0, z: -8.6 }), []);
-  assert.deepEqual(findCampusPath(from, { x: 100, z: 0 }), []);
+  assert.deepEqual(findCampusPath(from, {x:CORE_BUILDINGS[0].x,z:CORE_BUILDINGS[0].z}), []);
+  assert.deepEqual(findCampusPath(from, { x: MAP_BOUNDS.maxX+10, z: 0 }), []);
 });
 
 test("navigation can leave a valid fractional position beside furniture", () => {

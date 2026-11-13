@@ -1,0 +1,5 @@
+import {roomAction,roomSnapshot,RoomError} from '@/lib/competition-server';
+const headers={'Cache-Control':'no-store'};
+export async function GET(request:Request){try{const url=new URL(request.url);return Response.json({room:roomSnapshot(url.searchParams.get('code'),request.headers.get('x-race-token')??undefined)},{headers});}catch(e){return failure(e);}}
+export async function POST(request:Request){try{if(request.headers.get('sec-fetch-site')==='cross-site')return Response.json({error:'Use the game on the same server.'},{status:403,headers});if(Number(request.headers.get('content-length')??0)>8192)return Response.json({error:'Request too large.'},{status:413,headers});const body=await request.json();if(!body||typeof body!=='object'||Array.isArray(body))return Response.json({error:'Invalid request.'},{status:400,headers});return Response.json(roomAction(body),{headers});}catch(e){return failure(e);}}
+function failure(error:unknown){return Response.json({error:error instanceof RoomError?error.message:'The room could not be updated. Please try again.'},{status:error instanceof RoomError?error.status:400,headers});}

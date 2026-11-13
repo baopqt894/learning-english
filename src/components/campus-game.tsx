@@ -22,9 +22,21 @@ import {
   SCHOOL,
   type Place,
 } from "@/lib/game";
+import {CampaignJournal,CampaignTracker} from './campaign-journal';
+import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,hintStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
+import {nearStoryLocation,storyPosition} from '@/lib/campaign-locations';
 import { useProgress } from "@/lib/progress-store";
 import type { WorldHandle } from "./campus-world";
 import { CampusPhotoMode } from "./campus-photo-mode";
+import {PlacePractice} from "./place-practice";
+import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
+import {CompetitionArena,type CompetitionView} from "./competition-arena";
+import {type CompetitionId} from "@/lib/competition-catalog";
+
+import { FieldworkHud } from "./fieldwork-hud";
+import { freshFieldwork, nextWorkTask, reportWork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
+import { CampusActivities } from './campus-activities';
+import { ACTIVITIES, ACTIVITY_IDS, finishActivity, type ActivityId } from '@/lib/activities';
 import { Icon } from "./icon";
 import { NpcPortrait } from "./npc-portrait";
 import { CampusMap, mapPosition } from "./campus-map";
@@ -88,6 +100,30 @@ export function CampusGame() {
   const [avatar, setAvatar] = useState(0);
   const [retryCount,setRetryCount] = useState(0);
   const [reviewOpen,setReviewOpen] = useState(false);
+  const [storyOpen,setStoryOpen]=useState(false);
+  const [playerPosition,setPlayerPosition]=useState({x:0,z:6});
+  const storyReturn=useRef(false);
+  const campaign=progress.campaign||freshCampaign();
+  const storyIndex=storyChapterIndex(campaign);
+  const storyChapter=STORY_CHAPTERS[storyIndex];
+  const storyNearby=!!storyChapter&&nearStoryLocation(storyChapter.location,playerPosition);
+  const [activityOpen,setActivityOpen] = useState(false);
+  const [swimOpen,setSwimOpen]=useState(false);
+  const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
+  const [placePractice,setPlacePractice]=useState<{area:string;feeding?:PetId}|null>(null);
+  const [feedingPass,setFeedingPass]=useState<{station:string;expiresAt:number}|null>(null);
+  const [competitionInitial,setCompetitionInitial]=useState<CompetitionId>('swimming');
+  const enterCompetition=useCallback((mode:CompetitionId)=>worldRef.current?.enterCompetition(mode),[]);
+  const swimLaunch=useRef<HTMLButtonElement>(null);
+  const closeSwim=useCallback(()=>{setSwimOpen(false);setCompetitionView(null);requestAnimationFrame(()=>swimLaunch.current?.focus());},[]);
+  const [physicalWork,setPhysicalWork] = useState<WorkKind|null>(null);
+  const [workTool,setWorkTool] = useState<Tool>('hands');
+  const [studyTravel,setStudyTravel] = useState(false);
+  const [classStudy,setClassStudy] = useState(false);
+  const [atClassroom,setAtClassroom] = useState(false);
+  const [workFrame,setWorkFrame] = useState<WorkFrame>({near:false,busy:false,percent:0,message:''});
+  const updateWorkFrame=useCallback((f:WorkFrame)=>setWorkFrame(old=>old.near===f.near&&old.busy===f.busy&&old.percent===f.percent&&old.message===f.message?old:f),[]);
+  const [activityInitial,setActivityInitial] = useState<ActivityId|undefined>();
   const [reviewChoice,setReviewChoice] = useState<number | null>(null);
   const [turnFeedback,setTurnFeedback] = useState<"success" | "retry" | null>(null);
   const [conversationStart,setConversationStart] = useState(0);
@@ -168,6 +204,22 @@ export function CampusGame() {
       setNotice("Máy ảnh cần cảnh 3D. Chờ cảnh tải xong rồi thử lại.");
     }
   };
+  const openActivities = (id?:ActivityId) => {
+    recognitionRef.current?.abort(); stopSpeech(); setTalking(null); setTab('explore');
+    setActivityInitial(id); setActivityOpen(true);
+  };
+  const closeActivities = () => { window.speechSynthesis?.cancel(); setActivityOpen(false); setClassStudy(false); };
+  const leaveWork=()=>{worldRef.current?.viewWork(false);worldRef.current?.holdWork(false);setPhysicalWork(null);window.speechSynthesis?.cancel();if(storyReturn.current){storyReturn.current=false;setStoryOpen(true);}};
+  const beginFieldwork=(kind:WorkKind)=>{
+    if(!worldRef.current?.fieldworkAvailable()){closeActivities();setNotice('3D practice needs WebGL. Wait for the scene to load, or enable WebGL and reload.');return;}
+    worldRef.current.viewWork(false);
+    closeActivities();stopSpeech();setTalking(null);setTab('explore');setPhysicalWork(kind);setStudyTravel(false);setWorkTool('hands');
+    setWorkFrame({near:false,busy:false,percent:0,message:''});
+    const task=nextWorkTask(progress.fieldwork||freshFieldwork(),kind);
+    requestAnimationFrame(()=>worldRef.current?.goToWork(task?.station||(kind==='garden'?'garden-board':'duty-board')));
+  };
+  useEffect(()=>{if(!physicalWork)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape'){worldRef.current?.holdWork(false);window.speechSynthesis?.cancel();setPhysicalWork(null);if(storyReturn.current){storyReturn.current=false;setStoryOpen(true);}}};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[physicalWork]);
+
   const modalOpen =
     tab !== "explore" ||
     (ready && !progress.name) ||
@@ -175,7 +227,7 @@ export function CampusGame() {
     reward !== null ||
     retryReset ||
     artGallery ||
-    atlasOpen || reviewOpen || photoOpen;
+    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice;
   useEffect(() => {
     if (!notice || talking || modalOpen) return;
     const timer = window.setTimeout(() => setNotice(""), 4200);
@@ -209,7 +261,10 @@ export function CampusGame() {
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (photoOpen) closePhoto();
+        if(placePractice){setPlacePractice(null);}
+        else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
+        else if (activityOpen) { window.speechSynthesis?.cancel(); setActivityOpen(false); setClassStudy(false); }
+        else if (photoOpen) closePhoto();
         else if (reviewOpen) setReviewOpen(false);
         else if (atlasOpen) setAtlasOpen(false);
         else if (artGallery) setArtGallery(false);
@@ -237,9 +292,11 @@ export function CampusGame() {
       document.removeEventListener("keydown", trap);
       previousFocus?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice]);
 
   const updateMapPlayer = useCallback((x: number, z: number) => {
+    const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
+    setPlayerPosition(old=>old.x===x&&old.z===z?old:{x,z});
     const position = mapPosition(x, z);
     document
       .querySelectorAll<HTMLElement>(".campus-map-player")
@@ -257,8 +314,21 @@ export function CampusGame() {
     stopSpeech();
     worldRef.current?.goToZone(zoneId);
     setNotice(
-      `Đang đến ${zone.name.toLowerCase()} · ${zone.english}. Khám phá tự do; nhiệm vụ hội thoại vẫn ở ba nhân vật trung tâm.`,
+      `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
+  };
+
+  const travelStory=(location:StoryLocation)=>{
+    setStoryOpen(false);setAtlasOpen(false);setTalking(null);setTab('explore');stopSpeech();
+    requestAnimationFrame(()=>{if(Object.hasOwn(PLACES,location))worldRef.current?.goTo(location as Place);else worldRef.current?.goToZone(location as ZoneId);});
+    setNotice(`Follow the gold marker. Your English clue is at ${STORY_CHAPTERS.find(c=>c.location===location)?.place||location}.`);
+  };
+  const openStory=()=>{stopSpeech();setTalking(null);setTab('explore');setStoryOpen(true);};
+  const practicalStory=(chapter:StoryChapter)=>{
+    setStoryOpen(false);
+    if(chapter.proof==='garden'||chapter.proof==='duty'){storyReturn.current=true;beginFieldwork(chapter.proof);}
+    else if(chapter.proof!=='visit'){requestAnimationFrame(()=>worldRef.current?.goToPractice(chapter.proof as 'feed-chickens'|'feed-fish'|'balance'|'rescue-ring'));setNotice('Complete the marked 3D action, then reopen your mission to write the report.');}
+    else travelStory(chapter.location);
   };
 
   const toggleFullscreen = async () => {
@@ -490,23 +560,37 @@ export function CampusGame() {
   return (
     <div className={`campus-shell${talking ? " conversation-open" : ""}`}>
       <main className="campus-stage" aria-label="Khám phá khuôn viên">
-        <div className="scene-layer" inert={(modalOpen && !photoOpen) || !!talking}>
+        <div className="scene-layer" inert={(modalOpen && !photoOpen) || !!talking || swimOpen}>
           <World
             ref={worldRef}
+            swimOpen={!!competitionView}
+            competitionView={competitionView}
+            onCompetition={mode=>{setCompetitionInitial(mode);setSwimOpen(true);}}
             avatar={progress.avatar}
-            objective={goal?.place}
+            studying={classStudy}
+            pets={progress.pets}
+            feedingPass={feedingPass}
+            onFeedingQuiz={station=>{const pet=petForStation(station);if(pet)setPlacePractice(petStatus(progress.pets??{},pet).nextMealIn>0?{area:'livestock'}:{area:pet==='fish'?'fish-pond':'livestock',feeding:pet});}}
+            fieldwork={progress.fieldwork}
+            workKind={physicalWork}
+            workTool={workTool}
+            onWorkCommit={value=>saveProgress({...progress,fieldwork:value})}
+            onWorkFrame={updateWorkFrame}
+            objective={storyIndex<0?goal?.place:undefined}
+            storyTarget={storyChapter?storyPosition(storyChapter.location):undefined}
+            onDistrictComplete={id=>{const next=recordStoryEvent(campaign,id),pet=petForStation(id);let pets=progress.pets;if(pet&&feedingPass?.station===id&&feedingPass.expiresAt>Date.now()){pets=feedPet(pets??{},pet);setFeedingPass(null);}if(next!==campaign||pets!==progress.pets)saveProgress({...progress,campaign:next,pets});}}
             conversation={talking}
             speaking={speaking}
             highQuality={highQuality}
             photoMode={photoOpen}
-            enabled={!!progress.name && !modalOpen && !talking}
+            enabled={!!progress.name && !modalOpen && !talking && !swimOpen}
             onNear={setNear}
-            onInteract={openConversation}
+            onInteract={()=>{if(!physicalWork)openConversation();}}
             onMove={updateMapPlayer}
             onAreaChange={setAreaName}
           />
         </div>
-        {progress.name && !talking && !photoOpen && (
+        {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && (
           <div className={`campus-hud${mapVisible ? " hud-has-map" : ""}`} inert={modalOpen}>
             <div className="hud-left">
               <button className="player-badge" onClick={() => navigate("journey")} aria-label="Mở nhật ký và xem tiến độ">
@@ -517,39 +601,12 @@ export function CampusGame() {
                 </span>
                 <span className="player-journal" aria-hidden="true"><Icon name="book" size={16} /></span>
               </button>
-              <section className="quest-tracker" aria-label="Nhiệm vụ hiện tại">
-                <button className="quest-heading" onClick={() => navigate("journey")}>
-                  <Icon name={allDone ? "trophy" : "book"} size={18} />
-                  <strong lang={allDone ? "vi" : "en"}>{allDone ? "Đại sứ học đường" : questTitle}</strong>
-                  <span aria-label={`Nhiệm vụ ${allDone ? QUESTS.length : progress.active + 1} trên ${QUESTS.length}`}>
-                    {allDone ? QUESTS.length : progress.active + 1}/{QUESTS.length}
-                  </span>
-                </button>
-                {!allDone && (
-                  <div className="quest-progress" aria-label={`${progress.goals.length} trên ${quest.goals.length} mục tiêu hoàn thành`}>
-                    <span className="quest-progress-track" aria-hidden="true">
-                      {quest.goals.map((step) => (
-                        <i key={step.id} data-complete={progress.goals.includes(step.id)} data-current={goal?.id === step.id} />
-                      ))}
-                    </span>
-                    <small aria-hidden="true">{progress.goals.length}/{quest.goals.length} mục tiêu</small>
-                  </div>
-                )}
-                {goal ? (
-                  <button className="quest-waypoint" onClick={() => goTo(goal.place)}>
-                    <span className="quest-pin" aria-hidden="true" />
-                    <span className="waypoint-copy">
-                      <strong lang="en">{goal.label}</strong>
-                      <small>{PLACES[goal.place].npc} · {PLACES[goal.place].name}</small>
-                    </span>
-                    <Icon name="arrow" size={17} />
-                  </button>
-                ) : !allDone && (
-                  <button className="quest-waypoint" onClick={claim}>
-                    <span>Ôn nhanh và nhận XP</span><Icon name="arrow" size={18} />
-                  </button>
-                )}
-              </section>
+              <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
+              <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
+              <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
+              <button ref={swimLaunch} className="activities-launch swim-race-launch" lang="en" onClick={()=>setSwimOpen(true)}><Icon name="trophy" size={18}/>English competitions <small>5 games · Online</small><Icon name="arrow" size={16}/></button>
+              <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
+              {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
             </div>
 
             <div className="hud-right">
@@ -560,7 +617,7 @@ export function CampusGame() {
               </div>
               {mapVisible && (
                 <div className="hud-minimap">
-                  <CampusMap objective={goal?.place} near={near} onPlace={goTo} onZone={goToZone} />
+                  <CampusMap storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} onOpen={()=>setAtlasOpen(true)} />
                   <span className="minimap-north" aria-hidden="true">N</span>
                   <p className="minimap-area"><Icon name="target" size={14} />{areaName}</p>
                 </div>
@@ -650,6 +707,16 @@ export function CampusGame() {
           onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
         />
       )}
+      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??''}`} area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}} onExit={()=>setPlacePractice(null)} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})} onComplete={()=>{const pet=placePractice.feeding;if(pet){const status=petStatus(progress.pets??{},pet);if(status.nextMealIn>0){setNotice(`Next meal available in ${Math.ceil(status.nextMealIn/1000)} seconds.`);}else{setFeedingPass({station:PETS[pet].station,expiresAt:Date.now()+300000});requestAnimationFrame(()=>worldRef.current?.goToPractice(PETS[pet].station));setNotice('Food earned! Walk to the feeding point and hold E to feed your animals.');}}setPlacePractice(null);}}/>}
+      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} initial={competitionInitial} onView={setCompetitionView} onEnter={enterCompetition} onExit={closeSwim}/>}
+      {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveProgress(updated);return true;}}/>}
+      {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
+      {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
+        onAnswer={(chapter,word)=>{const result=answerStory(campaign,chapter,word,storyNearby);if(result.state!==campaign)saveProgress({...progress,campaign:result.state});return result.correct;}}
+        onHint={chapter=>saveProgress({...progress,campaign:hintStory(campaign,chapter)})}
+        onRetry={chapter=>saveProgress({...progress,campaign:retryStory(campaign,chapter)})}
+        onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
+      {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={beginFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setStudyTravel(true);goToZone('classrooms');}} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers)=>saveProgress(finishActivity(progress,id,answers))}/>}
 
       {tab === "menu" && (
         <div className="modal-backdrop">
@@ -659,6 +726,7 @@ export function CampusGame() {
             <button className="primary-button full-width" onClick={() => navigate("explore")}>Tiếp tục chơi <Icon name="arrow" size={18} /></button>
             <div className="pause-list">
               <button onClick={() => navigate("journey")}><Icon name="book" /> Nhật ký nhiệm vụ</button>
+              <button onClick={()=>openActivities()}><Icon name="leaf"/> Cadet activities · 3 hoạt động mới</button>
               <button onClick={() => navigate("teacher")}><Icon name="school" /> Góc giáo viên</button>
               <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> Hướng dẫn chơi</button>
               <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> Bộ sưu tập hình ảnh</button>
@@ -683,6 +751,7 @@ export function CampusGame() {
             <div className="journal-layout">
               <div className="journal-brief">
                 <h3 lang="en">{allDone ? "English Discovery Day" : questTitle}</h3>
+                <button className="activity-back" onClick={()=>openActivities()}>Cadet activities · Garden / Duty / English challenge <Icon name="arrow" size={16}/></button>
                 <p lang="en">{allDone ? "All missions complete." : quest.description}</p>
                 {!allDone && <>
                   <ol className="journal-goals" lang="en">
@@ -780,6 +849,7 @@ export function CampusGame() {
               </article>
             </div>
             <div className="teacher-grid">
+              <section className="panel teacher-settings"><h2>Hoạt động thực hành</h2><ul>{ACTIVITY_IDS.map(id=><li key={id}>{ACTIVITIES[id].title}: {progress.activities?.[id]?`${progress.activities[id]!.best}/100 · ${progress.activities[id]!.attempts} lượt · ${progress.activities[id]!.passed?'Đã qua':'Cần luyện thêm'}`:'Chưa làm'}</li>)}</ul></section>
               <section className="panel teacher-settings">
                 <h2>Thiết lập buổi luyện</h2>
                 <p>Chọn mức hỗ trợ phù hợp với học viên.</p>
@@ -886,7 +956,7 @@ export function CampusGame() {
             aria-labelledby="welcome-title"
           >
             <div className="welcome-photo" aria-hidden="true">
-              <Image src="/art/campus-keyart.png" alt="" fill sizes="(max-width: 620px) 1200px, 100vw" priority />
+              <Image src="/art/chibi-campus-keyart.png" alt="" fill sizes="(max-width: 620px) 1200px, 100vw" priority />
             </div>
             <div className="welcome-brand">
               <Icon name="compass" size={40} />
@@ -1103,7 +1173,7 @@ export function CampusGame() {
               <p>Chọn điểm đến để bắt đầu khám phá.</p>
             </div>
             <div className="atlas-content">
-              <CampusMap large objective={goal?.place} near={near} onPlace={goTo} onZone={goToZone} />
+              <CampusMap large storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} />
               <nav
                 className="atlas-destinations"
                 aria-label="Các khu vực trong trường"
@@ -1195,7 +1265,7 @@ export function CampusGame() {
                   type: "Sáu tranh ý tưởng nội thất",
                 },
                 {
-                  key: "campus-keyart",
+                  key: "chibi-campus-keyart",
                   title: "Một ngày mới ở Phân hiệu 1",
                   type: "Tranh ý tưởng khuôn viên",
                 },
@@ -1205,34 +1275,24 @@ export function CampusGame() {
                   type: "Phông cảnh",
                 },
                 {
-                  key: "minh-portrait",
+                  key: "chibi-minh-expressions",
                   title: "Minh · Bạn học hướng dẫn",
-                  type: "Chân dung nhân vật",
+                  type: "Bốn biểu cảm chibi",
                 },
                 {
-                  key: "linh-portrait",
+                  key: "chibi-linh",
                   title: "Linh · Học viên mới",
                   type: "Chân dung nhân vật",
                 },
                 {
-                  key: "lan-portrait",
+                  key: "chibi-lan-expressions",
                   title: "Cô Lan · Thư viện",
-                  type: "Chân dung nhân vật",
+                  type: "Bốn biểu cảm chibi",
                 },
                 {
-                  key: "hung-portrait",
+                  key: "chibi-hung-expressions",
                   title: "Chú Hùng · Căng tin",
-                  type: "Chân dung nhân vật",
-                },
-                {
-                  key: "cadet-walk",
-                  title: "An · Chu kỳ đi bộ 8 khung",
-                  type: "Hoạt ảnh nhân vật",
-                },
-                {
-                  key: "linh-walk",
-                  title: "Linh · Chu kỳ đi bộ 8 khung",
-                  type: "Hoạt ảnh nhân vật",
+                  type: "Bốn biểu cảm chibi",
                 },
                 {
                   key: "reward-atlas",

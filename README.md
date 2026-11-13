@@ -89,3 +89,11 @@ Tài liệu: [Next.js](https://nextjs.org/docs) · [Three.js](https://threejs.or
 The six missions now follow a shared event-preparation story. Each includes a communication goal, bilingual vocabulary, optional listening model, response feedback and a short review before collecting XP. The final mission returns to Minh to report on the team's book and picnic supplies. See `docs/learning-flow.md` for the complete flow and limitations.
 
 NPC portraits now use four static authored expressions per character. The previous mouth/eye deformation renderer has been removed. The new atlases are `public/art/{minh,lan,hung}-expressions.png`.
+
+## Online English competitions
+
+Open **English competitions** → choose a game → **Create online room**. Friends open the same server address, enter the room code and press **Join room** → **I’m ready**. The host starts; empty seats automatically become bots. Press **+** in the lobby to add a bot manually. **How to play** explains the complete flow.
+
+For devices on one LAN, run the app with an accessible hostname, for example `npm run dev -- --hostname 0.0.0.0`, and use the host computer’s LAN address on every device. `127.0.0.1` always refers to the device currently opening it. Rooms run in one Node process and clear on restart. See [the implementation and verification notes](docs/english-games-online.md).
+
+Every campus district also has **Practise English here**. Animal feeding requires its short English quiz, then the physical feeding action in the pen.

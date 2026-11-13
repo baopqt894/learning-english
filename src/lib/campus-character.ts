@@ -1,219 +1,143 @@
-import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { sculptLoft, sculptCadetHead, sculptCadetHair, sculptHairLock, type SculptRing } from './cadet-sculpt.ts';
+export type CharacterKind='cadet'|'linh'|'library'|'canteen';
 
-export type CharacterKind = "cadet" | "linh" | "library" | "canteen";
-
-/** Rounded, articulated figures based on the original CampusQuest character art. */
-export function createCampusCharacter(kind: CharacterKind, backpack = false) {
-  const group = new THREE.Group();
-  const body = new THREE.Group();
-  group.add(body);
-  const uniform = kind === "cadet" || kind === "linh";
-  const fabricCanvas = document.createElement("canvas");
-  fabricCanvas.width = fabricCanvas.height = 64;
-  const fabricContext = fabricCanvas.getContext("2d")!;
-  const pixels = fabricContext.createImageData(64, 64);
-  for (let y = 0; y < 64; y++) {
-    for (let x = 0; x < 64; x++) {
-      const warp = Math.sin(x * Math.PI / 2);
-      const weft = Math.sin(y * Math.PI / 2);
-      const weave = 216 + 10 * Math.max(warp, weft) + ((x * 17 + y * 31) % 9);
-      const i = (y * 64 + x) * 4;
-      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = weave;
-      pixels.data[i + 3] = 255;
-    }
-  }
-  fabricContext.putImageData(pixels, 0, 0);
-  const fabric = new THREE.CanvasTexture(fabricCanvas);
-  fabric.wrapS = fabric.wrapT = THREE.RepeatWrapping;
-  fabric.repeat.set(3, 4);
-  const materials = new Map<number, THREE.MeshStandardMaterial>();
-  const material = (color: number) => {
-    const cached = materials.get(color);
-    if (cached) return cached;
-    const textile = color === colors.cloth || color === colors.pants || color === 0x9b8354 || color === 0x806a42;
-    const surface = new THREE.MeshStandardMaterial({
-      color,
-      roughness: color === colors.skin ? 0.64 : color === colors.boots ? 0.53 : color === colors.gold ? 0.38 : 0.94,
-      metalness: color === colors.gold ? 0.4 : 0,
-      map: textile ? fabric : null,
-      bumpMap: textile ? fabric : null,
-      bumpScale: 0.025,
-    });
-    materials.set(color, surface);
-    return surface;
-  };
-  const colors = {
-    skin: 0xe7b58e, cheek: 0xd9a083, hair: 0x302a25,
-    cloth: uniform ? 0x58643a : kind === "library" ? 0x909477 : 0xbea875,
-    pants: uniform ? 0x454f30 : 0x4c4a36, boots: 0x343a29, gold: 0xc9a35d, red: 0xa84838,
-  };
-  const mesh = (geometry: THREE.BufferGeometry, color: number, parent: THREE.Object3D, x=0,y=0,z=0) => {
-    const result = new THREE.Mesh(geometry, material(color));
-    result.position.set(x,y,z);
-    result.castShadow = true;
-    result.receiveShadow = true;
-    parent.add(result);
-    return result;
-  };
-  const ellipsoid = (x:number,y:number,z:number,sx:number,sy:number,sz:number,color:number,parent:THREE.Object3D=body) => {
-    const result=mesh(new THREE.SphereGeometry(1,24,18),color,parent,x,y,z);
-    result.scale.set(sx,sy,sz);
-    return result;
-  };
-  const rounded = (w:number,h:number,d:number,color:number,parent:THREE.Object3D,x=0,y=0,z=0) => mesh(new RoundedBoxGeometry(w,h,d,3,Math.min(w,h,d)*.22),color,parent,x,y,z);
-  const capsule = (radius:number,length:number,color:number,parent:THREE.Object3D,x=0,y=0,z=0) => mesh(new THREE.CapsuleGeometry(radius,length,6,16),color,parent,x,y,z);
-  const curve = (points:THREE.Vector3[],radius:number,color:number,parent:THREE.Object3D) => mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),12,radius,6,false),color,parent);
-  const torso = mesh(new THREE.LatheGeometry([
-    new THREE.Vector2(.16,0),new THREE.Vector2(.205,.05),new THREE.Vector2(.21,.2),
-    new THREE.Vector2(.255,.44),new THREE.Vector2(.24,.51),new THREE.Vector2(.15,.56),
-  ],32),colors.cloth,body,0,.92,0);
-  torso.scale.z=.66;
-  capsule(.075,.1,colors.skin,body,0,1.52,0);
-  const leftLeg=new THREE.Group(),rightLeg=new THREE.Group();
-  leftLeg.position.set(-.115,.92,0); rightLeg.position.set(.115,.92,0);
-  body.add(leftLeg,rightLeg);
+/** Concept 01 proportions: about five head heights, a sculpted face and articulated cloth silhouettes. */
+export function createCampusCharacter(kind:CharacterKind,backpack=false){
+  const group=new THREE.Group(),body=new THREE.Group();group.add(body);
+  const uniform=kind==='cadet'||kind==='linh',female=kind==='linh'||kind==='library';
+  const colors={skin:0xeeb38a,hair:0x29251f,cloth:uniform?0x586542:0x71805b,pants:0x4e5b39,boots:0x423f30,gold:0xcda354,red:0xac4535};
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+  const ctx=canvas.getContext('2d')!,pixels=ctx.createImageData(128,128);
+  for(let i=0;i<128*128;i++){const x=i%128,y=Math.floor(i/128),v=223+Math.sin(x*Math.PI/2)*9+Math.cos(y*Math.PI/2)*7+((x*13+y*7)%7);pixels.data.set([v,v,v,255],i*4);}ctx.putImageData(pixels,0,0);
+  const fabric=new THREE.CanvasTexture(canvas);fabric.wrapS=fabric.wrapT=THREE.RepeatWrapping;fabric.repeat.set(2,2);
+  const materials=new Map<number,THREE.MeshStandardMaterial>();
+  function material(color:number){if(!materials.has(color)){const cloth=[colors.cloth,colors.pants,0x9b8354,0x806a42].includes(color);materials.set(color,new THREE.MeshStandardMaterial({color,roughness:color===colors.skin?.72:color===colors.gold?.47:.88,metalness:color===colors.gold?.22:0,map:cloth?fabric:null,bumpMap:cloth?fabric:null,bumpScale:.0035}));}return materials.get(color)!;}
+  const mesh=(geo:THREE.BufferGeometry,color:number,parent:THREE.Object3D,x=0,y=0,z=0)=>{const m=new THREE.Mesh(geo,material(color));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m;};
+  const oval=(x:number,y:number,z:number,sx:number,sy:number,sz:number,color:number,parent:THREE.Object3D=body)=>{const m=mesh(new THREE.SphereGeometry(1,24,16),color,parent,x,y,z);m.scale.set(sx,sy,sz);return m;};
+  const patch=(w:number,h:number,d:number,color:number,parent:THREE.Object3D,x=0,y=0,z=0)=>mesh(new RoundedBoxGeometry(w,h,d,3,Math.min(w,h,d)*.2),color,parent,x,y,z);
+  const line=(points:number[][],radius:number,color:number,parent:THREE.Object3D)=>mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p as [number,number,number]))),24,radius,6,false),color,parent);
+  const loft=(rings:SculptRing[],color:number,parent:THREE.Object3D,folds=0)=>mesh(sculptLoft(rings,32,40,folds),color,parent);
+  loft([{y:.87,x:.001,z:.001},{y:.9,x:.19,z:.126},{y:1.02,x:.197,z:.137},{y:1.17,x:.2,z:.14},{y:1.34,x:.235,z:.145},{y:1.46,x:.251,z:.137},{y:1.52,x:.21,z:.1},{y:1.56,x:.108,z:.088},{y:1.57,x:.001,z:.001}],colors.cloth,body,.017);
+  loft([{y:1.5,x:.077,z:.07},{y:1.66,x:.075,z:.069},{y:1.71,x:.098,z:.08}],colors.skin,body);
+  const leftLeg=new THREE.Group(),rightLeg=new THREE.Group();leftLeg.position.set(-.113,.92,0);rightLeg.position.set(.113,.92,0);body.add(leftLeg,rightLeg);
   const knees:THREE.Group[]=[];
-  for(const leg of [leftLeg,rightLeg]) {
-    capsule(.103,.26,colors.pants,leg,0,-.22,0);
-    const knee=new THREE.Group(); knee.position.y=-.43; leg.add(knee); knees.push(knee);
-    capsule(.086,.24,kind === "library" ? colors.skin : colors.pants,knee,0,-.17,0);
-    ellipsoid(0,-.39,.055,.092,.075,.17,colors.boots,knee);
-    rounded(.175,.028,.29,0x272d22,knee,0,-.445,.045);
+  for(const leg of [leftLeg,rightLeg]){
+    loft([{y:.035,x:.081,z:.091},{y:-.04,x:.104,z:.115},{y:-.18,x:.105,z:.1},{y:-.32,x:.092,z:.087},{y:-.44,x:.078,z:.076}],colors.pants,leg,.035);
+    const knee=new THREE.Group();knee.position.y=-.43;leg.add(knee);knees.push(knee);
+    loft([{y:.035,x:.079,z:.076},{y:-.08,x:.087,z:.084},{y:-.19,x:.076,z:.073},{y:-.29,x:.063,z:.06},{y:-.32,x:.064,z:.061}],kind==='library'?colors.skin:colors.pants,knee,.038);
+    const boot=loft([{y:-.27,x:.061,z:.065},{y:-.3,x:.07,z:.079},{y:-.35,x:.078,z:.117,cz:.025},{y:-.39,x:.085,z:.15,cz:.045},{y:-.43,x:.083,z:.151,cz:.046},{y:-.445,x:.076,z:.14,cz:.045}],colors.boots,knee);
+    boot.name='Sculpted lace-up boot';patch(.169,.024,.298,0x2b2d24,knee,0,-.448,.047);
+    for(let i=0;i<4;i++){const y=-.296-i*.024,z=.071+i*.015;line([[-.036,y,z],[.036,y-.018,z+.009]],.0035,0x93835c,knee);line([[.036,y,z],[-.036,y-.018,z+.009]],.0035,0x93835c,knee);}
+    patch(.09,.13,.012,colors.cloth,leg,.064,-.19,.072);
   }
-  if(kind === "library") {
-    const skirt=mesh(new THREE.CylinderGeometry(.21,.34,.48,32),0x796b55,body,0,.72,0);
-    skirt.scale.z=.7;
-    rounded(.23,.44,.025,0xe8dfc7,body,0,1.18,.155);
+  if(kind==='library')loft([{y:.98,x:.195,z:.14},{y:.8,x:.255,z:.16},{y:.56,x:.3,z:.19},{y:.55,x:.297,z:.187}],colors.pants,body,.025);
+  loft([{y:.94,x:.204,z:.14},{y:1,x:.203,z:.141}],0x45422e,body);
+  patch(.075,.055,.022,colors.gold,body,0,.97,.148);patch(.044,.026,.024,0x45422e,body,0,.97,.16);
+  for(const side of [-1,1]){
+    const collar=patch(.135,.142,.028,colors.cloth,body,side*.08,1.485,.112);collar.rotation.z=side*.44;collar.rotation.x=-.15;
+    const tab=patch(.071,.073,.008,colors.red,body,side*.098,1.465,.135);tab.rotation.z=side*.44;
+    if(uniform){patch(.112,.022,.142,colors.red,body,side*.218,1.515,-.005);oval(side*.219,1.532,.018,.009,.005,.009,colors.gold);}
+    patch(.139,.14,.02,colors.cloth,body,side*.124,1.285,.14);
+    patch(.145,.042,.026,0x626d47,body,side*.124,1.345,.149);
+    oval(side*.124,1.339,.166,.008,.008,.004,colors.gold);
+    line([[side*.124-.057,1.322,.153],[side*.124-.057,1.225,.155],[side*.124+.057,1.225,.155],[side*.124+.057,1.322,.153]],.0016,0x8b8f60,body);
   }
-  rounded(.425,.065,.285,0x3b3c2b,body,0,.96,0);
-  rounded(.07,.055,.022,colors.gold,body,0,.96,.15);
-  // Folded collars and red shoulder tabs preserve the original cadet uniform.
-  for(const side of [-1,1]) {
-    const collar=rounded(.13,.12,.035,uniform ? colors.cloth : 0xe5d7b7,body,side*.075,1.425,.13);
-    collar.rotation.z=side*.4;
-    if(uniform) {
-      rounded(.11,.065,.023,colors.red,body,side*.1,1.42,.151).rotation.z=side*.4;
-      rounded(.115,.024,.14,colors.red,body,side*.225,1.47,0);
-      ellipsoid(side*.215,1.49,.015,.012,.008,.012,colors.gold);
-      rounded(.14,.14,.018,colors.cloth,body,side*.128,1.24,.155);
-      rounded(.15,.03,.022,0x687449,body,side*.128,1.3,.17);
-      ellipsoid(side*.128,1.285,.186,.009,.009,.004,colors.gold);
-      curve([new THREE.Vector3(side*.128-.055,1.27,.173),new THREE.Vector3(side*.128-.055,1.18,.173),new THREE.Vector3(side*.128+.055,1.18,.173),new THREE.Vector3(side*.128+.055,1.27,.173)],.0025,0x899164,body);
-    }
-  }
-  for(let i=0;i<4;i++) ellipsoid(0,1.34-i*.09,.172,.012,.012,.007,colors.gold);
-  const leftArm=new THREE.Group(),rightArm=new THREE.Group();
-  leftArm.position.set(-.285,1.43,0); rightArm.position.set(.285,1.43,0);
-  body.add(leftArm,rightArm);
+  patch(.024,.4,.008,0x626d47,body,0,1.235,.151);
+  for(let i=0;i<5;i++)oval(0,1.432-i*.092,.162,.01,.01,.006,colors.gold);
+  const leftArm=new THREE.Group(),rightArm=new THREE.Group();leftArm.position.set(-.262,1.475,0);rightArm.position.set(.262,1.475,0);body.add(leftArm,rightArm);
   const elbows:THREE.Group[]=[];
-  for(const [i,arm] of [leftArm,rightArm].entries()) {
-    const side=i ? 1:-1;
-    capsule(.09,.19,colors.cloth,arm,0,-.13,0);
-    const elbow=new THREE.Group(); elbow.position.y=-.31; arm.add(elbow); elbows.push(elbow);
-    capsule(.068,.16,kind === "canteen" ? colors.skin : colors.cloth,elbow,0,-.105,0);
-    if(uniform) rounded(.13,.038,.13,0x687449,elbow,0,-.2,0);
-    ellipsoid(0,-.265,.015,.066,.09,.048,colors.skin,elbow);
-    // Separate thumb and fingers avoid the block hands of the previous model.
-    for(let f=0;f<4;f++) capsule(.012,.045,colors.skin,elbow,-.038+f*.024,-.33,.025);
-    capsule(.018,.045,colors.skin,elbow,side*.065,-.26,.035).rotation.z=side*.6;
-    arm.rotation.z=side*.07;
+  for(const [i,arm]of [leftArm,rightArm].entries()){
+    const side=i?1:-1;
+    loft([{y:.045,x:.001,z:.001},{y:.025,x:.073,z:.089},{y:-.07,x:.094,z:.101},{y:-.19,x:.084,z:.087},{y:-.315,x:.07,z:.073}],colors.cloth,arm,.038);
+    const elbow=new THREE.Group();elbow.position.y=-.31;arm.add(elbow);elbows.push(elbow);
+    loft([{y:.025,x:.072,z:.073},{y:-.04,x:.081,z:.08},{y:-.075,x:.077,z:.075},{y:-.088,x:.063,z:.065}],colors.cloth,elbow,.025);
+    loft([{y:-.081,x:.059,z:.061},{y:-.12,x:.057,z:.058},{y:-.2,x:.043,z:.047},{y:-.23,x:.04,z:.043}],colors.skin,elbow);
+    // One tapered palm surface; fingers follow its knuckles instead of floating spheres.
+    loft([{y:-.215,x:.038,z:.04},{y:-.25,x:.05,z:.037,cz:.005},{y:-.284,x:.047,z:.033,cz:.009},{y:-.305,x:.032,z:.027,cz:.012}],colors.skin,elbow);
+    for(let f=0;f<4;f++){const finger=loft([{y:-.28,x:.012,z:.015},{y:-.314,x:.012,z:.015,cz:.004},{y:-.341+Math.abs(f-1.5)*.008,x:.009,z:.012,cz:.01},{y:-.347+Math.abs(f-1.5)*.008,x:.001,z:.001,cz:.011}],colors.skin,elbow);finger.position.x=-.032+f*.022;}
+    const thumb=loft([{y:-.246,x:.019,z:.02},{y:-.271,x:.019,z:.019,cz:.014},{y:-.297,x:.011,z:.013,cz:.025},{y:-.303,x:.001,z:.001,cz:.027}],colors.skin,elbow);thumb.position.x=-side*.046;thumb.rotation.z=-side*.23;arm.rotation.z=side*.085;
   }
-  const head=new THREE.Group(); head.position.set(0,1.78,0); body.add(head);
-  ellipsoid(0,.025,0,.219,.255,.205,colors.skin,head);
-  ellipsoid(0,-.105,.04,.178,.14,.16,colors.skin,head);
-  ellipsoid(0,.16,-.045,.226,.17,.19,colors.hair,head);
-  ellipsoid(-.186,.04,-.047,.045,.15,.15,colors.hair,head);
-  ellipsoid(.19,.07,-.06,.043,.13,.13,colors.hair,head);
-  // Swept hair locks, sculpted along the forehead rather than a cubic hair cap.
-  for(let i=0;i<5;i++) {
-    const lock=ellipsoid(-.155+i*.067,.18-i*.015,.105,.075,.045,.115,colors.hair,head);
-    lock.rotation.z=-.35;
+  const head=new THREE.Group();head.position.set(0,1.84,0);head.scale.setScalar(.82);body.add(head);
+  const face=mesh(sculptCadetHead(),colors.skin,head);face.material=material(colors.skin).clone();face.material.vertexColors=true;face.material.color.setHex(0xffffff);
+  mesh(sculptCadetHair(female),colors.hair,head).material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.69,side:THREE.DoubleSide});
+  for(let i=0;i<5;i++){
+    const points=[[.12+i*.012,.17,.16],[.08-i*.017,.145,.219],[-.015-i*.026,.11-i*.004,.23],[-.065-i*.029,.076+i*.009,.207-i*.006]].map(p=>new THREE.Vector3(...p as [number,number,number]));
+    const lock=mesh(sculptHairLock(points,.025),colors.hair,head);lock.material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.7,side:THREE.DoubleSide});
   }
   const eyes:THREE.Group[]=[];
-  for(const side of [-1,1]) {
-    ellipsoid(side*.217,.015,0,.039,.065,.035,colors.skin,head);
-    ellipsoid(side*.22,.014,.025,.017,.032,.012,colors.cheek,head);
-    const eye=new THREE.Group(); eye.position.set(side*.086,.048,.187); head.add(eye); eyes.push(eye);
-    ellipsoid(0,0,0,.052,.032,.016,0xf7efdb,eye);
-    ellipsoid(side*-.004,-.002,.015,.023,.027,.008,0x63442b,eye);
-    ellipsoid(side*-.004,-.002,.022,.013,.022,.005,0x25281f,eye);
-    ellipsoid(-.008,.01,.027,.006,.007,.003,0xffffff,eye);
-    curve([new THREE.Vector3(side*.04,.105,.18),new THREE.Vector3(side*.086,.115,.192),new THREE.Vector3(side*.13,.105,.165)],.009,colors.hair,head);
-    ellipsoid(side*.13,-.045,.168,.041,.02,.008,colors.cheek,head);
+  for(const side of [-1,1]){
+    const ear=oval(side*.205,-.018,-.005,.033,.059,.029,colors.skin,head);ear.rotation.z=side*-.13;
+    oval(side*.219,-.014,.017,.013,.032,.009,0xd28b6b,head);
+    const eye=new THREE.Group();eye.position.set(side*.084,.024,.17);eye.rotation.y=side*.42;head.add(eye);eyes.push(eye);
+    oval(0,0,0,.045,.022,.012,0xf7eddc,eye);
+    oval(-side*.002,.001,.015,.028,.022,.005,0x926737,eye);
+    oval(-side*.002,.001,.021,.017,.019,.004,0x261e16,eye);
+    oval(-.007,.007,.026,.0055,.006,.002,0xffffff,eye);
+    line([[-.048,.002,.003],[-.032,.021,.012],[0,.027,.019],[.032,.02,.013],[.048,.001,.003]],female?.004:.003,0x5e382b,eye);
+    line([[-.045,-.003,.003],[-.022,-.023,.013],[.012,-.024,.016],[.044,-.005,.005]],.0022,0xc78f72,eye);
+    eye.scale.y=1.4;
+    line([[side*.043,.083,.178],[side*.079,.098,.18],[side*.124,.087,.151]],female?.007:.009,colors.hair,head);
+    // Nostrils sit on the integrated nose, never a separate button sphere.
+    oval(side*.017,-.039,.204,.005,.0025,.0025,0xac7659,head);
   }
-  ellipsoid(0,.005,.199,.03,.05,.036,colors.skin,head);
-  ellipsoid(0,-.024,.221,.041,.022,.023,colors.skin,head);
-  const mouth=new THREE.Group(); mouth.position.set(0,-.09,.189); head.add(mouth);
-  const mouthInner=ellipsoid(0,0,0,.055,.012,.012,0x6c3830,mouth);
-  const lowerLip=ellipsoid(0,-.012,.002,.052,.008,.012,0xba7c68,mouth);
-  const upperLip=ellipsoid(0,.01,.003,.054,.007,.011,0xc38a72,mouth);
-  const teeth=rounded(.073,.012,.007,0xf5ead7,mouth,0,.002,.014);
-  if(uniform) {
-    const cap=mesh(new THREE.CylinderGeometry(.235,.228,.105,32),colors.cloth,head,0,.247,-.012);
-    cap.scale.z=.88;
-    ellipsoid(0,.302,-.018,.225,.045,.195,0x657144,head);
-    const visor=ellipsoid(0,.214,.185,.202,.018,.116,0x424d2e,head); visor.rotation.x=-.1;
-    const badge=mesh(new THREE.CircleGeometry(.034,24),colors.red,head,0,.253,.2);
-    badge.rotation.x=.04;
-    const star=new THREE.Shape();
-    for(let i=0;i<10;i++) {const a=Math.PI/2+i*Math.PI/5,r=i%2 ? .011:.025; if(!i) star.moveTo(Math.cos(a)*r,Math.sin(a)*r); else star.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
-    star.closePath(); mesh(new THREE.ShapeGeometry(star),colors.gold,head,0,.253,.203);
-  } else if(kind === "library") {
-    ellipsoid(0,.02,-.19,.17,.145,.115,colors.hair,head);
-    ellipsoid(.18,-.02,-.08,.058,.18,.045,colors.hair,head).rotation.z=-.22;
-    for(const side of [-1,1]) {
-      const glasses=mesh(new THREE.TorusGeometry(.064,.006,6,28),0xb6a073,head,side*.087,.05,.214);
-      glasses.scale.y=.79;
+  line([[-.054,-.111,.17],[-.025,-.125,.185],[.012,-.127,.188],[.048,-.112,.174]],.004,0x8c5142,head);
+  line([[-.035,-.129,.183],[0,-.135,.188],[.031,-.129,.182]],.0035,0xd09074,head);
+  if(uniform){
+    const cap=loft([{y:.17,x:.218,z:.19,cz:-.02},{y:.185,x:.23,z:.202,cz:-.021},{y:.25,x:.228,z:.2,cz:-.035},{y:.294,x:.19,z:.174,cz:-.036},{y:.318,x:.1,z:.1,cz:-.038},{y:.325,x:.001,z:.001,cz:-.04}],colors.cloth,head,.012);
+    cap.name='Soft field cap';
+    const visor=oval(0,.176,.165,.212,.016,.12,0x4c5938,head);visor.rotation.x=-.12;
+    line([[-.19,.175,.2],[-.1,.163,.274],[.09,.164,.277],[.19,.175,.2]],.002,0x99a16a,head);
+    for(const a of [-.8,0,.8])line([[Math.sin(a)*.21,.184,Math.cos(a)*.195-.02],[Math.sin(a)*.205,.25,Math.cos(a)*.18-.03],[Math.sin(a)*.07,.316,Math.cos(a)*.07-.04]],.0015,0x82905e,head);
+    const star=new THREE.Shape();for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.01:.025;if(!i)star.moveTo(Math.cos(a)*r,Math.sin(a)*r);else star.lineTo(Math.cos(a)*r,Math.sin(a)*r);}star.closePath();mesh(new THREE.ShapeGeometry(star),colors.gold,head,0,.236,.177);
+  }
+  if(female){
+    const braid=new THREE.Group();braid.position.set(.14,-.035,-.12);braid.rotation.z=-.15;head.add(braid);
+    for(let i=0;i<8;i++)oval(Math.sin(i*Math.PI)*.016,-i*.045,-.01,.038-i*.002,.036,.032-i*.0015,colors.hair,braid);
+    patch(.057,.024,.05,colors.red,braid,0,-.29,-.01);
+  }
+  if(kind==='library'){
+    for(const side of [-1,1]){const glasses=mesh(new THREE.TorusGeometry(.055,.004,8,36),0x8c7857,head,side*.084,.027,.204);glasses.scale.y=.78;}patch(.048,.005,.009,0x8c7857,head,0,.03,.212);
+    patch(.18,.265,.06,0x536e50,leftArm,.06,-.36,.2);patch(.16,.24,.026,0xe1d3b0,leftArm,.06,-.36,.238);elbows[0].rotation.x=-.7;
+  }
+  if(kind==='canteen'){
+    const apron=loft([{y:.68,x:.21,z:.14},{y:.97,x:.22,z:.155},{y:1.29,x:.19,z:.15}],0x42593f,body);apron.position.z=.024;
+    for(const side of [-1,1])patch(.035,.49,.018,0x42593f,body,side*.16,1.29,.149).rotation.z=side*-.12;
+    for(const side of [-1,1])oval(side*.028,-.075,.19,.033,.01,.008,0x4b3829,head).rotation.z=side*.13;
+  }
+  if(backpack){
+    patch(.32,.4,.15,0x9b8354,body,0,1.24,-.185);patch(.275,.19,.06,0x806a42,body,0,1.13,-.273);
+    patch(.26,.025,.018,0x604e32,body,0,1.22,-.31);
+    for(const side of [-1,1]){patch(.042,.48,.027,0x9b8354,body,side*.176,1.28,.155).rotation.z=side*.08;patch(.037,.04,.014,colors.gold,body,side*.176,1.15,.174);}
+  }
+  // Bake the surfaces at each articulated pivot, keeping cloth texture and painted surfaces separate.
+  // Hands, face details and boot laces no longer each cost an individual draw call.
+  const painted=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.74});
+  const woven=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.89,map:fabric,bumpMap:fabric,bumpScale:.0035});
+  const obsoleteMaterials=new Set<THREE.Material>();
+  group.traverse(parent=>{
+    if(!(parent instanceof THREE.Group))return;
+    for(const textile of [false,true]){
+      const parts=parent.children.filter((o):o is THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>=>o instanceof THREE.Mesh&&o.material instanceof THREE.MeshStandardMaterial&&!!o.material.map===textile);
+      if(!parts.length)continue;
+      const geos=parts.map(o=>{o.updateMatrix();const geo=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();geo.applyMatrix4(o.matrix);const count=geo.attributes.position.count,values=new Float32Array(count*3),base=o.material.color;for(let i=0;i<count;i++){const tint=o.material.vertexColors&&geo.attributes.color?new THREE.Color().fromBufferAttribute(geo.attributes.color,i).multiply(base):base;tint.toArray(values,i*3);}geo.setAttribute('color',new THREE.BufferAttribute(values,3));return geo;});
+      const geometry=mergeGeometries(geos);geos.forEach(g=>g.dispose());if(!geometry)continue;
+      const surface=new THREE.Mesh(geometry,textile?woven:painted);surface.castShadow=surface.receiveShadow=true;
+      parts.forEach(o=>{o.removeFromParent();o.geometry.dispose();obsoleteMaterials.add(o.material);});parent.add(surface);
     }
-    rounded(.044,.006,.01,0xb6a073,head,0,.05,.22);
-    const books=new THREE.Group(); leftArm.add(books); books.position.set(.06,-.35,.21); books.rotation.z=-.15;
-    rounded(.19,.27,.065,0x4d6442,books); rounded(.16,.24,.025,0xe1d3b0,books,.01,0,.04);
-    elbows[0].rotation.x=-.7;
-  } else {
-    const apron=mesh(new THREE.LatheGeometry([new THREE.Vector2(.185,0),new THREE.Vector2(.225,.15),new THREE.Vector2(.24,.4),new THREE.Vector2(.17,.58)],32),0x455b3a,body,0,.75,.018);
-    apron.scale.z=.72;
-    for(const side of [-1,1]) rounded(.035,.49,.02,0x455b3a,body,side*.16,1.26,.155).rotation.z=side*-.12;
-    rounded(.19,.1,.02,0x536946,body,0,.94,.175);
-    for(const side of [-1,1]) ellipsoid(side*.033,-.055,.196,.044,.014,.013,0x4b3829,head).rotation.z=side*.1;
-  }
-  if(backpack) {
-    rounded(.33,.42,.17,0x9b8354,body,0,1.21,-.19);
-    rounded(.26,.19,.07,0x806a42,body,0,1.1,-.29);
-    rounded(.28,.027,.024,0x604e32,body,0,1.2,-.323);
-    rounded(.04,.04,.022,colors.gold,body,.11,1.178,-.337);
-    rounded(.12,.035,.045,0x594d31,body,0,1.438,-.224);
-    for(const side of [-1,1]) rounded(.045,.47,.035,0xb49a69,body,side*.185,1.22,.152).rotation.z=side*.08;
-  }
-  if(kind === "linh") for(const side of [-1,1]) ellipsoid(side*.15,-.035,-.16,.06,.18,.06,colors.hair,head);
-  return {group,body,head,leftLeg,rightLeg,leftArm,rightArm,knees,elbows,eyes,mouthInner,lowerLip,upperLip,teeth,kind};
+  });
+  obsoleteMaterials.forEach(m=>m.dispose());
+  return {group,body,head,leftLeg,rightLeg,leftArm,rightArm,knees,elbows,eyes,kind};
 }
-
 export type CampusCharacter=ReturnType<typeof createCampusCharacter>;
-
-/** Speech is approximate syllabic motion, gated by the actual utterance lifecycle. */
-export function animateCharacter(rig:CampusCharacter,time:number,speaking:boolean,reducedMotion:boolean) {
-  const syllable=speaking ? .25+.75*Math.abs(Math.sin(time*12.8)*Math.cos(time*4.7)) : 0;
-  rig.mouthInner.scale.y=1+syllable*3.3;
-  rig.lowerLip.position.y=-.012-syllable*.025;
-  rig.teeth.visible=syllable>.12;
-  rig.teeth.position.y=.003+syllable*.005;
-  if(reducedMotion) {
-    rig.body.position.y=0; rig.head.rotation.set(0,0,0);
-    rig.leftArm.rotation.x=0;rig.rightArm.rotation.x=0;rig.rightArm.rotation.z=.07;
-    rig.elbows[1].rotation.x=0;
-    rig.eyes.forEach(eye=>eye.scale.y=1);
-    return;
-  }
-  const blinkPhase=time%4.9;
-  const blink=blinkPhase<.15 ? 1-Math.sin(blinkPhase/.15*Math.PI)*.96 : 1;
-  rig.eyes.forEach(eye=>eye.scale.y=blink);
-  rig.body.position.y=Math.sin(time*1.6)*.008;
-  rig.head.rotation.x=speaking ? Math.sin(time*2.3)*.035 : Math.sin(time*.8)*.012;
-  rig.head.rotation.y=Math.sin(time*.6)*.025;
-  rig.head.rotation.z=Math.sin(time*.9)*.018;
-  rig.rightArm.rotation.z=speaking ? -.16-Math.sin(time*1.4)*.06 : .07;
-  rig.rightArm.rotation.x=speaking ? -.18-Math.sin(time*2)*.12 : Math.sin(time)*.025;
-  rig.elbows[1].rotation.x=speaking ? -.55-Math.sin(time*1.4)*.18 : -.06;
-  if(rig.kind!=="library") rig.elbows[0].rotation.x=speaking ? -.15-Math.sin(time*1.3)*.1 : -.05;
+export function animateCharacter(rig:CampusCharacter,time:number,speaking:boolean,reducedMotion:boolean){
+  const t=reducedMotion?0:time,phase=t%4.9,blink=!reducedMotion&&phase<.15?1-Math.sin(phase/.15*Math.PI)*.96:1;
+  rig.eyes.forEach(eye=>eye.scale.y=1.4*blink);rig.body.position.y=Math.sin(t*1.6)*.006;
+  rig.head.rotation.set(speaking?Math.sin(t*2.3)*.025:Math.sin(t*.8)*.009,Math.sin(t*.6)*.02,Math.sin(t*.9)*.012);
+  rig.rightArm.rotation.z=speaking?-.12-Math.sin(t*1.4)*.05:.085;
+  rig.rightArm.rotation.x=speaking?-.18-Math.sin(t*2)*.09:Math.sin(t)*.02;
+  rig.elbows[1].rotation.x=speaking?-.55-Math.sin(t*1.4)*.14:-.06;
+  if(rig.kind!=='library')rig.elbows[0].rotation.x=speaking?-.15-Math.sin(t*1.3)*.08:-.05;
 }

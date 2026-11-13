@@ -122,9 +122,9 @@
   width: 46px;
   height: 48px;
   border-radius: 5px;
-  background: #afbd8c url("/art/minh-portrait.png") center 8% / 146% auto no-repeat;
+  background: #afbd8c url("/art/chibi-minh-expressions.png") 15% 0 / 350% auto no-repeat;
 }
-.cadet-portrait.avatar-1 { background-image: url("/art/linh-portrait.png"); }
+.cadet-portrait.avatar-1 { background-image: url("/art/chibi-linh.png"); background-position: center 8%; background-size: 145% auto; }
 .cadet-portrait.avatar-small { width: 36px; height: 36px; }
 .quest-tracker {
   margin-top: 10px;
@@ -528,6 +528,17 @@
 .campus-shell .earned-badge { color: var(--accent); background: var(--deep); border-color: var(--line); }
 .campus-shell .reward-modal h2 { margin-right: 0; }
 .campus-shell .campus-atlas { width: min(100%, 1000px); }
+.campus-shell .atlas-backdrop { grid-template-columns: minmax(0, 1fr); }
+.campus-shell .campus-atlas { justify-self: center; }
+.campus-shell .atlas-compass { inset: 12px auto auto 12px; }
+.campus-shell .campus-map-large .campus-map-pin > span { visibility: hidden; }
+.campus-shell .campus-map-large .campus-map-pin:is(:hover,:focus-visible) { z-index: 6; }
+.campus-shell .campus-map-large .campus-map-pin:is(:hover,:focus-visible) > span { visibility: visible; }
+@media (max-width: 1000px) {
+  .campus-shell .atlas-content { grid-template-columns: minmax(0, 1fr); }
+  .campus-shell .atlas-destinations { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); max-height: none; }
+  .campus-shell .atlas-caption { grid-column: 1 / -1; }
+}
 .campus-shell :is(.atlas-heading,.atlas-footer,.atlas-destinations) { background: var(--surface); }
 .campus-shell .atlas-heading h2 { font-family: inherit; margin-bottom: 5px; }
 .campus-shell .atlas-heading > p:last-child { color: var(--muted); font-size: 13px; }
@@ -559,7 +570,7 @@
   .campus-shell .welcome-photo img { object-position: 48% center; }
   .welcome-brand h1 { font-size: clamp(32px, 9.5vw, 54px); margin: 4px 0; }
   .welcome-brand > svg { width: 28px; height: 28px; }
-  .npc-stage-portrait { width: 100%; height: 62dvh; bottom: 23dvh; right: -12vw; }
+  .npc-stage-portrait { width: 100%; height: 62dvh; bottom: 23dvh; right: 0; }
   .encounter-caption { max-height: min(67dvh, calc(100dvh - var(--top) - var(--bottom) - 52px)); }
   .encounter-speaker > div > span { font-size: 11px; }
   .encounter-form button > span { display: none; }
@@ -578,3 +589,17 @@
 @media (prefers-reduced-motion: reduce) {
   .campus-shell *, .campus-shell *::before, .campus-shell *::after { animation: none; transition: none; scroll-behavior: auto; }
 }
+
+.campus-shell .district-prompt { position: absolute; z-index: 7; bottom: 86px; left: 50%; translate: -50% 0; width: min(380px, calc(100% - 32px)); padding: 16px; background: #19372ef5; color: #f1e8ce; border-radius: 12px; box-shadow: 0 8px 30px #122c2840; pointer-events: auto; }
+.district-prompt-heading { display: flex; gap: 14px; align-items: baseline; justify-content: space-between; }
+.district-prompt-heading strong { font-size: 16px; }.district-prompt-heading span { color: #e7c77e; font-size: 12px; font-variant-numeric: tabular-nums; }
+.campus-shell .district-prompt p { margin: 8px 0; color: #cbd8c2; font-size: 12px; line-height: 1.5; }
+.campus-shell .district-prompt blockquote { margin: 12px 0; font-size: 14px; line-height: 1.5; color: #f1e8ce; }
+.campus-shell .district-hold { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 44px; border: 0; border-radius: 6px; color: #192f26; background: linear-gradient(to right,#f0d697 var(--action-progress),#c9b77f var(--action-progress)); font-size: 13px; font-weight: 650; touch-action: none; user-select: none; }
+.district-hold kbd { font: inherit; font-size: 10px; padding: 2px 5px; border: 1px solid currentColor; border-radius: 3px; }.district-hold:focus-visible { outline: 3px solid #f8e8b5; outline-offset: 4px; }
+.campus-shell .district-prompt > small { display: block; margin-top: 9px; color: #b8ccb3; font-size: 10px; line-height: 1.5; }
+.campus-shell .district-world-label { border-color: #d5bc7d; background: #2b4938ef; color: #f3e6c2; }
+@media(max-width:620px) { .campus-shell .district-prompt { bottom: 146px; padding: 12px; }.campus-shell .district-prompt blockquote { margin: 8px 0; }.campus-shell .district-prompt > small { font-size: 10px; } }
+.campus-shell .minimap-open { position: absolute; inset: 0; z-index: 7; width: 100%; height: 100%; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }.campus-shell .minimap-open:focus-visible { outline: 3px solid #efce81; outline-offset: -3px; }
+@media(max-width:620px) { .campus-shell .campus-map-large .campus-map-pin { width: 20px; height: 20px; border-width: 1px; }.campus-shell .campus-map-large .campus-map-pin svg { width: 12px; height: 12px; } }
+.campus-shell .district-listen { display: inline-flex; align-items: center; gap: 5px; margin-left: 9px; padding: 5px 7px; min-height: 32px; border: 1px solid #7c926d; border-radius: 4px; color: #ead398; background: #294837; font-size: 11px; vertical-align: middle; }.district-listen:focus-visible { outline: 3px solid #efce81; outline-offset: 2px; }

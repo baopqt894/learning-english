@@ -1,7 +1,7 @@
 /* Cartography, gallery and supplemental game screens. */
 .campus-map-art {
   position: relative;
-  aspect-ratio: 6/5;
+  aspect-ratio: 156/146;
   width: 100%;
   margin: 12px 0 9px;
   border: 1px solid #c6b67b9c;
@@ -470,15 +470,15 @@
   object-fit: contain;
   object-position: 50% 15%;
 }
-.gallery-campus-keyart,
+.gallery-chibi-campus-keyart,
 .gallery-highlands-horizon {
   grid-column: span 2;
 }
-.gallery-campus-keyart > div,
+.gallery-chibi-campus-keyart > div,
 .gallery-highlands-horizon > div {
   height: 245px;
 }
-.gallery-campus-keyart img,
+.gallery-chibi-campus-keyart img,
 .gallery-highlands-horizon img,
 .gallery-courtyard-paving img {
   object-fit: cover;
@@ -573,11 +573,11 @@
   .art-gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .gallery-campus-keyart,
+  .gallery-chibi-campus-keyart,
   .gallery-highlands-horizon {
     grid-column: auto;
   }
-  .gallery-campus-keyart > div,
+  .gallery-chibi-campus-keyart > div,
   .gallery-highlands-horizon > div {
     height: 195px;
   }
@@ -623,11 +623,11 @@
   .gallery-card > div {
     height: 150px;
   }
-  .gallery-campus-keyart,
+  .gallery-chibi-campus-keyart,
   .gallery-highlands-horizon {
     grid-column: span 2;
   }
-  .gallery-campus-keyart > div,
+  .gallery-chibi-campus-keyart > div,
   .gallery-highlands-horizon > div {
     height: 180px;
   }

@@ -3,6 +3,7 @@ import "./globals.css";
 import "./game.css";
 import "./campus-ui.css";
 import "./campus-photo.css";
+import "./activities.css";
 
 export const metadata: Metadata = {
   title: "CampusQuest AI | Phân hiệu 1 – Trường Thiếu sinh quân miền Trung",

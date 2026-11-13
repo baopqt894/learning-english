@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { seededRandom } from "./campus-surfaces";
+import { seededRandom } from "./campus-surfaces.ts";
 
 type Roof = { x: number; y: number; z: number; width: number; run: number; rise: number; color: number; metal: boolean };
 
@@ -30,7 +30,7 @@ function curvedTile(metal: boolean) {
 }
 
 /** Each tile has curved geometry and individual firing/weathering variation. */
-export function addCampusRoofs(scene: THREE.Scene, roofs: Roof[], clay: THREE.MeshStandardMaterial) {
+export function addCampusRoofs(scene: THREE.Object3D, roofs: Roof[], clay: THREE.MeshStandardMaterial) {
   const random = seededRandom(32019);
   for (const metal of [false, true]) {
     const panels = roofs.filter((roof) => roof.metal === metal);
