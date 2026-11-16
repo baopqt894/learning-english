@@ -1,3 +1,4 @@
+import { SPORTS_OBSTACLES } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
 import { FARM_LAYOUT, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
 import { WORK_OBSTACLES } from './fieldwork.ts';
@@ -250,7 +251,7 @@ export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.k
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
-  {x:85,z:-30.5,w:2,d:.7},{x:-11,z:-64.8,w:2,d:.7},{x:38.9,z:22.2,w:1.6,d:.6},
+  ...SPORTS_OBSTACLES,
   ...CORE_FRONT_FIXTURES, ...ROOM_EXHIBITS,
   ...ROOM_FIXTURES,
   ...DISTRICT_OBSTACLES,

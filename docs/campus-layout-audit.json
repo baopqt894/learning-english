@@ -1,6 +1,6 @@
 {
   "scope": "Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.",
-  "playableAreaMetresSquared": 22776,
+  "playableAreaMetresSquared": 24180,
   "roomAreas": [
     {
       "name": "NHÀ Ở HỌC VIÊN A",
@@ -58,14 +58,55 @@
     }
   ],
   "zones": 16,
+  "sportsRegistration": [
+    {
+      "id": "pool",
+      "approach": {
+        "x": 83,
+        "z": -32.45
+      },
+      "desk": {
+        "x": 83,
+        "z": -34.8,
+        "w": 4.2,
+        "d": 1.35
+      }
+    },
+    {
+      "id": "track",
+      "approach": {
+        "x": -16,
+        "z": -63
+      },
+      "desk": {
+        "x": -16,
+        "z": -65.15,
+        "w": 4.2,
+        "d": 1.35
+      }
+    },
+    {
+      "id": "field",
+      "approach": {
+        "x": 40,
+        "z": 20
+      },
+      "desk": {
+        "x": 40,
+        "z": 21.9,
+        "w": 3.4,
+        "d": 1.15
+      }
+    }
+  ],
   "workStations": 12,
   "districtPracticeStations": 7,
   "expandedDistrictObstacles": 65,
   "namedDestinations": 42,
   "orderedRoutes": 1722,
-  "solidFootprints": 260,
+  "solidFootprints": 268,
   "sharedTrees": 110,
-  "circulationPaths": 36,
+  "circulationPaths": 38,
   "productiveBeds": 8,
   "productiveSoilArea": 135.27999999999997,
   "farmAreaMetresSquared": 478.97,

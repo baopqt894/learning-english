@@ -44,7 +44,7 @@ export function createSwimRaceScene(scene:THREE.Scene){
    swimmers.forEach((s,i)=>{
     s.group.visible=s.wake.visible=i<count;if(i>=count)return;
     const distance=distances[i]||0,moving=!paused&&distance<SWIM_DISTANCE&&distance>lastDistances[i]+.00001;
-    const z=pool.z-pool.d/2+1.5+s.lane*3;
+    const z=pool.z+(s.lane-2.5)*pool.d/4;
     s.group.position.set(startX+distance,.26,z);s.wake.position.copy(s.group.position);s.wake.position.y=.245;
     const cycle=reduced?0:time*5.5+i*1.8;
     for(let side=0;side<2;side++){

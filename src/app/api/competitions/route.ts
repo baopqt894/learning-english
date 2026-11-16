@@ -1,5 +1,41 @@
-import {roomAction,roomSnapshot,RoomError} from '@/lib/competition-server';
-const headers={'Cache-Control':'no-store'};
-export async function GET(request:Request){try{const url=new URL(request.url);return Response.json({room:roomSnapshot(url.searchParams.get('code'),request.headers.get('x-race-token')??undefined)},{headers});}catch(e){return failure(e);}}
-export async function POST(request:Request){try{if(request.headers.get('sec-fetch-site')==='cross-site')return Response.json({error:'Use the game on the same server.'},{status:403,headers});if(Number(request.headers.get('content-length')??0)>8192)return Response.json({error:'Request too large.'},{status:413,headers});const body=await request.json();if(!body||typeof body!=='object'||Array.isArray(body))return Response.json({error:'Invalid request.'},{status:400,headers});return Response.json(roomAction(body),{headers});}catch(e){return failure(e);}}
-function failure(error:unknown){return Response.json({error:error instanceof RoomError?error.message:'The room could not be updated. Please try again.'},{status:error instanceof RoomError?error.status:400,headers});}
+import { NextRequest } from 'next/server';
+import { ACCOUNT_COOKIE, signedInAccount } from '@/lib/account-server';
+import { competitionBoard, recordFinishedPractice, roomAction, roomSnapshot, RoomError } from '@/lib/competition-server';
+
+const headers = { 'Cache-Control': 'no-store' };
+const json = (body: unknown, status = 200) => Response.json(body, { headers, status });
+
+async function playerAccount(request: NextRequest) {
+  const account = await signedInAccount(request.cookies.get(ACCOUNT_COOKIE)?.value);
+  if (!account) throw new RoomError('Sign in to play and view campus records.', 401);
+  return account;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const account = await playerAccount(request), query = request.nextUrl.searchParams;
+    if (query.has('records')) return json(await competitionBoard(query.get('mode'), query.get('difficulty'), account.id));
+    const token = request.headers.get('x-race-token');
+    if (!token) throw new RoomError('Your seat token is required.', 401);
+    const room = roomSnapshot(query.get('code'), token, Date.now(), account.id);
+    return json({ room: await recordFinishedPractice(room) });
+  } catch (error) { return failure(error); }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (['cross-site', 'same-site'].includes(request.headers.get('sec-fetch-site') ?? '')) return json({ error: 'Use the game on the same server.' }, 403);
+    if (Number(request.headers.get('content-length') ?? 0) > 8192) return json({ error: 'Request too large.' }, 413);
+    const account = await playerAccount(request);
+    const body = await request.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid request.' }, 400);
+    const packet = roomAction(body, Date.now(), account.id);
+    return json({ ...packet, room: await recordFinishedPractice(packet.room) });
+  } catch (error) { return failure(error); }
+}
+
+function failure(error: unknown) {
+  if (error instanceof RoomError) return json({ error: error.message }, error.status);
+  if (error instanceof SyntaxError) return json({ error: 'Invalid request.' }, 400);
+  return json({ error: 'The race service is temporarily unavailable. Please try again.' }, 503);
+}

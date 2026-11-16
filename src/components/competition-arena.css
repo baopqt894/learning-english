@@ -1,2 +1,100 @@
-.competition-arena:not(:has(.swim-standings)) .competition-hub{width:min(600px,calc(100% - 24px));max-height:calc(100% - 115px);bottom:12px}.competition-name,.competition-join label{display:grid;gap:7px;font-size:12px;font-weight:600}.competition-arena input{width:100%;border:1px solid #8fa38a;border-radius:7px;padding:10px 12px;background:#f6f1de;color:#18352a;font:inherit;min-height:44px}.competition-arena input:focus-visible{outline:3px solid #efc66f;outline-offset:2px}.competition-list{display:grid;gap:6px;margin:14px 0}.competition-list button{display:flex;align-items:center;gap:13px;text-align:left}.competition-list button span{display:grid;gap:4px;flex:1}.competition-list small{font-size:11px;color:#cddcc7}.competition-list .is-selected{background:#3c6047;border-color:#e7c775}.competition-travel-note{font-size:12px}.competition-join{border-top:1px solid #63816b;margin-top:18px;padding-top:16px;display:flex;align-items:end;gap:8px}.competition-join label{flex:1}.competition-join input{letter-spacing:.16em}.competition-error{position:absolute;z-index:2;top:100px;left:12px;right:12px;padding:10px 14px;border-radius:8px;background:#6c3c2c;color:#fff2da;pointer-events:auto}.competition-error span{display:block}.competition-room-code{display:flex;justify-content:space-between;align-items:center}.competition-room-code>div{display:grid;gap:5px}.competition-room-code small{color:#d3dfc7}.competition-room-code strong{font-size:30px;letter-spacing:.12em}.competition-seats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}.competition-seat{position:relative;padding:13px 32px 13px 12px;background:#29493a;border-radius:9px;min-height:82px;display:grid;grid-template-columns:30px 1fr;align-items:center;gap:4px 8px}.competition-seat>span{width:28px;height:28px;border-radius:50%;color:#173829;text-align:center;line-height:28px;font-weight:bold;grid-row:span 2}.competition-seat small{font-size:10px;color:#dce8cb}.competition-seat>button{position:absolute;top:7px;right:5px;padding:2px;min-height:28px;width:28px;border:0;background:none}.competition-add-bot{min-height:82px!important;display:flex;justify-content:center;align-items:center;gap:12px;border-style:dashed!important}.competition-help ol{line-height:1.65;padding-left:22px}.competition-help li{margin:9px 0}.competition-lobby .swim-result-actions{align-items:center;flex-wrap:wrap}.competition-lobby .swim-result-actions>span{font-size:12px;color:#d1dfc6}.competition-seat strong{font-size:13px;overflow-wrap:anywhere}
-@media(max-width:600px){.competition-hub{padding:14px}.competition-list button{padding:9px 11px}.competition-seats{gap:6px}.competition-seat{padding:11px 26px 11px 8px;grid-template-columns:24px 1fr;gap:4px}.competition-seat>span{width:23px;height:23px;line-height:23px}.competition-seat strong{font-size:12px}.competition-room-code strong{font-size:26px}.competition-lobby{padding:15px}.competition-lobby .swim-result-actions{display:grid;grid-template-columns:1fr}.competition-add-bot{padding:8px!important;gap:6px}.competition-arena .swim-result-actions{gap:6px}}
+.competition-name,.competition-join label{display:grid;gap:7px;font-size:12px;font-weight:600}
+.competition-arena input{width:100%;border:1px solid #8fa38a;border-radius:7px;padding:10px 12px;background:#f6f1de;color:#18352a;font:inherit;min-height:44px}
+.competition-arena input:focus-visible{outline:3px solid #efc66f;outline-offset:2px}
+.competition-join{border-top:1px solid #63816b;margin-top:18px;padding-top:16px;display:flex;align-items:end;gap:8px}
+.competition-join label{flex:1}
+.competition-join input{letter-spacing:.16em}
+.competition-error{position:absolute;z-index:2;top:100px;left:12px;right:12px;padding:10px 14px;border-radius:8px;background:#6c3c2c;color:#fff2da;pointer-events:auto}
+.competition-room-code{display:flex;justify-content:space-between;align-items:center}
+.competition-room-code>div{display:grid;gap:5px}
+.competition-room-code small{color:#d3dfc7}
+.competition-room-code strong{font-size:30px;letter-spacing:.12em}
+.competition-seats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.competition-seat{position:relative;padding:13px 32px 13px 12px;background:#29493a;border-radius:9px;min-height:82px;display:grid;grid-template-columns:30px 1fr;align-items:center;gap:4px 8px}
+.competition-seat>span{width:28px;height:28px;border-radius:50%;color:#173829;text-align:center;line-height:28px;font-weight:bold;grid-row:span 2}
+.competition-seat small{font-size:10px;color:#dce8cb}
+.competition-seat>button{position:absolute;top:7px;right:5px;padding:2px;min-height:28px;width:28px;border:0;background:none}
+.competition-add-bot{min-height:82px!important;display:flex;justify-content:center;align-items:center;gap:12px;border-style:dashed!important}
+.competition-help ol{line-height:1.65;padding-left:22px}
+.competition-help li{margin:9px 0}
+.competition-lobby .swim-result-actions{align-items:center;flex-wrap:wrap}
+.competition-lobby .swim-result-actions>span{font-size:12px;color:#d1dfc6}
+.competition-seat strong{font-size:13px;overflow-wrap:anywhere}
+@media(max-width:600px){.competition-seats{gap:6px}
+.competition-seat{padding:11px 26px 11px 8px;grid-template-columns:24px 1fr;gap:4px}
+.competition-seat>span{width:23px;height:23px;line-height:23px}
+.competition-seat strong{font-size:12px}
+.competition-room-code strong{font-size:26px}
+.competition-lobby{padding:15px}
+.competition-lobby .swim-result-actions{display:grid;grid-template-columns:1fr}
+.competition-add-bot{padding:8px!important;gap:6px}
+.competition-arena .swim-result-actions{gap:6px}}
+
+.competition-desk {
+  left: auto;
+  right: clamp(12px, 3vw, 44px);
+  bottom: clamp(12px, 4vw, 36px);
+  width: min(480px,calc(100% - 24px));
+  max-height: calc(100% - 112px);
+  transform: none;
+}
+.at-registration .swim-header { left: clamp(12px, 3vw, 44px); right: clamp(12px, 3vw, 44px); }
+.competition-desk fieldset { border: 0; padding: 0; margin: 0 0 13px; min-inline-size: 0; }
+.competition-desk legend, .race-level, .competition-name { font-size: .82rem; font-weight: 700; color: #f8efda; }
+.competition-desk legend { margin-bottom: 6px; padding: 0; }
+.race-event-picker, .race-format-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.race-event-picker button, .race-format-picker button { display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; }
+.race-event-picker button:only-of-type { grid-column: 1 / -1; }
+.race-event-picker button span { flex: 1; min-width: 0; }
+.race-event-picker small { display: block; margin-top: 3px; color: #d8e6d0; font-size: .74rem; }
+.race-event-picker button[aria-pressed=true], .race-format-picker button[aria-pressed=true] { border-color: #f0cb82; background: #395743; }
+.competition-arena select {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 7px 12px;
+  border: 1px solid #9ea891;
+  border-radius: 7px;
+  background: #f5ecd6;
+  color: #17382d;
+  font: inherit;
+}
+.competition-arena select:focus-visible { outline: 2px solid #f5d394; outline-offset: 2px; }
+.competition-arena .level-note { color: #cddfc8; font-size: .76rem; margin: 5px 0 11px; }
+.competition-arena .race-inline-error { color: #ffceb7; background: #683d31; padding: 7px 10px; border-radius: 6px; }
+.competition-desk .swim-result-actions, .swim-results .swim-result-actions { flex-wrap: wrap; }
+.competition-desk .swim-result-actions > button, .swim-results .swim-result-actions > button { flex: 1; justify-content: center; white-space: nowrap; }
+.competition-desk .resume-race { margin-top: 10px; }
+.competition-records { max-width: 540px; font-variant-numeric: tabular-nums; }
+.record-personal { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: #29483b; border-radius: 7px; }
+.record-personal strong, .swim-results .practice-record { color: #efd18d; }
+.records-table { width: 100%; margin: 14px 0; border-collapse: collapse; }
+.records-table th, .records-table td { text-align: left; padding: 7px; border-bottom: 1px solid #456358; overflow-wrap: anywhere; }
+.records-table th:nth-child(n+3), .records-table td:nth-child(n+3) { text-align: right; white-space: nowrap; }
+.records-table th { color: #dae4cd; font-size: .78em; }
+.competition-arena .swim-standings:has(li:only-child) { width: min(230px,calc(100% - 24px)); }
+.competition-arena .swim-standings strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sports-register.interact-button { color: #15342a; background: #f2d28d; }
+@media(max-width: 600px) {
+  .competition-desk { right: 12px; bottom: 12px; max-height: calc(100% - 105px); }
+  .race-event-picker button, .race-format-picker button { font-size: .8rem; }
+  .competition-desk .swim-result-actions > button { font-size: .82rem; padding-inline: 8px; }
+}
+
+.records-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
+.records-filters label { display:block; font-size:.79rem; font-weight:700; }
+.swim-choices kbd { border-color:#687f64; background:#162d24; color:#ebd4a2; }
+.competition-arena .swim-header h2:focus { outline:none; }
+
+.swim-header-actions button:first-child { white-space:nowrap; }
+@media(max-width:600px) {
+  .swim-header-actions { flex-shrink:0; }
+  .swim-header-actions button:first-child { font-size:.78rem; padding-inline:9px; }
+}
+@media(max-width:600px) {
+  .competition-arena input, .competition-arena select { font-size: 16px; }
+  .competition-arena .swim-panel { overscroll-behavior: contain; }
+  .competition-records { bottom: max(12px,env(safe-area-inset-bottom)); }
+  .competition-records th, .competition-records td { padding-inline: 5px; }
+}

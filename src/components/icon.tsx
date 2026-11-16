@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  pool: "M2 18q2.5-2 5 0t5 0 5 0 5 0M2 22q2.5-2 5 0t5 0 5 0 5 0M7 14l4-5 4 2 4 4m-8-6 3-4 4 1M21 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z",
+  run: "M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM3 21l5-1 4-5m-5-3 3-3 4 1 4 4 3-1m-7-3-4 6 5 1 2 5",
   camera: "M3 7h4l2-3h6l2 3h4v13H3V7Zm13 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
   sliders: "M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9M7 4v4m6 2v4m-6 2v4",
   grid: "M3 3h18v18H3V3Zm6 0v18m6-18v18M3 9h18M3 15h18",

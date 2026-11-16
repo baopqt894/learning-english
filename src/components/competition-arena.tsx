@@ -1,42 +1,413 @@
 'use client';
-import {useCallback,useEffect,useRef,useState} from 'react';
-import {COMPETITIONS,COMPETITION_IDS,type CompetitionId} from '@/lib/competition-catalog';
-import {raceTime,raceQuestion,openedAt,standings,FEEDBACK_SECONDS,type CompetitionRoom,type CompetitionMember} from '@/lib/competition-engine';
-import {Icon} from './icon';
+
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { COMPETITIONS, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
+import { raceTime, raceQuestion, openedAt, standings, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import type { DailyEvent } from '@/lib/daily-missions';
+import { SPORTS_VENUES, type SportsVenueId } from '@/lib/sports-layout';
+import { CompetitionRecordBoard } from './competition-record-board';
+import { Icon } from './icon';
 import './swim-race.css';
 import './competition-arena.css';
-export type CompetitionView={mode:CompetitionId;room:CompetitionRoom|null;playerId:string|null;clockOffset:number};
-type Session={code:string;token:string;playerId:string};
-export function CompetitionArena({name,avatar,onView,onEnter,onExit,initial='swimming'}:{name:string;avatar:number;initial?:CompetitionId;onView:(v:CompetitionView|null)=>void;onEnter:(mode:CompetitionId)=>void;onExit:()=>void}){
- const [selected,setSelected]=useState<CompetitionId>(initial),[room,setRoom]=useState<CompetitionRoom|null>(null),[session,setSession]=useState<Session|null>(null),[code,setCode]=useState(''),[displayName,setDisplayName]=useState(name||'Cadet'),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connected,setConnected]=useState(true),[now,setNow]=useState(0),[offset,setOffset]=useState(0),[help,setHelp]=useState(false);
- const root=useRef<HTMLElement>(null),heading=useRef<HTMLHeadingElement>(null),offsetRef=useRef(0),lastRevision=useRef(-1);
- const receive=useCallback((packet:{room:CompetitionRoom},sent:number)=>{const r=packet.room;if(r.revision<lastRevision.current)return;lastRevision.current=r.revision;const clock=r.serverNow-(sent+Date.now())/2;offsetRef.current=clock;setOffset(clock);setRoom(r);setConnected(true);},[]);
- const request=useCallback(async(action:string,extra:Record<string,unknown>={})=>{
-  const sent=Date.now(),response=await fetch('/api/competitions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code:session?.code,token:session?.token,...extra})});
-  const data=await response.json();if(!response.ok)throw new Error(data.error||'Please try again.');receive(data,sent);return data;
- },[session,receive]);
- const act=async(action:string,extra:Record<string,unknown>={})=>{if(busy)return;setBusy(true);setError('');try{await request(action,extra);}catch(e){setError(e instanceof Error?e.message:'Connection failed.');}finally{setBusy(false);}};
- const enter=async(action:'create'|'join')=>{if(busy)return;setBusy(true);setError('');try{lastRevision.current=-1;const data=await request(action,{mode:selected,code:code.trim().toUpperCase(),name:displayName,avatar});const next={code:data.room.code,token:data.token,playerId:data.playerId};setSession(next);sessionStorage.setItem('campus-competition-seat',JSON.stringify(next));onEnter(data.room.mode);}catch(e){setError(e instanceof Error?e.message:'Could not join.');}finally{setBusy(false);}};
- useEffect(()=>{heading.current?.focus();},[]);
- useEffect(()=>{let alive=true;const saved=sessionStorage.getItem('campus-competition-seat');if(saved){try{const seat=JSON.parse(saved) as Session;if(seat.code&&seat.token&&seat.playerId){const sent=Date.now();fetch(`/api/competitions?code=${encodeURIComponent(seat.code)}`,{headers:{'x-race-token':seat.token},cache:'no-store'}).then(async r=>{if(!r.ok)throw new Error();const data=await r.json();if(alive){receive(data,sent);setSession(seat);onEnter(data.room.mode);}}).catch(()=>sessionStorage.removeItem('campus-competition-seat'));}}catch{sessionStorage.removeItem('campus-competition-seat');}}return()=>{alive=false;};},[onEnter,receive]);
- useEffect(()=>{if(!session)return;let active=true,timer:ReturnType<typeof setTimeout>;const abort=new AbortController();const poll=async()=>{const sent=Date.now();try{const response=await fetch(`/api/competitions?code=${encodeURIComponent(session.code)}`,{headers:{'x-race-token':session.token},cache:'no-store',signal:abort.signal});const data=await response.json();if(!response.ok)throw new Error(data.error);if(active)receive(data,sent);}catch(e){if(active){setConnected(false);setError(e instanceof Error?e.message:'Reconnecting…');}}finally{if(active)timer=setTimeout(poll,document.hidden?1500:500);}};void poll();return()=>{active=false;abort.abort();clearTimeout(timer);};},[session,receive]);
- useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()+offsetRef.current),80);return()=>clearInterval(timer);},[]);
- const mode=room?.mode??selected,definition=COMPETITIONS[mode],me=room?.members.find(m=>m.id===session?.playerId),time=room?Math.max(0,raceTime(room,now)):0;
- const isHost=!!room&&session?.playerId===room.hostId,inLobby=room?.phase==='lobby',finished=!!me&&me.finishedAt!==null;
- useEffect(()=>{onView(room?{mode:room.mode,room,playerId:session?.playerId??null,clockOffset:offset}:null);},[room,session,onView,offset]);
- const leave=async()=>{if(session){try{await request('leave');}catch{/* A disconnected seat expires and is replaced by a bot. */}sessionStorage.removeItem('campus-competition-seat');}onView(null);onExit();};
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();setHelp(old=>!old);}if(!e.repeat&&/^[1-4]$/.test(e.key)&&room?.phase==='racing'&&me&&!finished&&!busy){e.preventDefault();void act('answer',{choice:Number(e.key)-1,questionIndex:me.answers.length,roundId:room.round?.id});}if(e.key==='Tab'){const items=Array.from(root.current?.querySelectorAll<HTMLElement>('button:not([disabled]),input,summary')??[]).filter(x=>x.getClientRects().length);if(e.shiftKey&&(document.activeElement===items[0]||document.activeElement===heading.current)){e.preventDefault();items.at(-1)?.focus();}else if(!e.shiftKey&&document.activeElement===items.at(-1)){e.preventDefault();items[0]?.focus();}}};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);});
- const last=me?.answers.at(-1),feedback=last&&time<last.at+FEEDBACK_SECONDS?last:null;
- const question=room&&me?raceQuestion(room,me,me.answers.length-(feedback?1:0)):null,ranking=room?standings(room,time):[];
- useEffect(()=>{root.current?.querySelector('.swim-panel')?.scrollTo({top:0});},[me?.answers.length,room?.phase,finished]);
- const slots:Array<CompetitionMember|null>=Array.from({length:4},(_,i)=>room?.members[i]??null);
- return <section ref={root} className="swim-race competition-arena" role="dialog" aria-modal="true" aria-labelledby="competition-title" lang="en">
-  <header className="swim-header"><div><h2 ref={heading} tabIndex={-1} id="competition-title">{room?definition.title:'English Games'}</h2><p>{room?`${definition.venue} · Room ${room.code}`:'Choose a venue, invite friends and learn through play'}</p></div><div className="swim-header-actions"><button onClick={()=>setHelp(!help)} aria-label="How to play competitions"><Icon name="info" size={18}/></button><button onClick={()=>void leave()} aria-label="Leave competition"><Icon name="close" size={18}/></button></div></header>
-  {error&&<div className="competition-error" role="status">{connected?error:`Connection interrupted. ${error}`} {!connected&&<span>The online race continues while reconnecting.</span>}</div>}
-  {help?<div className="swim-panel competition-help"><h3>How to play</h3><ol><li>Choose a competition and create a room. You will arrive at its venue.</li><li>Share the six-character room code. Friends open the same game address and join with that code.</li><li>Press + on an empty seat to add a bot. The host can remove bots. Missing seats fill automatically when the race starts.</li><li>Every human presses Ready. The host starts the countdown.</li><li>Answer with keys 1–4 or tap. Quick correct answers give stronger boosts. Consecutive correct answers build a combo, up to ×1.6.</li><li>Wrong answers and timeouts reset your combo. Check your explanations after the race.</li></ol><p>Online races keep moving if you switch tabs. Only share your chosen nickname.</p><button className="swim-primary" onClick={()=>setHelp(false)}>Got it</button></div>:
-  !room?<div className="swim-panel competition-hub"><h3>Your next English challenge</h3><label className="competition-name">Nickname<input maxLength={24} value={displayName} onChange={e=>setDisplayName(e.target.value)} /></label><div className="competition-list">{COMPETITION_IDS.map(id=><button key={id} className={selected===id?'is-selected':''} aria-pressed={selected===id} onClick={()=>setSelected(id)}><Icon name={id==='swimming'?'sound':'ball'} size={19}/><span><strong>{COMPETITIONS[id].title}</strong><small>{COMPETITIONS[id].subtitle} · {COMPETITIONS[id].venue}</small></span>{selected===id&&<Icon name="check" size={18}/>}</button>)}</div><button className="swim-primary" disabled={busy||!displayName.trim()} onClick={()=>void enter('create')}>Create online room</button><p className="competition-travel-note">Creating or joining a room takes you directly to its venue.</p><form className="competition-join" onSubmit={e=>{e.preventDefault();void enter('join');}}><label>Join a friend’s room<input aria-label="Room code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))} placeholder="ABC123" /></label><button disabled={busy||code.trim().length!==6||!displayName.trim()}>Join room</button></form></div>:
-  inLobby?<div className="swim-panel competition-lobby"><div className="competition-room-code"><div><small>Invite your friends</small><strong>{room.code}</strong></div><button onClick={()=>{navigator.clipboard?.writeText(room.code).then(()=>setError('Room code copied.')).catch(()=>setError(`Room code: ${room.code}`));}}>Copy code</button></div><p>{room.members.filter(m=>m.kind==='human').length} human player(s) · {room.members.filter(m=>m.kind==='bot').length} bot(s) · 4 seats</p><div className="competition-seats">{slots.map((m,i)=>m?<div key={m.id} className="competition-seat"><span style={{background:m.colour}}>{m.name.slice(0,1)}</span><strong>{m.name}{m.id===session?.playerId?' (you)':''}</strong><small>{m.kind==='bot'?'BOT · Ready':m.ready?'PLAYER · Ready':'PLAYER · Not ready'}</small>{isHost&&m.id!==session?.playerId&&<button aria-label={`Remove ${m.name}`} disabled={busy} onClick={()=>void act('remove',{playerId:m.id})}><Icon name="close" size={14}/></button>}</div>:<button key={i} disabled={!isHost||busy} className="competition-add-bot" aria-label={`Add bot to seat ${i+1}`} onClick={()=>void act('add-bot')}><Icon name="plus" size={24}/><span>{isHost?'Add bot':'Empty seat'}</span></button>)}</div><p className="swim-help">Empty seats automatically become bots on Start. Human players must be ready. Friends can replace bots while the lobby is open.</p><div className="swim-result-actions"><button disabled={busy} onClick={()=>void act('ready',{ready:!me?.ready})}>{me?.ready?'Ready ✓':'I’m ready'}</button>{isHost?<button className="swim-primary" disabled={busy||room.members.some(m=>m.kind==='human'&&!m.ready)} onClick={()=>void act('start')}>Start race · auto-fill bots</button>:<span>Waiting for the host to start…</span>}</div></div>:
-  finished?<div className="swim-panel swim-results"><h3>{ranking[0]?.id===me.id?'You won!':'Finish line reached!'}</h3><p>{me.answers.filter(a=>a.correct).length}/{me.answers.length} correct · Best combo {Math.max(0,...me.answers.map(a=>a.streak))} · {me.finishedAt?.toFixed(1)} s</p><ol className="swim-finish-list">{ranking.map((m,i)=><li key={m.id}><span>{i+1}. {m.name} {m.kind==='bot'?'· BOT':''}</span><strong>{m.finishedAt===null?`${m.metres.toFixed(1)} m`: `${m.finishedAt.toFixed(1)} s`}</strong></li>)}</ol><details><summary>Review your answers</summary>{me.answers.map((a,i)=>{const q=raceQuestion(room,me,i);return <article key={i}><strong>{a.correct?'Correct':'Practise'} · {q.sentence}</strong><p>{a.choice===null?'Time ran out.':`Your answer: ${q.choices[a.choice]}.`} Correct: {q.choices[q.answer]}.</p><small>{q.explanation}</small></article>;})}</details>{room.phase==='finished'?(isHost?<button className="swim-primary" disabled={busy} onClick={()=>void act('lobby')}>Return everyone to lobby</button>:<p>Waiting for the host to open the next lobby.</p>):<p>Other players are still racing. You can review your answers.</p>}</div>:
-  <><ol className="swim-standings" aria-label="Live race positions">{ranking.map((m,i)=><li key={m.id} style={{'--swim-color':m.colour} as React.CSSProperties}><span>{i+1}</span><strong>{m.id===me?.id?'You':m.name}</strong><small>{m.metres.toFixed(1)} m</small></li>)}</ol>{raceTime(room,now)<0&&<div className="swim-countdown">{Math.ceil(-raceTime(room,now))}<small>Get ready</small></div>}<div className="swim-panel swim-question"><div className="swim-question-meta"><span>Question {(me?.answers.length??0)+(feedback?0:1)}</span><strong>{last?.streak?`${last.streak} correct · ×${(1+Math.min(4,last.streak-1)*.15).toFixed(2)} combo`:'Build a correct-answer streak'}</strong></div><progress max={12} value={feedback?12:Math.max(0,12-(time-openedAt(me!)))} aria-label="Question time remaining"/><h3>{question?.sentence}</h3><div className="swim-choices">{question?.choices.map((choice,i)=><button key={`${question.id}-${i}`} disabled={busy||!connected||!!feedback||raceTime(room,now)<0} className={feedback?(i===question.answer?'is-correct':i===feedback.choice?'is-wrong':''):''} onClick={()=>void act('answer',{choice:i,questionIndex:me?.answers.length,roundId:room.round?.id})}><kbd>{i+1}</kbd>{choice}</button>)}</div><div className="swim-feedback" aria-live="polite">{feedback?<><strong>{feedback.correct?`Correct! Speed boost · ${feedback.streak} in a row`:'No boost. Combo reset.'}</strong><p>{question?.explanation}</p></>:<p>Correct + quick + a streak = more speed. {Math.ceil(Math.max(0,12-(time-openedAt(me!))))} s left</p>}</div></div></>}
- </section>;
+
+export type CompetitionView = { mode: CompetitionId; room: CompetitionRoom; playerId: string; clockOffset: number };
+type Session = { code: string; token: string; playerId: string; venue: SportsVenueId };
+type Packet = { room: CompetitionRoom };
+type NewSeat = Packet & Pick<Session, 'token' | 'playerId'>;
+type Format = 'practice' | 'online';
+const SEAT_KEY = 'campus-competition-seat';
+
+function savedSeat(venue: SportsVenueId): Session | null {
+  try {
+    const seat = JSON.parse(sessionStorage.getItem(SEAT_KEY) || 'null') as Session | null;
+    return seat?.venue === venue && seat.code && seat.token && seat.playerId ? seat : null;
+  } catch { return null; }
+}
+
+async function getPacket<T extends Packet>(response: Response): Promise<T> {
+  const packet = await response.json();
+  if (!response.ok) throw new Error(packet.error || 'Please try again.');
+  return packet;
+}
+
+async function post<T extends Packet>(body: Record<string, unknown>) {
+  return getPacket<T>(await fetch('/api/competitions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    signal: AbortSignal.timeout(8000),
+  }));
+}
+
+function snapshot(seat: Session, signal: AbortSignal) {
+  return fetch(`/api/competitions?code=${encodeURIComponent(seat.code)}`, {
+    headers: { 'x-race-token': seat.token }, cache: 'no-store', signal,
+  });
+}
+
+const recordMessages = {
+  'personal-best': 'New personal best. Your time is on the campus board.',
+  'kept-best': 'Your faster personal best stays on the board.',
+  'not-qualified': `Answer at least ${RECORD_MIN_CORRECT} questions correctly to post a time.`,
+  retrying: 'The server is retrying your record save. Stay here to see the result.',
+};
+
+export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish }: {
+  name: string;
+  avatar: number;
+  venue: SportsVenueId;
+  onView: (view: CompetitionView | null) => void;
+  onExit: () => void;
+  onFinish: (event: DailyEvent, at: number) => void;
+}) {
+  const venueInfo = SPORTS_VENUES[venue];
+  const events = venueCompetitions(venue);
+  const [selected, setSelected] = useState(events[0]);
+  const [difficulty, setDifficulty] = useState<RaceDifficulty>('beginner');
+  const [format, setFormat] = useState<Format>('practice');
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [room, setRoom] = useState<CompetitionRoom | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [resume, setResume] = useState<Session | null>(null);
+  const [code, setCode] = useState('');
+  const [displayName, setDisplayName] = useState(name || 'Cadet');
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [connected, setConnected] = useState(true);
+  const [now, setNow] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [help, setHelp] = useState(false);
+  const root = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const lastRevision = useRef(-1);
+  const offsetRef = useRef(0);
+  const actionPending = useRef(false);
+  const creditedRound = useRef<string | null>(null);
+
+  useEffect(() => {
+    heading.current?.focus();
+    const init = requestAnimationFrame(() => setResume(savedSeat(venue)));
+    return () => cancelAnimationFrame(init);
+  }, [venue]);
+
+  const receive = useCallback((packet: Packet, sent: number) => {
+    const r = packet.room;
+    if (r.revision < lastRevision.current) return;
+    lastRevision.current = r.revision;
+    const received = Date.now();
+    const clock = r.serverNow - (sent + received) / 2;
+    offsetRef.current = clock;
+    setNow(received + clock);
+    setOffset(clock);
+    setRoom(r);
+    setConnected(true);
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    let timer: ReturnType<typeof setTimeout>;
+    let stop = false;
+    const abort = new AbortController();
+    const poll = async () => {
+      const sent = Date.now();
+      try {
+        const response = await snapshot(session, AbortSignal.any([abort.signal, AbortSignal.timeout(6000)]));
+        if (abort.signal.aborted) return;
+        if (response.status === 401 || response.status === 404) {
+          stop = true;
+          sessionStorage.removeItem(SEAT_KEY);
+          setSession(null);
+          setRoom(null);
+          setError('Your seat has expired. Register again to keep playing.');
+        } else {
+          const packet = await getPacket(response);
+          if (!abort.signal.aborted) receive(packet, sent);
+        }
+      } catch {
+        if (!abort.signal.aborted) setConnected(false);
+      } finally {
+        if (!stop && !abort.signal.aborted) timer = setTimeout(poll, 500);
+      }
+    };
+    timer = setTimeout(poll, 400);
+    return () => { abort.abort(); clearTimeout(timer); };
+  }, [session, receive]);
+
+  const mode = room?.mode ?? selected;
+  const level = room?.difficulty ?? difficulty;
+  const definition = COMPETITIONS[mode];
+  const me = room?.members.find(m => m.id === session?.playerId);
+  const isRacing = room?.phase === 'racing' && !!me && me.finishedAt === null;
+  const roundId = room?.round?.id;
+  const roundStart = room?.round?.startedAt;
+  const finishedAt = me?.finishedAt;
+  const bestStreak = Math.max(0, ...(me?.answers.map(answer => answer.streak) ?? []));
+  const wasHuman = me?.kind === 'human' && me.takeoverAt === undefined && !me.botAssisted;
+
+  useEffect(() => {
+    if (!isRacing) return;
+    const timer = setInterval(() => setNow(Date.now() + offsetRef.current), 100);
+    return () => clearInterval(timer);
+  }, [isRacing]);
+
+  useEffect(() => {
+    onView(room && session ? { mode: room.mode, room, playerId: session.playerId, clockOffset: offset } : null);
+  }, [room, session, onView, offset]);
+
+  useEffect(() => {
+    if (!roundId || roundStart === undefined || finishedAt == null || !wasHuman || creditedRound.current === roundId) return;
+    creditedRound.current = roundId;
+    onFinish({ type: 'race', venue, streak: bestStreak }, roundStart + 3000 + Math.round(finishedAt * 1000));
+  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak]);
+
+  const perform = useCallback(async (task: () => Promise<void>) => {
+    if (actionPending.current) return;
+    actionPending.current = true;
+    setBusy(true);
+    setError('');
+    try { await task(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Connection failed.'); }
+    finally { actionPending.current = false; setBusy(false); }
+  }, []);
+  const act = useCallback((action: string, extra: Record<string, unknown> = {}) => perform(async () => {
+    if (!session) return;
+    const sent = Date.now();
+    receive(await post({ action, code: session.code, token: session.token, ...extra }), sent);
+  }), [session, receive, perform]);
+
+  const enter = (action: 'practice' | 'create' | 'join') => perform(async () => {
+    const sent = Date.now();
+    lastRevision.current = -1;
+    const packet = await post<NewSeat>({ action, mode: selected, difficulty, venue, code, name: displayName, avatar });
+    const seat = { code: packet.room.code, token: packet.token, playerId: packet.playerId, venue };
+    setSession(seat);
+    setResume(null);
+    setCopied(false);
+    try { sessionStorage.setItem(SEAT_KEY, JSON.stringify(seat)); } catch { /* This seat can still play. */ }
+    receive(packet, sent);
+    heading.current?.focus();
+  });
+
+  function resumeSeat(seat: Session) {
+    void perform(async () => {
+      const sent = Date.now();
+      const response = await snapshot(seat, AbortSignal.timeout(8000));
+      if (response.status === 401 || response.status === 404) {
+        setResume(null);
+        sessionStorage.removeItem(SEAT_KEY);
+      }
+      const packet = await getPacket<Packet>(response);
+      lastRevision.current = -1;
+      setSession(seat);
+      setResume(null);
+      receive(packet, sent);
+      heading.current?.focus();
+    });
+  }
+
+  const exit = useCallback((backToDesk = false) => perform(async () => {
+    if (session) {
+      try { await post({ action: 'leave', code: session.code, token: session.token }); }
+      catch { /* Disconnected online seats expire on the server. */ }
+      try { sessionStorage.removeItem(SEAT_KEY); } catch { /* Storage may be disabled. */ }
+    }
+    onView(null);
+    if (!backToDesk) { onExit(); return; }
+    setSession(null);
+    setRoom(null);
+    setBoardOpen(false);
+    setHelp(false);
+    lastRevision.current = -1;
+    heading.current?.focus();
+  }), [session, onView, onExit, perform]);
+
+  const time = room ? raceTime(room, now) : 0;
+  const last = me?.answers.at(-1);
+  const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
+  const canAnswer = connected && isRacing && time >= 0 && !feedback && !busy && !help;
+  const submit = (choice: number) => {
+    if (canAnswer) void act('answer', { choice, questionIndex: me?.answers.length, roundId });
+  };
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (boardOpen) setBoardOpen(false);
+        else if (help || room) setHelp(value => !value);
+        else void exit();
+      }
+      if (!event.repeat && /^[1-4]$/.test(event.key) && canAnswer) {
+        event.preventDefault();
+        submit(Number(event.key) - 1);
+      }
+      if (event.key === 'Tab') {
+        const focusable = Array.from(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary') ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable.at(-1)!;
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+  });
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => onKey(event);
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, []);
+
+  const ranking = room ? standings(room, Math.max(0, time)) : [];
+  const isHost = !!session && session.playerId === room?.hostId;
+  const isPractice = room?.format === 'practice';
+  const inLobby = room?.phase === 'lobby';
+  const finished = !!me && me.finishedAt !== null;
+  const question = room && me && isRacing ? raceQuestion(room, me, me.answers.length - (feedback ? 1 : 0)) : null;
+  const remaining = room && me ? Math.max(0, questionSeconds(room) - (Math.max(0, time) - openedAt(me))) : 0;
+  const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
+  const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
+
+  return (
+    <section ref={root} className={`swim-race competition-arena${!room ? ' at-registration' : ''}`} role="dialog" aria-modal="true" aria-labelledby="competition-title" lang="en">
+      <header className="swim-header">
+        <div>
+          <h2 ref={heading} tabIndex={-1} id="competition-title">{title}</h2>
+          <p>{room
+            ? `${definition.subtitle} · ${DIFFICULTIES[level].label} · ${isPractice ? 'Solo practice' : `Room ${room.code}`}`
+            : 'Choose an event and mode'}</p>
+        </div>
+        <div className="swim-header-actions">
+          <button onClick={() => { setBoardOpen(false); setHelp(!help); }} aria-expanded={help}>How to play</button>
+          <button disabled={busy} onClick={() => void exit()} aria-label={room && !finished ? 'Leave race' : 'Back to campus'}><Icon name="close" size={18}/></button>
+        </div>
+      </header>
+      {!connected && <div className="competition-error" role="status">Reconnecting. The race clock is still running.</div>}
+      {help ? (
+        <div className="swim-panel competition-help">
+          <h3>How to play</h3>
+          <ol>
+            <li>Pick an event and a difficulty at the desk. Harder levels ask different questions and give you less time.</li>
+            <li>In solo practice, you have the course to yourself. Get at least {RECORD_MIN_CORRECT} answers right to post a time. The board keeps your fastest time for each event and level.</li>
+            <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
+            <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
+            <li>Tap a choice or press keys 1–4. Quick correct answers make you faster. Consecutive correct answers build a combo up to ×1.6.</li>
+          </ol>
+          <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
+        </div>
+      ) : boardOpen ? (
+        <CompetitionRecordBoard key={`${mode}-${level}`} mode={mode} difficulty={level} onBack={() => setBoardOpen(false)}/>
+      ) : !room ? (
+        <div className="swim-panel competition-desk">
+          <fieldset className="race-event-picker">
+            <legend>Event</legend>
+            {events.map(event => <button key={event} aria-pressed={selected === event} onClick={() => setSelected(event)} disabled={busy}>
+              <Icon name={venueInfo.icon} size={18}/><span><strong>{COMPETITIONS[event].title}</strong><small>{COMPETITIONS[event].subtitle}</small></span>
+              {selected === event && <Icon name="check" size={15}/>}
+            </button>)}
+          </fieldset>
+          <fieldset className="race-format-picker">
+            <legend>Mode</legend>
+            <button aria-pressed={format === 'practice'} onClick={() => setFormat('practice')} disabled={busy}><Icon name="user" size={17}/> Solo practice</button>
+            <button aria-pressed={format === 'online'} onClick={() => setFormat('online')} disabled={busy}><Icon name="trophy" size={17}/> Race with friends</button>
+          </fieldset>
+          <label className="race-level">Difficulty
+            <select value={difficulty} onChange={event => setDifficulty(event.target.value as RaceDifficulty)} disabled={busy}>
+              {DIFFICULTY_IDS.map(id => <option value={id} key={id}>{DIFFICULTIES[id].label} ({DIFFICULTIES[id].level})</option>)}
+            </select>
+          </label>
+          <p className="level-note">{DIFFICULTIES[difficulty].topic}. {DIFFICULTIES[difficulty].seconds} seconds per question.</p>
+          <label className="competition-name">Nickname
+            <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
+          </label>
+          <p className="level-note">{format === 'practice' ? 'Your nickname appears on the campus record board when you qualify.' : 'Your nickname is visible to other players in your room.'}</p>
+          {error && <p className="race-inline-error" role="alert">{error}</p>}
+          <div className="swim-result-actions">
+            <button className="swim-primary" disabled={busy || !displayName.trim()} onClick={() => void enter(format === 'practice' ? 'practice' : 'create')}>
+              {busy ? 'Connecting…' : format === 'practice' ? 'Start solo practice' : 'Create online room'} <Icon name="arrow" size={16}/>
+            </button>
+            <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
+          </div>
+          {format === 'online' && <>
+          <form className="competition-join" onSubmit={event => { event.preventDefault(); void enter('join'); }}>
+            <label>Join a friend’s room
+              <input aria-label="Room code" maxLength={6} value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="ABC123" autoComplete="off" disabled={busy} aria-describedby="race-join-note"/>
+            </label>
+            <button disabled={busy || code.length !== 6 || !displayName.trim()}>Join room</button>
+          </form>
+          <p className="level-note" id="race-join-note">Joined rooms use the host’s level.</p>
+          </>}
+          {resume && <button className="resume-race" disabled={busy} onClick={() => resumeSeat(resume)}>Resume previous race</button>}
+        </div>
+      ) : inLobby ? (
+        <div className="swim-panel competition-lobby">
+          <div className="competition-room-code">
+            <div><small>Invite your friends to {definition.venue}</small><strong>{room.code}</strong></div>
+            <button onClick={() => { void navigator.clipboard?.writeText(room.code).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'Copied' : 'Copy code'}</button>
+          </div>
+          <div className="competition-seats">
+            {slots.map((member, index) => member ? (
+              <div key={member.id} className="competition-seat">
+                <span style={{ background: member.colour }}>{member.name.slice(0, 1)}</span>
+                <strong>{member.name}{member.id === session?.playerId ? ' (you)' : ''}</strong>
+                <small>{member.kind === 'bot' ? 'Bot · Ready' : member.ready ? 'Ready' : 'Not ready'}</small>
+                {isHost && member.kind === 'bot' && <button aria-label={`Remove ${member.name}`} disabled={busy} onClick={() => void act('remove', { playerId: member.id })}><Icon name="close" size={14}/></button>}
+              </div>
+            ) : (
+              <button key={index} disabled={!isHost || busy} className="competition-add-bot" aria-label={`Add bot to seat ${index + 1}`} onClick={() => void act('add-bot')}><Icon name="plus" size={22}/>{isHost ? 'Add bot' : 'Empty seat'}</button>
+            ))}
+          </div>
+          <p className="swim-help">Friends can replace bots while registration is open. Empty seats fill on Start.</p>
+          {error && <p className="race-inline-error" role="alert">{error}</p>}
+          <div className="swim-result-actions">
+            <button disabled={busy} onClick={() => void act('ready', { ready: !me?.ready })}>{me?.ready ? 'Ready ✓' : 'I’m ready'}</button>
+            {isHost ? <button className="swim-primary" disabled={busy || room.members.some(member => member.kind === 'human' && !member.ready)} onClick={() => void act('start')}>Start race</button>
+              : <span>Waiting for the host to start…</span>}
+          </div>
+        </div>
+      ) : finished && me ? (
+        <div className="swim-panel swim-results">
+          <h3>{isPractice ? 'Practice complete' : room.phase === 'finished' && ranking[0]?.id === me.id ? 'You won!' : 'Finish line reached!'}</h3>
+          <p>{me.answers.filter(answer => answer.correct).length}/{me.answers.length} correct · Best combo {bestStreak} · {me.finishedAt?.toFixed(3)} s</p>
+          {isPractice ? <p className="practice-record" role="status">{room.record ? recordMessages[room.record] : 'Checking your time…'}</p> : (
+            <ol className="swim-finish-list">{ranking.map(member => <li key={member.id}><span>{member.name}{member.kind === 'bot' ? ' · Bot' : ''}</span><strong>{member.finishedAt === null ? `${member.metres.toFixed(1)} m` : `${member.finishedAt.toFixed(3)} s`}</strong></li>)}</ol>
+          )}
+          <details>
+            <summary>Review your answers</summary>
+            {me.answers.map((answer, i) => {
+              const prompt = raceQuestion(room, me, i);
+              return <article key={i}><strong>{answer.correct ? 'Correct' : 'Practise'} · {prompt.sentence}</strong>
+                <p>{answer.choice === null ? 'Time ran out.' : `Your answer: ${prompt.choices[answer.choice]}.`} Correct: {prompt.choices[prompt.answer]}.</p><small>{prompt.explanation}</small>
+              </article>;
+            })}
+          </details>
+          {error && <p className="race-inline-error" role="alert">{error}</p>}
+          {isPractice ? <div className="swim-result-actions">
+            <button className="swim-primary" disabled={busy} onClick={() => void exit(true)}>Back to registration</button>
+            <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
+          </div> : room.phase === 'finished'
+            ? (isHost ? <button className="swim-primary" disabled={busy} onClick={() => void act('lobby')}>Return everyone to lobby</button> : <p>Waiting for the host to open the next lobby.</p>)
+            : <p>Other players are still racing. You can review your answers.</p>}
+        </div>
+      ) : question && me ? (
+        <>
+          <ol className="swim-standings" aria-label="Live race positions">{ranking.map((member, index) => (
+            <li key={member.id} style={{ '--swim-color': member.colour } as React.CSSProperties}>
+              <span>{index + 1}</span><strong>{member.id === me.id ? 'You' : member.name}</strong><small>{member.metres.toFixed(1)} / {definition.distance} m</small>
+            </li>
+          ))}</ol>
+          {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>Get ready</small></div>}
+          <div className="swim-panel swim-question">
+            <div className="swim-question-meta">
+              <span>Question {me.answers.length + (feedback ? 0 : 1)}</span>
+              <strong>{last?.streak ? `${last.streak} correct · ×${(1 + Math.min(4, last.streak - 1) * .15).toFixed(2)} combo` : 'Build a correct-answer streak'}</strong>
+            </div>
+            <progress max={questionSeconds(room)} value={feedback ? questionSeconds(room) : remaining} aria-label="Question time remaining"/>
+            <h3>{question.sentence}</h3>
+            <div className="swim-choices">{question.choices.map((choice, i) => (
+              <button key={`${question.id}-${i}`} disabled={!canAnswer} className={feedback ? (i === question.answer ? 'is-correct' : i === feedback.choice ? 'is-wrong' : '') : ''} onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
+            ))}</div>
+            <div className="swim-feedback" aria-live="polite">{feedback
+              ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Combo reset'}</strong><p>{question.explanation}</p></>
+              : <p>{error || (time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+            </div>
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
 }

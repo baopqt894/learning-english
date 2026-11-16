@@ -1,5 +1,5 @@
-import { CampusGame } from "@/components/campus-game";
+import { CampusAccount } from "@/components/campus-account";
 
 export default function Home() {
-  return <CampusGame />;
+  return <CampusAccount />;
 }

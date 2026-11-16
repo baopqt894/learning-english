@@ -26,12 +26,15 @@ import {CampaignJournal,CampaignTracker} from './campaign-journal';
 import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,hintStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
 import {nearStoryLocation,storyPosition} from '@/lib/campaign-locations';
 import { useProgress } from "@/lib/progress-store";
+import type { AccountSession } from "@/lib/account";
 import type { WorldHandle } from "./campus-world";
 import { CampusPhotoMode } from "./campus-photo-mode";
 import {PlacePractice} from "./place-practice";
 import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
 import {CompetitionArena,type CompetitionView} from "./competition-arena";
-import {type CompetitionId} from "@/lib/competition-catalog";
+import { SportsJournal } from './sports-journal';
+import { campusDay, currentDaily, dailyXP, recordDaily, type DailyEvent } from '@/lib/daily-missions';
+import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
 
 import { FieldworkHud } from "./fieldwork-hud";
 import { freshFieldwork, nextWorkTask, reportWork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
@@ -90,14 +93,25 @@ function Cadet({
   );
 }
 
-export function CampusGame() {
-  const { progress, saveProgress, saveAvailable } = useProgress();
+const SYNC_LABELS = {
+  saved: 'Tiến độ đã lưu vào tài khoản.',
+  saving: 'Đang lưu tiến độ…',
+  offline: 'Máy chủ chưa nhận được tiến độ mới. Hãy thử lưu lại.',
+  conflict: 'Tiến độ đã được cập nhật trên thiết bị khác.',
+};
+
+export function CampusGame({ account, onExpired, onLogout }: {
+  account: AccountSession;
+  onExpired: () => void;
+  onLogout: () => Promise<void>;
+}) {
+  const { progress, saveProgress, saveAvailable, sync, flush, resolveConflict } = useProgress(account, onExpired);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const [tab, setTab] = useState<Tab>("explore");
   const [near, setNear] = useState<Place | null>(null);
   const [talking, setTalking] = useState<Place | null>(null);
   const [draft, setDraft] = useState("");
-  const [name, setName] = useState("");
-  const [avatar, setAvatar] = useState(0);
   const [retryCount,setRetryCount] = useState(0);
   const [reviewOpen,setReviewOpen] = useState(false);
   const [storyOpen,setStoryOpen]=useState(false);
@@ -112,10 +126,21 @@ export function CampusGame() {
   const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
   const [placePractice,setPlacePractice]=useState<{area:string;feeding?:PetId}|null>(null);
   const [feedingPass,setFeedingPass]=useState<{station:string;expiresAt:number}|null>(null);
-  const [competitionInitial,setCompetitionInitial]=useState<CompetitionId>('swimming');
-  const enterCompetition=useCallback((mode:CompetitionId)=>worldRef.current?.enterCompetition(mode),[]);
-  const swimLaunch=useRef<HTMLButtonElement>(null);
-  const closeSwim=useCallback(()=>{setSwimOpen(false);setCompetitionView(null);requestAnimationFrame(()=>swimLaunch.current?.focus());},[]);
+  const [competitionVenue,setCompetitionVenue]=useState<SportsVenueId>('pool');
+  const [sportsJournal,setSportsJournal]=useState<'venues'|'daily'|null>(null);
+  const [day,setDay]=useState(0);
+  const registration=nearbySportsVenue(playerPosition.x,playerPosition.z);
+  const deskTrigger=useRef<HTMLButtonElement>(null);
+  const closeSwim=useCallback(()=>{
+    setSwimOpen(false);setCompetitionView(null);
+    requestAnimationFrame(()=>deskTrigger.current?.focus());
+  },[]);
+  useEffect(()=>{
+    const updateDay=()=>setDay(campusDay(Date.now()));
+    const frame=requestAnimationFrame(updateDay);
+    const timer=setInterval(updateDay,10_000);
+    return ()=>{cancelAnimationFrame(frame);clearInterval(timer);};
+  },[]);
   const [physicalWork,setPhysicalWork] = useState<WorkKind|null>(null);
   const [workTool,setWorkTool] = useState<Tool>('hands');
   const [studyTravel,setStudyTravel] = useState(false);
@@ -134,11 +159,19 @@ export function CampusGame() {
   const [help, setHelp] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState("");
+  const completeDaily = useCallback((event:DailyEvent, at=Date.now())=>{
+    const today=campusDay(Date.now()), eventDay=campusDay(at);
+    if (today!==eventDay) return;
+    const next=recordDaily(progress.daily,eventDay,event);
+    if(next===progress.daily)return;
+    saveProgress({...progress,daily:next});
+    setDay(today);
+    setNotice(`Daily mission complete · +${dailyXP(next)-dailyXP(progress.daily)} XP`);
+  },[progress,saveProgress]);
   const [autoVoiceMuted, setAutoVoiceMuted] = useState(false);
   const [speaking, setSpeaking] = useState<Place | null>(null);
   const [reward, setReward] = useState<number | null>(null);
   const [retryReset, setRetryReset] = useState(false);
-  const [ready, setReady] = useState(false);
   const [mapVisible, setMapVisible] = useState(true);
   const [artGallery, setArtGallery] = useState(false);
   const [highQuality, setHighQuality] = useState(true);
@@ -173,9 +206,7 @@ export function CampusGame() {
   const encounterGoal = goal?.place === talking ? goal : undefined;
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setReady(true));
     return () => {
-      cancelAnimationFrame(frame);
       recognitionRef.current?.abort();
       stopSpeech();
     };
@@ -222,17 +253,16 @@ export function CampusGame() {
 
   const modalOpen =
     tab !== "explore" ||
-    (ready && !progress.name) ||
     help ||
     reward !== null ||
     retryReset ||
     artGallery ||
-    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice;
+    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice || !!sportsJournal;
   useEffect(() => {
-    if (!notice || talking || modalOpen) return;
+    if (!notice || talking || modalOpen || swimOpen) return;
     const timer = window.setTimeout(() => setNotice(""), 4200);
     return () => window.clearTimeout(timer);
-  }, [notice, talking, modalOpen]);
+  }, [notice, talking, modalOpen, swimOpen]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -261,7 +291,8 @@ export function CampusGame() {
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if(placePractice){setPlacePractice(null);}
+        if(sportsJournal){setSportsJournal(null);}
+        else if(placePractice){setPlacePractice(null);}
         else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
         else if (activityOpen) { window.speechSynthesis?.cancel(); setActivityOpen(false); setClassStudy(false); }
         else if (photoOpen) closePhoto();
@@ -292,7 +323,7 @@ export function CampusGame() {
       document.removeEventListener("keydown", trap);
       previousFocus?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,sportsJournal]);
 
   const updateMapPlayer = useCallback((x: number, z: number) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
@@ -305,7 +336,15 @@ export function CampusGame() {
         marker.style.top = position.top;
       });
   }, []);
+  const walkToRegistration = (venue:SportsVenueId) => {
+    setSportsJournal(null);
+    setAtlasOpen(false);
+    setNotice(`Follow the path to the ${SPORTS_VENUES[venue].name} desk. Press E or tap Register when you arrive.`);
+    requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
+  };
   const goToZone = (zoneId: ZoneId) => {
+    const sport = zoneId==='swimming'?'pool':zoneId==='athletics'?'track':zoneId==='field-games'?'field':null;
+    if(sport){walkToRegistration(sport);return;}
     const zone = EXPLORATION_ZONES.find((z) => z.id === zoneId)!;
     setAtlasOpen(false);
     setTalking(null);
@@ -401,16 +440,6 @@ export function CampusGame() {
     worldRef.current?.goTo(place);
     setNotice(
       `Đang đến ${PLACES[place].name.toLowerCase()}. Khi đến gần, chọn “Trò chuyện”.`,
-    );
-  };
-
-  const start = (event: FormEvent) => {
-    event.preventDefault();
-    const cleanName = name.trim();
-    if (!cleanName) return;
-    saveProgress({ ...progress, name: cleanName.slice(0, 30), avatar });
-    setNotice(
-      "Đến gặp Minh để bắt đầu nhiệm vụ đầu tiên.",
     );
   };
 
@@ -514,14 +543,27 @@ export function CampusGame() {
   const reset = () => {
     recognitionRef.current?.abort();
     stopSpeech();
-    saveProgress(freshProgress());
+    saveProgress({ ...freshProgress(), name: progress.name, avatar: progress.avatar });
     setRetryReset(false);
     setTalking(null);
-    setName("");
     setTab("explore");
     setNotice("");
     setMapVisible(true);
   };
+
+  async function logout() {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    setLogoutError('');
+    try {
+      if (!await flush()) {
+        setLogoutError('Hãy lưu tiến độ trước khi đăng xuất.');
+        return;
+      }
+      await onLogout();
+    } catch { setLogoutError('Chưa đăng xuất được. Hãy thử lại.'); }
+    finally { setLogoutBusy(false); }
+  }
 
   const conversationMessages = progress.messages.slice(conversationStart).filter((m) => m.place === talking);
   useEffect(() => {
@@ -565,7 +607,7 @@ export function CampusGame() {
             ref={worldRef}
             swimOpen={!!competitionView}
             competitionView={competitionView}
-            onCompetition={mode=>{setCompetitionInitial(mode);setSwimOpen(true);}}
+            onCompetition={venue=>{setCompetitionVenue(venue);setSwimOpen(true);}}
             avatar={progress.avatar}
             studying={classStudy}
             pets={progress.pets}
@@ -604,7 +646,8 @@ export function CampusGame() {
               <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
               <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
               <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
-              <button ref={swimLaunch} className="activities-launch swim-race-launch" lang="en" onClick={()=>setSwimOpen(true)}><Icon name="trophy" size={18}/>English competitions <small>5 games · Online</small><Icon name="arrow" size={16}/></button>
+              <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
+              <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/3</small><Icon name="arrow" size={16}/></button>
               <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
               {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
             </div>
@@ -629,7 +672,12 @@ export function CampusGame() {
               <span className="hud-area-name">{areaName}</span>
               <small className="desktop-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển</small>
             </div>
-            {near && (
+            {registration && !classStudy && (
+              <button ref={deskTrigger} className="interact-button sports-register" lang="en" onClick={()=>worldRef.current?.openRegistration()}>
+                <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> Register at {SPORTS_VENUES[registration].name.toLowerCase()}
+              </button>
+            )}
+            {near && !registration && (
               <button className="interact-button" onClick={openConversation}>
                 <kbd>E</kbd><Icon name="chat" size={19} /> Trò chuyện với {PLACES[near].npc}
               </button>
@@ -707,8 +755,9 @@ export function CampusGame() {
           onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
         />
       )}
-      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??''}`} area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}} onExit={()=>setPlacePractice(null)} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})} onComplete={()=>{const pet=placePractice.feeding;if(pet){const status=petStatus(progress.pets??{},pet);if(status.nextMealIn>0){setNotice(`Next meal available in ${Math.ceil(status.nextMealIn/1000)} seconds.`);}else{setFeedingPass({station:PETS[pet].station,expiresAt:Date.now()+300000});requestAnimationFrame(()=>worldRef.current?.goToPractice(PETS[pet].station));setNotice('Food earned! Walk to the feeding point and hold E to feed your animals.');}}setPlacePractice(null);}}/>}
-      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} initial={competitionInitial} onView={setCompetitionView} onEnter={enterCompetition} onExit={closeSwim}/>}
+      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??''}`} area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}} onExit={()=>setPlacePractice(null)} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})} onComplete={()=>{completeDaily({type:'quiz'});const pet=placePractice.feeding;if(pet){const status=petStatus(progress.pets??{},pet);if(status.nextMealIn>0){setNotice(`Next meal available in ${Math.ceil(status.nextMealIn/1000)} seconds.`);}else{setFeedingPass({station:PETS[pet].station,expiresAt:Date.now()+300000});requestAnimationFrame(()=>worldRef.current?.goToPractice(PETS[pet].station));setNotice('Food earned! Walk to the feeding point and hold E to feed your animals.');}}setPlacePractice(null);}}/>}
+      {sportsJournal&&<SportsJournal kind={sportsJournal} day={day} progress={progress.daily} onClose={()=>setSportsJournal(null)} onWalk={walkToRegistration}/>}
+      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} venue={competitionVenue} onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
       {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveProgress(updated);return true;}}/>}
       {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
       {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
@@ -735,7 +784,19 @@ export function CampusGame() {
               <button onClick={() => setHighQuality((quality) => !quality)}><Icon name="leaf" /> Đồ họa <span>{highQuality ? "Chi tiết" : "Nhẹ"}</span></button>
               <button onClick={toggleFullscreen}><Icon name="fullscreen" /> {fullscreen ? "Thoát toàn màn hình" : "Bật toàn màn hình"}</button>
             </div>
-            <p className="save-status" role="status">{notice || (saveAvailable ? "Tiến độ được lưu trên trình duyệt này." : "Không lưu được tiến độ sau khi đóng trang.")}</p>
+            <div className="account-menu-state">
+              <strong>Tài khoản · {account.username}</strong>
+              <p className="save-status" role="status">{SYNC_LABELS[sync]}</p>
+              <div className="account-menu-actions">
+                {sync === 'offline' && <button className="outline-button" onClick={() => void flush()}>Thử lưu lại</button>}
+                {sync === 'conflict' && <>
+                  <button className="outline-button" onClick={() => resolveConflict(false)}>Dùng tiến độ máy chủ</button>
+                  <button className="outline-button" onClick={() => resolveConflict(true)}>Lưu tiến độ thiết bị này</button>
+                </>}
+                <button className="outline-button" disabled={logoutBusy} onClick={() => void logout()}>Đăng xuất</button>
+              </div>
+              {logoutError && <p className="save-status" role="alert">{logoutError}</p>}
+            </div>
           </section>
         </div>
       )}
@@ -946,74 +1007,6 @@ export function CampusGame() {
           </section>
           </div>
         )}
-
-      {ready && !progress.name && (
-        <div className="modal-backdrop">
-          <section
-            className="welcome-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="welcome-title"
-          >
-            <div className="welcome-photo" aria-hidden="true">
-              <Image src="/art/chibi-campus-keyart.png" alt="" fill sizes="(max-width: 620px) 1200px, 100vw" priority />
-            </div>
-            <div className="welcome-brand">
-              <Icon name="compass" size={40} />
-              <h1>CampusQuest<span> AI</span></h1>
-              <p>Phiêu lưu học đường bằng tiếng Anh</p>
-            </div>
-            <form onSubmit={start} className="welcome-content">
-              <h2 id="welcome-title">Tạo học viên</h2>
-              <label htmlFor="player-name">Em muốn được gọi là gì?</label>
-              <input
-                id="player-name"
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={30}
-                placeholder="Nhập tên hoặc biệt danh của em"
-                required
-                autoComplete="off"
-              />
-              <fieldset className="avatar-options">
-                <legend>Chọn nhân vật</legend>
-                {[0, 1].map((v) => (
-                  <label
-                    key={v}
-                    className={avatar === v ? "avatar-selected" : ""}
-                  >
-                    <input
-                      type="radio"
-                      name="avatar"
-                      checked={avatar === v}
-                      onChange={() => setAvatar(v)}
-                    />
-                    <Cadet variant={v} />
-                    <span>{v === 0 ? "Học viên An" : "Học viên Linh"}</span>
-                    {avatar === v && (
-                      <span className="avatar-check">
-                        <Icon name="check" size={12} />
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </fieldset>
-              <button
-                type="submit"
-                className="primary-button full-width"
-                disabled={!name.trim()}
-              >
-                Bắt đầu hành trình
-                <Icon name="arrow" size={18} />
-              </button>
-              <small className="welcome-disclaimer">
-                Bản đồ mô phỏng · Nhân vật hư cấu · Hội thoại mẫu
-              </small>
-            </form>
-          </section>
-        </div>
-      )}
 
       {reward !== null && (
         <div className="modal-backdrop">
@@ -1352,8 +1345,7 @@ export function CampusGame() {
           >
             <h2 id="reset-title">Bắt đầu hành trình mới?</h2>
             <p>
-              Tên, huy hiệu và nhật ký hội thoại đang lưu trên trình duyệt này
-              sẽ được đặt lại. Em có thể xuất tiến độ trước khi bắt đầu lại.
+              Nhiệm vụ, huy hiệu và nhật ký hội thoại trong tài khoản sẽ được đặt lại. Em có thể xuất tiến độ trước khi bắt đầu lại.
             </p>
             <div className="reset-actions">
               <button

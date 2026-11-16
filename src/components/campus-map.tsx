@@ -1,6 +1,6 @@
 "use client";
 
-import {ATHLETICS_TRACK} from "@/lib/competition-catalog";
+import {ATHLETICS_TRACK, SPORTS_VENUES, TRACK_STANDS} from "@/lib/sports-layout";
 import { DISTRICT_PATHS,LIVESTOCK_PENS,FISH_POND,SWIMMING_POOL,TRAINING_GROUND,DISTRICT_STRUCTURES,TRAINING_EQUIPMENT } from '@/lib/campus-districts-layout';
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, EXPLORATION_ZONES, MAP_BOUNDS, type ZoneId } from "@/lib/campus-map";
 import { FARM_LAYOUT, SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_TREES } from "@/lib/campus-spaces";
@@ -35,16 +35,16 @@ export function CampusMap({
       className={`campus-map-art ${large ? "campus-map-large" : ""}`}
       aria-label="Bản đồ toàn trường"
     >
-      <svg className="campus-cartography" viewBox="0 0 1560 1460" role="img" aria-label="Campus atlas: classrooms, dormitories, garden, animal care, training ground, swimming pool and fish pond">
+      <svg className="campus-cartography" viewBox="0 0 1560 1550" role="img" aria-label="Campus atlas: classrooms, dormitories, garden, animal care, training ground, swimming pool and fish pond">
         <defs>
           <pattern id={large ? "atlas-grid-large" : "atlas-grid-mini"} width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#698677" strokeOpacity=".12" strokeWidth="1" /></pattern>
         </defs>
-        <rect width="1560" height="1460" fill="#dbe3cc" />
-        <rect x="12" y="12" width="1536" height="1436" rx="20" fill="none" stroke="#96ae90" strokeWidth="2" strokeDasharray="5 6" />
-        <rect width="1560" height="1460" fill={`url(#${large ? "atlas-grid-large" : "atlas-grid-mini"})`} />
-        <g transform="translate(460 780) scale(10)">
+        <rect width="1560" height="1550" fill="#dbe3cc" />
+        <rect x="12" y="12" width="1536" height="1526" rx="20" fill="none" stroke="#96ae90" strokeWidth="2" strokeDasharray="5 6" />
+        <rect width="1560" height="1550" fill={`url(#${large ? "atlas-grid-large" : "atlas-grid-mini"})`} />
+        <g transform="translate(460 870) scale(10)">
           {DISTRICT_PATHS.map((p,i)=><rect key={`new-path-${i}`} x={p.x-p.w/2} y={p.z-p.d/2} width={p.w} height={p.d} fill="#f6efd8"/>)}
-          <g aria-label="English running track"><rect x={ATHLETICS_TRACK.x-22} y={ATHLETICS_TRACK.z-4.5} width="44" height="9" fill="#b78b68"/>{[0,1,2,3,4].map(i=><path key={i} d={`M-21 ${-75+i*2}H21`} stroke="#f8edcc" strokeWidth=".08"/>)}<path d="M-20-75V-67M20-75V-67" stroke="#fff3cc" strokeWidth=".15"/></g>
+          <g aria-label="English running track"><rect x={ATHLETICS_TRACK.x-ATHLETICS_TRACK.w/2} y={ATHLETICS_TRACK.z-4.5} width={ATHLETICS_TRACK.w} height={ATHLETICS_TRACK.d} fill="#9f604d"/>{[0,1,2,3,4].map(i=><path key={i} d={`M-22 ${-75+i*2}H22`} stroke="#f8edcc" strokeWidth=".08"/>)}<path d="M-20-75V-67M20-75V-67" stroke="#fff3cc" strokeWidth=".15"/></g>
           <rect x={TRAINING_GROUND.x-TRAINING_GROUND.w/2} y={TRAINING_GROUND.z-TRAINING_GROUND.d/2} width={TRAINING_GROUND.w} height={TRAINING_GROUND.d} rx=".5" fill="#c8b38b"/>
           {TRAINING_EQUIPMENT.map(e=><rect key={e.id} x={e.x-e.w/2} y={e.z-e.d/2} width={e.w} height={e.d} fill="#72805a"/>)}
           {LIVESTOCK_PENS.map(p=><g key={p.id}><rect x={p.x-p.w/2} y={p.z-p.d/2} width={p.w} height={p.d} fill="#c9b68e" stroke="#6c815d" strokeWidth=".18"/><rect x={p.x-p.w/2+.5} y={p.z-p.d/2+.5} width={p.w-1} height="2" fill="#6c896a"/></g>)}
@@ -52,7 +52,9 @@ export function CampusMap({
           <rect x={FISH_POND.x-4.5} y={FISH_POND.z+FISH_POND.d/2} width="7.5" height="5.4" fill="#b89a6a"/>
           <rect x={SWIMMING_POOL.x-SWIMMING_POOL.deckW/2} y={SWIMMING_POOL.z-SWIMMING_POOL.deckD/2} width={SWIMMING_POOL.deckW} height={SWIMMING_POOL.deckD} fill="#d7d1b7"/>
           <rect x={SWIMMING_POOL.x-SWIMMING_POOL.w/2} y={SWIMMING_POOL.z-SWIMMING_POOL.d/2} width={SWIMMING_POOL.w} height={SWIMMING_POOL.d} fill="#7eb7bc"/>
-          {[1,2,3,4,5].map(i=><path key={i} d={`M${SWIMMING_POOL.x-SWIMMING_POOL.w/2} ${SWIMMING_POOL.z-SWIMMING_POOL.d/2+i*SWIMMING_POOL.d/6}h${SWIMMING_POOL.w}`} stroke="#eef1d5" strokeWidth=".15" strokeDasharray=".5 .3"/>)}
+          {[1,2,3].map(i=><path key={i} d={`M${SWIMMING_POOL.x-SWIMMING_POOL.w/2} ${SWIMMING_POOL.z-SWIMMING_POOL.d/2+i*SWIMMING_POOL.d/4}h${SWIMMING_POOL.w}`} stroke="#eef1d5" strokeWidth=".15" strokeDasharray=".5 .3"/>)}
+          {TRACK_STANDS.map(b=><rect key={b.x} x={b.x-b.w/2} y={b.z-b.d/2} width={b.w} height={b.d} fill="#6f856f" rx=".2"/>)}
+          {Object.values(SPORTS_VENUES).map(v=><rect key={v.name} x={v.desk.x-v.desk.w/2} y={v.desk.z-v.desk.d/2} width={v.desk.w} height={v.desk.d} rx=".2" fill="#987544"/>)}
           {DISTRICT_STRUCTURES.map(b=><rect key={b.id} x={b.x-b.w/2} y={b.z-b.d/2} width={b.w} height={b.d} fill="#718b71" stroke="#f6efd8" strokeWidth=".2"/>)}
           <rect x="-34" y="-28" width="16" height="42" rx="2" fill="#b4c5a0" opacity=".35"/>
           <rect x="-14" y="-29" width="48" height="15" rx="2" fill="#c6ccab" opacity=".45"/>
@@ -80,7 +82,7 @@ export function CampusMap({
           {!large && Object.values(PLACES).map(p=><circle key={p.npc} cx={p.position[0]} cy={p.position[1]} r="1.3" fill="#d9b964"/>)}
           <circle cx="2.7" cy="-1.9" r=".6" fill="#bd775e" /><path d="M2.7-1.9V-3.9" stroke="#416d60" strokeWidth=".15" />
         </g>
-        {large && <g transform="translate(460 780) scale(10)" className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x="0" y="-63">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>}
+        {large && <g transform="translate(460 870) scale(10)" className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x="0" y="-63">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>}
       </svg>
       {large && EXPLORATION_ZONES.map((zone) => (
         <button

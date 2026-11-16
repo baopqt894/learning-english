@@ -1,5 +1,6 @@
+import { SPORTS_VENUES } from './sports-layout.ts';
 /** Every new district shares footprints between geometry, navigation and the atlas. */
-export const CAMPUS_EXTENT={minX:-46,maxX:110,minZ:-78,maxZ:68};
+export const CAMPUS_EXTENT={minX:-46,maxX:110,minZ:-87,maxZ:68};
 export const BASE_DISTRICT_PATHS=[
   {x:44,z:-19.5,w:58,d:3.6},{x:38,z:-9.5,w:3.6,d:87},
   {x:25,z:35,w:96,d:3.6},{x:0,z:-32,w:3.6,d:14},
@@ -14,7 +15,7 @@ export const BASE_LIVESTOCK_PENS=[
 ] as const;
 export const BASE_FISH_POND={x:56,z:-4,w:22,d:13};
 export const BASE_FEED_DECK={x:55.5,z:4.5,w:5,d:3.6};
-export const BASE_SWIMMING_POOL={x:56,z:-40,w:18,d:12,deckW:25,deckD:21};
+export const BASE_SWIMMING_POOL={x:56,z:-40,w:18,d:12,deckW:28,deckD:22};
 export const BASE_TRAINING_GROUND={x:0,z:-43,w:32,d:18};
 export const BASE_BALANCE_BEAM={x:-2,z:-43,w:.28,d:6,top:.55};
 export const BASE_DISTRICT_STRUCTURES=[
@@ -47,7 +48,7 @@ export const BASE_DISTRICT_OBSTACLES=[
   ...[51,54,57].map(x=>({x,z:-51.5,w:.8,d:.8})),
   ...[52.5,58.5].map(x=>({x,z:12.6,w:.14,d:.14})),
   ...[-4,4].map(x=>({x,z:-32.5,w:.12,d:.12})),
-  ...[51.5,60.5].map(x=>({x,z:-28,w:.13,d:.13})),
+  ...[49.9,56.1].map(x=>({x,z:-28,w:.13,d:.13})),
   ...BASE_TRAINING_CONES,
 ];
 export const BASE_NEW_DISTRICT_ZONES=[
@@ -93,7 +94,7 @@ export const DISTRICT_BENCHES=BASE_DISTRICT_BENCHES.map(footprint);
 export const TRAINING_CONES=BASE_TRAINING_CONES.map(footprint);
 export const EXPANDED_TREES=[[-42,-30],[-38,-36],[-30,-51],[-27,-68],[28,-65],[29,-44],[40,-71],[55,-68],[98,-70],[102,-34],[53,-24],[103,-22],[104,12],[57,58],[75,58],[95,58],[105,47],[25,62],[10,40],[-8,38],[-40,47]].map(([x,z],i)=>({x,z,scale:.95+(i%4)*.14,flowering:i%5===0}));
 export const DISTRICT_OBSTACLES=[...BASE_DISTRICT_OBSTACLES.map(footprint),...EXPANDED_TREES.map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale}))];
-export const NEW_DISTRICT_ZONES=[...BASE_NEW_DISTRICT_ZONES.map(z=>districtPoint(z.id,z)),{id:'athletics',name:'Đường chạy tiếng Anh',english:'English athletics',x:0,z:-65.8,icon:'ball',color:'#bd986b'},{id:'field-games',name:'Sân trò chơi tiếng Anh',english:'English field games',x:40,z:20.5,icon:'ball',color:'#92b171'}] as const;
+export const NEW_DISTRICT_ZONES=[...BASE_NEW_DISTRICT_ZONES.map(z=>z.id==='swimming'?{...z,...SPORTS_VENUES.pool.approach}:districtPoint(z.id,z)),{id:'athletics',name:'Đường chạy tiếng Anh',english:'English athletics',...SPORTS_VENUES.track.approach,icon:'run',color:'#bd986b'},{id:'field-games',name:'Sân trò chơi tiếng Anh',english:'English field games',...SPORTS_VENUES.field.approach,icon:'ball',color:'#92b171'}] as const;
 export const DISTRICT_STATIONS=BASE_DISTRICT_STATIONS.map(s=>{const id=baseDistrictAt(s);return {...districtPoint(id,s),look:districtPoint(id,s.look),seconds:s.id==='balance'?9:s.seconds};});
 export const BALANCE_START=DISTRICT_STATIONS.find(s=>s.id==='balance')!;
 export const BALANCE_END=districtPoint('training',{x:-2,z:-47});
@@ -111,6 +112,8 @@ export const DISTRICT_PATHS=[
  // Eastern service spine joins water safety, aquaculture and animal care.
  {x:44,z:-7.5,w:4,d:137},
  {x:74,z:-76,w:60,d:2.4},
+ {x:83,z:-32.7,w:4.2,d:2.9},
+ {x:-16,z:-64.2,w:3.4,d:3.8},
  {x:74,z:-20.5,w:60,d:3},
  {x:74,z:15.5,w:60,d:3},
  {x:75,z:37.5,w:3.4,d:44},

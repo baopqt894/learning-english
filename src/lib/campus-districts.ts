@@ -50,7 +50,14 @@ export function createCampusDistricts(scene:THREE.Scene){
   for(const p of DISTRICT_PATHS){surface(p.w,p.d,0xd4c49d,p.x,p.z).userData.fixed=true;for(const side of [-1,1]){if(p.w>p.d)box(p.w,.07,.12,0xad9874,p.x,.08,p.z+side*p.d/2);else box(.12,.07,p.d,0xad9874,p.x+side*p.w/2,.08,p.z);}}
   for(const child of staticRoot.children)child.userData.fixed=true;
   for(const b of DISTRICT_STRUCTURES.filter(b=>b.id!=='training-shelter'))shelter(b.x,b.z,b.w,b.d,b.h,false);
-  label('FEED & TOOLS',70.5,2.3,21.08,3,.35);label('FEEDING STATION',69.5,2.3,-.92,3,.35);label('CHANGING ROOMS & SHOWERS',56,2.15,-52.12,9,.4);
+  label('FEED & TOOLS',70.5,2.3,21.08,3,.35);label('FEEDING STATION',69.5,2.3,-.92,3,.35);
+  for(const [i,x] of [51,56,61].entries()){
+    box(1.12,2.08,.09,0x4a695c,x,1.09,-52.09);
+    box(.93,1.92,.058,0x719483,x,.99,-52.03);
+    box(.07,.12,.055,0xd8c69c,x+.29,.96,-51.997);
+    for(let vent=0;vent<5;vent++)box(.59,.032,.024,0x3b625a,x,.39+vent*.1,-51.996);
+    label(['CHANGING','SHOWERS','CHANGING'][i],x,2.32,-51.99,2.8,.23);
+  }
   for(const b of DISTRICT_BENCHES){if(b.w>b.d){plank(b.w,b.d,b.x,.57,b.z);for(const s of [-1,1])box(.12,.54,.5,0x5e6f52,b.x+s*(b.w/2-.3),.29,b.z);box(b.w,.48,.08,0x9e7c50,b.x,.9,b.z-.32);}else {plank(b.w,b.d,b.x,.57,b.z);for(const s of [-1,1])box(.5,.54,.12,0x5e6f52,b.x,.29,b.z+s);}}
 
   const animals:{group:THREE.Group;head:THREE.Group;legs:THREE.Group[];x:number;z:number;phase:number;kind:string}[]=[];
@@ -93,7 +100,7 @@ export function createCampusDistricts(scene:THREE.Scene){
 
   const waterTime={value:0};
   function water(w:number,d:number,x:number,z:number,pool=false){
-    const mat=new THREE.MeshStandardMaterial({color:pool?0x5bafb5:0x5a9486,transparent:true,opacity:pool?.82:.58,roughness:.23,metalness:.12,depthWrite:false});
+    const mat=new THREE.MeshStandardMaterial({color:pool?0x53b4cc:0x5a9486,transparent:true,opacity:pool?.7:.58,roughness:.23,metalness:.12,depthWrite:false});
     mat.onBeforeCompile=shader=>{shader.uniforms.uDistrictWater=waterTime;shader.vertexShader='varying vec2 vDistrictWater;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvDistrictWater=position.xy;');shader.fragmentShader='uniform float uDistrictWater;varying vec2 vDistrictWater;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat ripple=sin(vDistrictWater.x*10.+sin(vDistrictWater.y*8.+uDistrictWater)*2.-uDistrictWater*1.8);float caustic=sin(vDistrictWater.x*17.+vDistrictWater.y*13.+uDistrictWater)*sin(vDistrictWater.y*19.-vDistrictWater.x*7.-uDistrictWater*.7);diffuseColor.rgb*=.95+.06*ripple+.15*pow(max(0.,caustic),5.);');};
     const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat);m.rotation.x=-Math.PI/2;m.position.set(x,.23,z);root.add(m);return m;
   }
@@ -109,15 +116,37 @@ export function createCampusDistricts(scene:THREE.Scene){
   for(let i=0;i<45;i++){const x=pond.x-pond.w/2+.3+random()*(pond.w-.6),z=pond.z-pond.d/2-.55;pipe([x,.1,z],[x+(random()-.5)*.2,.55+random()*.55,z],.018,0x6a7f40);}
   const net=ring(.36,.018,0xb5b095,71,.95,-.5);net.rotation.y=.4;pipe([71,.7,-.5],[71,.12,1.1],.025,0x8b7853);round(.6,.6,.6,0x708672,70,.4,1);round(.6,.6,.6,0x708672,71,.4,1);
 
-  const pool=SWIMMING_POOL;surface(pool.deckW,pool.deckD,0xd4cbb1,pool.x,pool.z,'pavers');box(pool.w,.06,pool.d,0x7ab9b9,pool.x,.02,pool.z);water(pool.w,pool.d,pool.x,pool.z,true);
-  for(const s of [-1,1]){box(pool.w+.7,.27,.35,0xf0e7cd,pool.x,.19,pool.z+s*(pool.d/2+.17));box(.35,.27,pool.d,0xf0e7cd,pool.x+s*(pool.w/2+.17),.19,pool.z);}
-  for(let i=0;i<6;i++){const z=pool.z-pool.d/2+1+i*2;box(pool.w-1,.015,.12,0x37696c,pool.x,.07,z);for(const x of [pool.x-pool.w/2+.7,pool.x+pool.w/2-.7])box(.11,.017,1.1,0x37696c,x,.075,z);label(String(i+1),pool.x-9.28,.45,z,.4,.3).rotation.y=-Math.PI/2;}
-  for(let j=1;j<6;j++)for(let i=0;i<48;i++)oval(.12,.085,.095,i%8<4?0xebe1be:0x748f78,pool.x-8.8+i*.375,.28,pool.z-6+j*2);
+  const pool=SWIMMING_POOL;
+  surface(pool.deckW,pool.deckD,0xd4d9c8,pool.x,pool.z,'pavers');
+  const basin = { x: 56, z: -40, w: 18, d: 12 };
+  box(basin.w,.06,basin.d,0x6eb8ce,basin.x,.02,basin.z);
+  water(basin.w,basin.d,basin.x,basin.z,true);
+  for(const side of [-1,1]){
+    const z=basin.z+side*(basin.d/2+.14),x=basin.x+side*(basin.w/2+.14);
+    box(basin.w+.55,.24,.32,0xf0efe1,basin.x,.17,z);
+    box(.32,.24,basin.d,0xf0efe1,x,.17,basin.z);
+    box(basin.w,.045,.055,0x458e9a,basin.x,.19,z-side*.13);
+    box(.055,.045,basin.d,0x458e9a,x-side*.13,.19,basin.z);
+  }
+  for(let lane=0;lane<4;lane++){
+    const z=basin.z+3*(lane-1.5);
+    box(16.2,.018,.11,0x245668,basin.x,.07,z);
+    for(const x of [48.4,63.6])box(.11,.02,1.15,0x245668,x,.071,z);
+    if(lane<3){
+      const ropeZ=z+1.5;
+      box(18,.022,.024,0xd2e6da,56,.265,ropeZ);
+      for(let i=0;i<54;i++){
+        const x=47.15+i*.335;
+        const float=cyl(.102,.19,i<6||i>47?0xd17962:i%8<4?0xffefd3:0x3c8ba2,x,.272,ropeZ);
+        float.rotation.z=Math.PI/2;
+      }
+    }
+  }
   for(const x of [48,64]){for(const side of [-1,1]){pipe([x+side*.35,.25,-33.5],[x+side*.35,1.1,-33.5],.03,0xa2b5a9);pipe([x+side*.35,1.1,-33.5],[x+side*.35,1.1,-34.3],.03,0xa2b5a9);pipe([x+side*.35,1.1,-34.3],[x+side*.35,.05,-34.3],.03,0xa2b5a9);}for(let i=0;i<3;i++)pipe([x-.35,.2+i*.22,-34.25],[x+.35,.2+i*.22,-34.25],.025,0xa2b5a9);}
   // Deck drains, depth labels, rescue equipment and shower cubicles.
   for(const z of [-46.8,-33.2])for(let i=0;i<53;i++)box(.14,.018,.24,0x8e9f90,46.4+i*.37,.1,z);
-  label('1.2 m',47,.35,-33.1,1,.22);label('0.8 m · PRACTICE',61,.36,-33.1,3,.22);label('SWIMMING & WATER SAFETY',56,3.15,-27.8,9,.55);
-  for(const x of [51.5,60.5])round(.13,3.5,.13,0x607455,x,1.75,-28);
+  label('1.2 m',47,.35,-33.1,1,.22);label('WATER SAFETY',57,.45,-33.1,3,.26);label('CAMPUS AQUATICS',53,3.15,-27.8,6.3,.67);
+  for(const x of [49.9,56.1])round(.13,3.5,.13,0x607455,x,1.75,-28);
   for(const x of [61,62]){const life=ring(.34,.085,0xe1aa62,x,1.1,-32.05);for(const side of [-1,1])round(.09,.7,.1,0xe4d8b7,x+side*.12,1.1,-32);life.name='Rescue ring';}box(1.6,.08,.6,0x687958,61,.3,-32);
   for(let i=0;i<3;i++){const x=51+i*3;pipe([x,.1,-51.5],[x,2.2,-51.5],.03,0x9fae9a);pipe([x,2.2,-51.5],[x,2.2,-50.9],.03,0x9fae9a);oval(.12,.035,.12,0x8a9e91,x,2.17,-50.9);box(.8,.04,.8,0xb0b7a1,x,.1,-51.2);}
   const throwRing=ring(.32,.07,0xe4a363,0,0,0,root);throwRing.visible=false;

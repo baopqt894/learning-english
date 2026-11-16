@@ -7,6 +7,10 @@ Trải nghiệm phiêu lưu học đường. Khuôn viên Three.js phủ kín m�
 - **Menu.** Nhật ký mở trên màn chơi và chứa mục tiêu, từ vựng, tiến độ sáu nhiệm vụ và hành trang. Đồ họa, toàn màn hình và góc giáo viên nằm trong menu tạm dừng.
 - **Điều khiển.** Giữ focus nhìn thấy được, cho phép đóng lớp phủ bằng Escape và tôn trọng cài đặt giảm chuyển động.
 
+## Tài khoản học viên
+
+Màn vào game giữ ảnh chibi của khuôn viên và dùng nền giấy kem cho biểu mẫu. Học viên đăng ký bằng biệt danh, tên đăng nhập và mật khẩu hoặc đăng nhập vào hồ sơ đã có. Khi có tiến độ cũ trên trình duyệt, màn đăng ký cho phép chuyển sang tài khoản. Trên điện thoại, ảnh nằm phía trên biểu mẫu cuộn tự nhiên và các trường có cỡ chữ phù hợp bàn phím cảm ứng.
+
 ## Nhân vật chibi
 
 Nhân vật dành cho học sinh: đầu lớn, mắt tròn, thân và tay chân ngắn, chất liệu mờ mềm. Giữ quân phục ô liu, cầu vai/cổ đỏ, sao vàng nhỏ trên mũ và ba lô học đường. Cô Lan có kính tròn, búi tóc và sách; chú Hùng có ria nhỏ, tạp dề và khay đồ ăn. Chân dung dùng ảnh biểu cảm cố định theo câu, không bóp méo miệng. Cùng hướng tạo hình được áp dụng cho model 3D, avatar, hội thoại và ảnh chào.
@@ -43,4 +47,4 @@ The campus pool hosts a 25 m English race. Keep the real 3D pool visible above a
 
 ## Shared competition lobbies and contextual practice
 
-English Games replaces the single-player swim-only entry with five venue-based competitions, real four-seat online lobbies, room codes, readiness, host + bot controls and correct-answer combo boosts. Waiting participants stand in the 3D venue; course space stays separate from training obstacles. Registration signs and a permanent How to play entry make the route clear. Place practice is a compact cream panel with word-choice and sentence-building tasks. Animal feeding is unlocked by English practice and consumes one portion through the real 3D action. Health, hunger and recoverable growth appear in the animal-care panel. See `docs/english-games-online.md`.
+English Games replaces the single-player swim-only entry with five venue-based competitions, real four-seat online lobbies, room codes, readiness, host + bot controls and correct-answer combo boosts. Waiting participants stand in the 3D venue; course space stays separate from training obstacles. The HUD routes cadets to a physical registration desk. The desk opens a compact race form over the outdoor venue, with solo practice, shared rooms, three difficulty levels and a campus record board. Pool deck blues and terracotta track surfaces distinguish the venues. The daily mission sheet uses the warm paper and olive ink of the campaign journal. Place practice is a compact cream panel with word-choice and sentence-building tasks. Animal feeding is unlocked by English practice and consumes one portion through the real 3D action. Health, hunger and recoverable growth appear in the animal-care panel. See `docs/english-games-online.md`.

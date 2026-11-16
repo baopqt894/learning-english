@@ -1,8 +1,10 @@
 # Current campus and learning audit
 
-The expanded layout provides 22,776 square units of playable space. Classroom A1/A2 each have 150 square units; Dormitory B has 120; the multipurpose hall has 280. The enlarged vegetable garden has 478.97 square units. Characters keep their approved proportions.
+The expanded layout provides 24,180 square units of playable space. Classroom A1/A2 each have 150 square units; Dormitory B has 120; the multipurpose hall has 280. The enlarged vegetable garden has 478.97 square units. Characters keep their approved proportions.
 
-All 1,722 directed routes between 42 named destinations pass, including the 12 physical-work stations, four district practices and both ends of the balance beam. The layout contains 260 solid footprints and 110 trees. Its 36 circulation paths form one connected network and do not cross buildings, the sports pitch or crop beds. The garden contains eight larger beds with about 135.28 square units of productive soil. Room, pond, pen and farm geometry shares coordinates with navigation and the atlas. Building footprints are checked pairwise for overlap; the main school was moved north to keep its enlarged roof and the library apart.
+The three sports registration approaches are walkable, the desks have collision, and their activation radius is limited to the marked approaches. Sports fixtures clear the pool water and track lanes. The north fence accommodates the three covered track stands.
+
+All 1,722 directed routes between 42 named destinations pass, including the 12 physical-work stations, seven district practices and both ends of the balance beam. The layout contains 268 solid footprints and 110 trees. Its 38 circulation paths form one connected network and do not cross buildings, the sports pitch or crop beds. The garden contains eight larger beds with about 135.28 square units of productive soil. Room, pond, pen and farm geometry shares coordinates with navigation and the atlas. Building footprints are checked pairwise for overlap; the main school was moved north to keep its enlarged roof and the library apart.
 
 See `campus-replan-v2.md` for complete roofs, occupied-room reveal, frame-synchronised shadows and the new garden plan. See `campus-layout-audit.json` for current results and `discovery-day-campaign.md` for the ten-chapter learning flow. The older farm-specific audit notes below are historical references; their former campus-wide counts and coordinates have been superseded.
 

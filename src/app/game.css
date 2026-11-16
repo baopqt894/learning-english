@@ -1,7 +1,7 @@
 /* Cartography, gallery and supplemental game screens. */
 .campus-map-art {
   position: relative;
-  aspect-ratio: 156/146;
+  aspect-ratio: 156/155;
   width: 100%;
   margin: 12px 0 9px;
   border: 1px solid #c6b67b9c;

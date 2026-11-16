@@ -1,22 +1,24 @@
-import {competitionQuestions,COMPETITIONS,RACE_COLOURS,type CompetitionId,type RaceQuestion} from './competition-catalog.ts';
+import {competitionQuestions,COMPETITIONS,DIFFICULTIES,RACE_COLOURS,type CompetitionId,type RaceQuestion,type RaceDifficulty} from './competition-catalog.ts';
 export type CompetitionAnswer={questionId:string;choice:number|null;correct:boolean;seconds:number;at:number;boost:number;streak:number};
-export type CompetitionMember={id:string;name:string;kind:'human'|'bot';ready:boolean;connected:boolean;avatar:number;colour:string;answers:CompetitionAnswer[];finishedAt:number|null;takeoverAt?:number};
+export type CompetitionMember={id:string;name:string;kind:'human'|'bot';ready:boolean;connected:boolean;avatar:number;colour:string;answers:CompetitionAnswer[];finishedAt:number|null;takeoverAt?:number;botAssisted?:boolean};
 export type CompetitionRound={id:string;startedAt:number;order:string[]};
-export type CompetitionRoom={code:string;mode:CompetitionId;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
-export const FEEDBACK_SECONDS=1.4,QUESTION_SECONDS=12;
+export type RecordStatus = 'personal-best' | 'kept-best' | 'not-qualified' | 'retrying';
+export type CompetitionRoom={code:string;mode:CompetitionId;difficulty:RaceDifficulty;format:'online'|'practice';record?:RecordStatus;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
+export const FEEDBACK_SECONDS=1.4;
+export function questionSeconds(room: CompetitionRoom) { return DIFFICULTIES[room.difficulty].seconds; }
 export function raceTime(room:CompetitionRoom,now:number){return room.round?(now-room.round.startedAt)/1000-3:0;}
 export function raceQuestion(room:CompetitionRoom,member:CompetitionMember,index=member.answers.length):RaceQuestion{
- const order=room.round?.order??competitionQuestions(room.mode).map(q=>q.id);
- const base=competitionQuestions(room.mode).find(q=>q.id===order[index%order.length])!;
+ const bank=competitionQuestions(room.mode,room.difficulty),order=room.round?.order;
+ const base=order?bank.find(q=>q.id===order[index%order.length])!:bank[index%bank.length];
  const correct=base.choices[base.answer],choices=[...base.choices];let seed=((room.round?.startedAt??0)+index*7919)>>>0;
  for(let i=choices.length-1;i>0;i--){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const j=seed%(i+1);[choices[i],choices[j]]=[choices[j],choices[i]];}
  return {...base,choices,answer:choices.indexOf(correct)};
 }
 export const openedAt=(member:CompetitionMember)=>member.answers.length?member.answers.at(-1)!.at+FEEDBACK_SECONDS:0;
 export function makeAnswer(room:CompetitionRoom,member:CompetitionMember,choice:number|null,time:number):CompetitionAnswer{
- const q=raceQuestion(room,member),seconds=Math.min(12,Math.max(0,time-openedAt(member))),correct=choice===q.answer;
+ const limit=questionSeconds(room),q=raceQuestion(room,member),seconds=Math.min(limit,Math.max(0,time-openedAt(member))),correct=choice===q.answer;
  const streak=correct?(member.answers.at(-1)?.streak??0)+1:0,multiplier=1+Math.min(4,Math.max(0,streak-1))*.15;
- return {questionId:q.id,choice,correct,seconds,at:time,streak,boost:correct?(1.5+2.7*(1-seconds/12))*multiplier:0};
+ return {questionId:q.id,choice,correct,seconds,at:time,streak,boost:correct?(1.5+2.7*(1-seconds/limit))*multiplier:0};
 }
 export function raceDistance(room:CompetitionRoom,member:CompetitionMember,time:number){
  let units=Math.max(0,time)*.4;for(const a of member.answers)units+=a.boost*Math.min(1,Math.max(0,(time-a.at)/1.5));

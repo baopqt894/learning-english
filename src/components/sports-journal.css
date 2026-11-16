@@ -1,0 +1,100 @@
+.sports-backdrop {
+  background: #101e16a6;
+}
+.sports-journal {
+  width: min(540px, 100%);
+  max-height: min(650px, 90dvh);
+  overflow: auto;
+  padding: clamp(18px, 4vw, 32px);
+  border-radius: 15px;
+  background: #f5edda;
+  color: #17392e;
+  box-shadow: 0 18px 58px #071c1466;
+  scrollbar-color: #7a8d6d #f5edda;
+}
+.sports-journal header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid #bfbda5;
+}
+.campus-shell .sports-backdrop .sports-journal h2 {
+  margin: 0;
+  color: #17392e;
+  font-size: clamp(23px, 5vw, 32px);
+  letter-spacing: -.028em;
+}
+.sports-journal p {
+  margin: 5px 0 0;
+  color: #3b5648;
+  font-size: .91rem;
+  line-height: 1.48;
+}
+.sports-journal button { color: inherit; }
+.sports-journal-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #9da891;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sports-venues, .sports-missions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sports-venues li + li, .sports-missions li + li { border-top: 1px solid #cecab3; }
+.sports-venues button {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 3px;
+  text-align: left;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.sports-venues button:hover, .sports-journal-close:hover { background: #e9dec4; }
+.sports-venues strong, .sports-venues small { display: block; }
+.sports-venues small { margin-top: 4px; color: #3b5648; }
+.sports-venue-icon, .daily-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #dfe3cb;
+  color: #204b3c;
+}
+.sports-venue-icon[data-venue=pool] { background: #d2e6df; color: #285762; }
+.sports-venue-icon[data-venue=track] { background: #ecd3bb; color: #793e30; }
+.sports-walk-label { display: flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; }
+.sports-journal .daily-summary { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; margin-top: 10px; font-size: .82rem; }
+.sports-missions li { display: grid; grid-template-columns: 44px 1fr auto; align-items: start; gap: 12px; padding: 14px 0; }
+.daily-icon { width: 38px; height: 38px; }
+.sports-missions li[data-complete=true] .daily-icon { background: #254b39; color: #f7ecd0; }
+.daily-xp { color: #6c4c23; font-size: .76rem; font-weight: 700; white-space: nowrap; padding-top: 3px; }
+.sports-missions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sports-journal button:focus-visible { outline: 2px solid #285746; outline-offset: 3px; }
+@media (max-width: 420px) {
+  .sports-venues button { gap: 9px; }
+  .sports-walk-label { font-size: .71rem; }
+  .sports-missions li { grid-template-columns: 38px 1fr; gap: 8px; }
+  .daily-xp { grid-column: 2; padding-top: 0; }
+}

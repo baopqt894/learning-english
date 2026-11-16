@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {petForStation,type PetCare} from "@/lib/pet-care";
 import {createCompetitionScene} from "@/lib/competition-scene";
-import {COMPETITIONS,type CompetitionId} from "@/lib/competition-catalog";
+import {COMPETITIONS} from "@/lib/competition-catalog";
+import { SPORTS_VENUES, SPORTS_VENUE_IDS, nearbySportsVenue, type SportsVenueId } from "@/lib/sports-layout";
 import type {CompetitionView} from "./competition-arena";
 
 
@@ -30,7 +31,8 @@ import {
 } from "@/lib/campus-map";
 
 export type WorldHandle = {
-  enterCompetition:(mode:CompetitionId)=>void;
+  goToRegistration:(venue:SportsVenueId)=>void;
+  openRegistration:()=>boolean;
   fieldworkAvailable: () => boolean;
   goToWork: (station: string) => void;
   goToPractice:(id:DistrictStationId)=>void;
@@ -55,7 +57,7 @@ type Props = {
   onFeedingQuiz?:(station:DistrictStationId)=>void;
   swimOpen?:boolean;
   competitionView?:CompetitionView|null;
-  onCompetition?:(mode:CompetitionId)=>void;
+  onCompetition?:(venue:SportsVenueId)=>void;
   storyTarget?:{x:number;z:number};
   onDistrictComplete?:(id:DistrictStationId)=>void;
   studying?: boolean;
@@ -77,7 +79,7 @@ type Props = {
   onAreaChange?: (name: string) => void;
 };
 const emptyActions = (): WorldHandle => ({
-  enterCompetition:()=>{},goToPractice:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
+  goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
   goTo: () => {},
   recenter: () => {},
   zoom: () => {},
@@ -144,7 +146,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   useImperativeHandle(
     ref,
     () => ({
-      enterCompetition:mode=>actionRef.current.enterCompetition(mode),
+      goToRegistration:venue=>actionRef.current.goToRegistration(venue),
+      openRegistration:()=>actionRef.current.openRegistration(),
       goToPractice:id=>actionRef.current.goToPractice(id),
       fieldworkAvailable: () => actionRef.current.fieldworkAvailable(),
       goToWork: (station) => actionRef.current.goToWork(station),
@@ -468,7 +471,19 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       });
     };
     actionRef.current = {
-      enterCompetition:mode=>{const point=COMPETITIONS[mode].arrival;if(canWalkCampus(point.x,point.z)){player.group.position.set(point.x,campusFloorHeight(point),point.z);route=[];keys.clear();resetCamera(point.x,point.z);}},
+      goToRegistration:venue=>{
+        const { x, z } = SPORTS_VENUES[venue].approach;
+        renderer.domElement.focus({preventScroll:true});
+        walkTo(x,z);
+      },
+      openRegistration:()=>{
+        const {x,z}=player.group.position;
+        const venue=nearbySportsVenue(x,z);
+        if(!venue||!callbacks.current.enabled||callbacks.current.workKind||callbacks.current.studying||photoSession||districtActive||overviewMode)return false;
+        route=[];keys.clear();destination.visible=false;
+        callbacks.current.onCompetition?.(venue);
+        return true;
+      },
       goToPractice:id=>districtTravelRef.current(id),
       fieldworkAvailable: () => !renderer.getContext().isContextLost(),
       viewWork: (wide) => { workWide=wide; },
@@ -533,6 +548,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if (photoSession || typing(event.target) || !callbacks.current.enabled) return;
       const key = event.key.toLowerCase();
       if(callbacks.current.workKind && key===' '){event.preventDefault();if(!event.repeat)actionRef.current.holdWork(true);return;}
+      if(key==='e'&&!event.repeat&&actionRef.current.openRegistration()){event.preventDefault();return;}
       if(key==='e'&&districtNear&&!callbacks.current.workKind){event.preventDefault();if(!event.repeat)districtHoldRef.current(true);return;}
       if(holdingWork||districtActive)return;
       if (key === "shift") {
@@ -594,7 +610,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           );
           if(zone&&['athletics','field-games','swimming'].includes(zone.id)){label.style.display='none';return;}
           const station=DISTRICT_STATIONS.find(s=>s.id===label.dataset.station);
-          const contest=label.dataset.competition?COMPETITIONS[label.dataset.competition as CompetitionId].arrival:undefined;
+          const contest=label.dataset.competition?SPORTS_VENUES[label.dataset.competition as SportsVenueId].desk:undefined;
           if (!place && !zone && !station && !contest) return;
           const destination=contest||zone||station;
           vector
@@ -607,6 +623,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           const horizontalMargin = ((zone ? 65 : 46) * 2) / width;
           label.style.display =
             (station && Math.hypot(player.group.position.x-station.x,player.group.position.z-station.z)<1.3) ||
+            (contest && label.dataset.competition===nearbySportsVenue(player.group.position.x,player.group.position.z)) ||
             (!overviewMode &&
               destination &&
               Math.hypot(
@@ -937,7 +954,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         const view=callbacks.current.competitionView,definition=COMPETITIONS[view?.mode??'swimming'];
         const frame:{x:number;z:number;w:number;d:number}={x:definition.x,z:definition.z,w:definition.w,d:definition.d};
         const landscape=host.clientHeight<=620&&host.clientWidth>600;
-        if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else if(definition.axis==='x'){frame.x=0;frame.z=-65.8;frame.w=18;frame.d=6;}else{frame.x=40;frame.z=6;frame.w=8;frame.d=17;}}
+        if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else if(definition.axis==='x'){frame.x=-7;frame.z=-65.7;frame.w=17;frame.d=5.5;}else{frame.x=40;frame.z=6;frame.w=8;frame.d=17;}}
         competitionScene.update(view??null,Date.now()+(view?.clockOffset??0),reducedMotion.matches);
         // Fit actual pool bounds into the space above/beside the question panel.
         focusTarget.set(frame.x,0,frame.z);
@@ -1029,7 +1046,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       <div className="world-canvas" ref={hostRef} />
       <div className="world-labels" ref={labelsRef} inert={!!conversation || photoMode}>
         {DISTRICT_STATIONS.map(s=><button key={s.id} data-station={s.id} className="map-label district-world-label" onClick={()=>districtTravelRef.current(s.id)}>{s.title}<small>Walk here to practise</small></button>)}
-        {(['swimming','sprint','sack'] as CompetitionId[]).map(id=><button key={`race-${id}`} className="map-label zone-world-label competition-world-label" data-competition={id} onClick={()=>onCompetition?.(id)}>{COMPETITIONS[id].title}<small>Join an English competition</small></button>)}
+        {SPORTS_VENUE_IDS.map(id=><button key={id} className="map-label zone-world-label competition-world-label" data-competition={id} onClick={()=>actionRef.current.goToRegistration(id)}>{SPORTS_VENUES[id].name}<small>Walk to registration</small></button>)}
         {EXPLORATION_ZONES.map((zone) => (
           <button
             key={zone.id}

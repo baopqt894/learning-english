@@ -1,4 +1,5 @@
-import {DISTRICT_STATIONS, DISTRICT_OBSTACLES, DISTRICT_PATHS, BALANCE_END} from '../src/lib/campus-districts-layout.ts';
+import {ATHLETICS_TRACK, SPORTS_VENUES, SPORTS_OBSTACLES, TRACK_STANDS, nearbySportsVenue} from '../src/lib/sports-layout.ts';
+import {SWIMMING_POOL, DISTRICT_STATIONS, DISTRICT_OBSTACLES, DISTRICT_PATHS, BALANCE_END} from '../src/lib/campus-districts-layout.ts';
 import {writeFileSync} from 'node:fs';
 import {FARM_LAYOUT,FARM_FENCES,FARM_OBSTACLES,SPORTS_FIELD,READING_PLANTERS,PERGOLA,CAMPUS_BENCHES,CAMPUS_TREES} from '../src/lib/campus-spaces.ts';
 import {WORK_STATIONS} from '../src/lib/fieldwork.ts';
@@ -36,10 +37,24 @@ for(const [i,road] of DISTRICT_PATHS.entries()){
 for(let i=0;i<buildings.length;i++)for(let j=i+1;j<buildings.length;j++)check(!overlaps(buildings[i],buildings[j]),`Building footprints ${i}/${j} overlap`);
 for(const tree of CAMPUS_TREES){const trunk={...tree,w:.65*tree.scale,d:.65*tree.scale};for(const b of buildings)check(!overlaps(trunk,b),'Tree trunk intersects building');check(!overlaps(trunk,SPORTS_FIELD),'Tree trunk intrudes into pitch');check(!overlaps(trunk,farmBox),'Tree trunk intrudes into farm');}
 for(const bench of CAMPUS_BENCHES){const footprint={...bench,w:bench.angle?.8:2.2,d:bench.angle?2.2:.8};for(const b of buildings)check(!overlaps(footprint,b),'Bench intersects building');}
+const registration = Object.entries(SPORTS_VENUES).map(([id, venue]) => {
+ const {desk,approach, radius} = venue;
+ check(canWalkCampus(approach.x,approach.z), `${id}: registration approach is blocked`);
+ check(!canWalkCampus(desk.x,desk.z), `${id}: registration desk has no collision`);
+ check(nearbySportsVenue(approach.x,approach.z)===id, `${id}: registration cannot open at its own approach`);
+ check(nearbySportsVenue(approach.x,approach.z+radius+.2)!==id, `${id}: registration opens from outside the marked approach`);
+ return {id, approach, desk};
+});
+for(const object of SPORTS_OBSTACLES) {
+ check(!overlaps(object,SWIMMING_POOL),'Spectator or registration object overlaps race water');
+ check(!overlaps(object,ATHLETICS_TRACK),'Spectator or registration object overlaps race lanes');
+ for(const b of buildings)check(!overlaps(object,b),'Sports object intersects campus building');
+}
+for(const stand of TRACK_STANDS)check(stand.z-stand.d/2>MAP_BOUNDS.minZ,'Grandstand crosses campus boundary');
 const points=[{name:'spawn',x:0,z:6},{name:'potting-shed',...f.shed.approach},{name:'potting-aisle',x:17.8,z:36.4},...Object.entries(PLACES).map(([id,p])=>({name:id,x:p.position[0],z:p.position[1]+1})),...EXPLORATION_ZONES.map(z=>({name:z.id,x:z.x,z:z.z})),...WORK_STATIONS.map(s=>({name:s.id,...s.approach})),...DISTRICT_STATIONS.map(s=>({name:s.id,x:s.x,z:s.z})),{name:'balance-exit',...BALANCE_END}];
 for(const p of points)check(canWalkCampus(p.x,p.z),`${p.name}: blocked destination`);
 let routes=0;
 for(const a of points)for(const b of points){if(a===b)continue;routes++;const path=findCampusPath(a,b);check(path.length>0,`${a.name} → ${b.name}: no route`);let previous=a;for(const step of path){check(canWalkSegment(previous,step),`${a.name} → ${b.name}: segment crosses obstacle`);previous=step;}}
-const report={scope:'Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.',playableAreaMetresSquared:(MAP_BOUNDS.maxX-MAP_BOUNDS.minX)*(MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ),roomAreas:EXPANSION_BUILDINGS.map(b=>({name:b.name,width:b.w,depth:b.d,area:b.w*b.d})),zones:EXPLORATION_ZONES.length,workStations:WORK_STATIONS.length,districtPracticeStations:DISTRICT_STATIONS.length,expandedDistrictObstacles:DISTRICT_OBSTACLES.length,namedDestinations:points.length,orderedRoutes:routes,solidFootprints:MAP_OBSTACLES.length,sharedTrees:CAMPUS_TREES.length,circulationPaths:DISTRICT_PATHS.length,productiveBeds:f.beds.length+f.reserve.length,productiveSoilArea:[...f.beds,...f.reserve].reduce((n,b)=>n+b.w*b.d,0),farmAreaMetresSquared:Number((farmBox.w*farmBox.d).toFixed(2)),trainingBedAislesMetres:gaps,gateWidthMetres:f.gate.width,gateHeadClearanceMetres:f.gate.height-f.gate.headerHeight/2-2.64,farmFenceSegments:FARM_FENCES.length,farmSolidObjects:FARM_OBSTACLES.length,failures,passed:failures.length===0};
+const report={scope:'Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.',playableAreaMetresSquared:(MAP_BOUNDS.maxX-MAP_BOUNDS.minX)*(MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ),roomAreas:EXPANSION_BUILDINGS.map(b=>({name:b.name,width:b.w,depth:b.d,area:b.w*b.d})),zones:EXPLORATION_ZONES.length,sportsRegistration:registration,workStations:WORK_STATIONS.length,districtPracticeStations:DISTRICT_STATIONS.length,expandedDistrictObstacles:DISTRICT_OBSTACLES.length,namedDestinations:points.length,orderedRoutes:routes,solidFootprints:MAP_OBSTACLES.length,sharedTrees:CAMPUS_TREES.length,circulationPaths:DISTRICT_PATHS.length,productiveBeds:f.beds.length+f.reserve.length,productiveSoilArea:[...f.beds,...f.reserve].reduce((n,b)=>n+b.w*b.d,0),farmAreaMetresSquared:Number((farmBox.w*farmBox.d).toFixed(2)),trainingBedAislesMetres:gaps,gateWidthMetres:f.gate.width,gateHeadClearanceMetres:f.gate.height-f.gate.headerHeight/2-2.64,farmFenceSegments:FARM_FENCES.length,farmSolidObjects:FARM_OBSTACLES.length,failures,passed:failures.length===0};
 writeFileSync(new URL('../docs/campus-layout-audit.json',import.meta.url),JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify(report,null,2));if(failures.length)process.exitCode=1;
