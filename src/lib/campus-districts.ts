@@ -183,10 +183,15 @@ export function createCampusDistricts(scene:THREE.Scene){
     else object.applyMatrix4(transform);
   }
   bake(staticRoot);
-  return {picks,update(time:number,reduced:boolean,active:DistrictStationId|null,percent:number,care:PetCare={}){
+  const speciesFor: Record<string,PetId> = { chicken:'chickens',pig:'pigs',goat:'goats',duck:'ducks' };
+  let stateBySpecies: Partial<Record<PetId,ReturnType<typeof petStatus>>> = {};
+  let lastCare: PetCare | undefined, lastHealthCheck = -Infinity;
+  return {picks,updateWater(time:number){waterTime.value=time;},update(time:number,reduced:boolean,active:DistrictStationId|null,percent:number,care:PetCare={}){
     const t=reduced?0:time;waterTime.value=t;aerator.rotation.x=t*1.8;
-    for(const a of animals){const species=({chicken:'chickens',pig:'pigs',goat:'goats',duck:'ducks'} as Record<string,PetId>)[a.kind];const status=petStatus(care,species);a.group.userData.careScale??=a.group.scale.x;a.group.scale.setScalar(a.group.userData.careScale*status.scale);a.group.rotation.z=status.health<40?.12:0;const feeding=active===`feed-${species}`;a.head.rotation.x=reduced?0:Math.sin(t*(feeding?7:1.4)+a.phase)*(feeding?.3:.07);a.group.rotation.y+=reduced?0:Math.sin(t*.4+a.phase)*.0008;for(const [i,l]of a.legs.entries())l.rotation.x=reduced?0:Math.sin(t*1.2+a.phase+i*Math.PI)*.025;}
-    for(const f of fish){f.group.scale.setScalar(1.5*petStatus(care,'fish').scale);const feeding=active==='feed-fish',r=feeding?.8+f.radius*.22:f.radius,centerZ=feeding?.6:-4;const p=districtPoint('fish-pond',{x:56+Math.cos(t*.22+f.phase)*r,z:centerZ+Math.sin(t*.22+f.phase)*r*.65});f.group.position.set(p.x,.14,p.z);f.group.rotation.y=-t*.22-f.phase;f.tail.rotation.z=Math.sin(t*5+f.phase)*.3;}
+    if(lastCare!==care||time-lastHealthCheck>=1){lastCare=care;lastHealthCheck=time;stateBySpecies={};}
+    const statusFor=(species:PetId)=>stateBySpecies[species]??=petStatus(care,species);
+    for(const a of animals){const species=speciesFor[a.kind];const status=statusFor(species);a.group.userData.careScale??=a.group.scale.x;a.group.scale.setScalar(a.group.userData.careScale*status.scale);a.group.rotation.z=status.health<40?.12:0;const feeding=active===`feed-${species}`;a.head.rotation.x=reduced?0:Math.sin(t*(feeding?7:1.4)+a.phase)*(feeding?.3:.07);a.group.rotation.y+=reduced?0:Math.sin(t*.4+a.phase)*.0008;for(const [i,l]of a.legs.entries())l.rotation.x=reduced?0:Math.sin(t*1.2+a.phase+i*Math.PI)*.025;}
+    for(const f of fish){f.group.scale.setScalar(1.5*statusFor('fish').scale);const feeding=active==='feed-fish',r=feeding?.8+f.radius*.22:f.radius,centerZ=feeding?.6:-4;const p=districtPoint('fish-pond',{x:56+Math.cos(t*.22+f.phase)*r,z:centerZ+Math.sin(t*.22+f.phase)*r*.65});f.group.position.set(p.x,.14,p.z);f.group.rotation.y=-t*.22-f.phase;f.tail.rotation.z=Math.sin(t*5+f.phase)*.3;}
     food.visible=!!active&&active.startsWith('feed-')&&percent<1&&!reduced;
     if(food.visible){const station=DISTRICT_STATIONS.find(s=>s.id===active)!;for(let i=0;i<36;i++){const phase=(percent*5+i/36)%1;dummy.position.set(THREE.MathUtils.lerp(station.x,station.look.x,phase)+Math.sin(i*19)*phase*.35,1.15+Math.sin(phase*Math.PI)*.7-phase,THREE.MathUtils.lerp(station.z,station.look.z,phase)+Math.cos(i*8)*phase*.35);const p=districtPoint(baseDistrictAt(station),dummy.position);dummy.position.x=p.x;dummy.position.z=p.z;dummy.scale.setScalar(1);dummy.updateMatrix();food.setMatrixAt(i,dummy.matrix);}food.instanceMatrix.needsUpdate=true;}
     throwRing.visible=active==='rescue-ring';if(throwRing.visible){const p=THREE.MathUtils.smoothstep(percent,.18,.85);const at=districtPoint('swimming',{x:56,z:-32-p*5});throwRing.position.set(at.x,1.3+Math.sin(p*Math.PI)*2.3-p*1.04,at.z);throwRing.rotation.set(Math.PI/2+p*.3,0,p*2.2);}

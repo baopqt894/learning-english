@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DIFFICULTIES, competitionQuestions } from '../src/lib/competition-catalog.ts';
 import { competitionBoard, createCompetitionEngine } from '../src/lib/competition-server.ts';
-import { openedAt, questionSeconds, raceQuestion } from '../src/lib/competition-engine.ts';
+import { freshMember, openedAt, questionSeconds, raceQuestion, raceTeamProgress, smoothRaceDistance } from '../src/lib/competition-engine.ts';
 import { campusDay, dailyMissions, dailyXP, recordDaily } from '../src/lib/daily-missions.ts';
 import { earnedXP, freshProgress, restoreProgress } from '../src/lib/game.ts';
 const { roomAction, roomSnapshot, recordFinishedPractice } = createCompetitionEngine();
@@ -129,4 +129,38 @@ test('a seat token cannot be used with a different signed-in account', () => {
   assert.throws(() => roomSnapshot(seat.room.code, seat.token, now + 500_001, second), /seat/);
   assert.throws(() => roomAction({ action: 'start', code: seat.room.code, token: seat.token }, now + 500_002, second), /access/);
   assert.equal(roomSnapshot(seat.room.code, seat.token, now + 500_003, first).hostId, seat.playerId);
+});
+
+test('team missions wait for a human teammate and reward both finishers once', () => {
+  const day = campusDay(now);
+  const answers = Array.from({ length: 3 }, () => ({ correct: true }));
+  const self = { ...freshMember('a', 'Cadet A', 'human', 0), answers, finishedAt: 20 };
+  const friend = { ...freshMember('b', 'Cadet B', 'human', 1), answers };
+  const bot = { ...freshMember('c', 'Bot', 'bot', 2), answers, finishedAt: 21 };
+  const room = { format: 'online', members: [self, friend, bot] };
+  assert.deepEqual(raceTeamProgress(room, self.id), { together: false, threeEach: false });
+  friend.finishedAt = 24;
+  friend.botAssisted = true;
+  assert.deepEqual(raceTeamProgress(room, self.id), { together: false, threeEach: false });
+  friend.botAssisted = false;
+  friend.answers = answers.slice(0, 2);
+  assert.deepEqual(raceTeamProgress(room, self.id), { together: true, threeEach: false });
+  friend.answers = answers;
+  for (const player of [self, friend]) {
+    const team = raceTeamProgress(room, player.id);
+    const event = { type: 'race', venue: 'field', streak: 0, team };
+    const daily = recordDaily(undefined, day, event);
+    assert.deepEqual(daily.completed, ['team-finish', 'team-english']);
+    assert.equal(dailyXP(daily), 60);
+    assert.equal(recordDaily(daily, day, event), daily);
+  }
+});
+
+test('remote swimmer movement catches up without abruptly jumping or reversing', () => {
+  const first = smoothRaceDistance(3, 7, 1 / 60);
+  assert.ok(first > 3 && first < 7);
+  assert.equal(smoothRaceDistance(first, 2, 1 / 60), first);
+  let distance = first;
+  for (let i = 0; i < 60; i++) distance = smoothRaceDistance(distance, 7, 1 / 60);
+  assert.equal(distance, 7);
 });

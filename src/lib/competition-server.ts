@@ -7,7 +7,7 @@ export const ROOM_IDLE_MS=30*60_000;
 const HEARTBEAT_MS=3000;
 export class RoomError extends Error{status:number;constructor(message:string,status=400){super(message);this.status=status;}}
 const id=()=>randomBytes(12).toString('hex');
-const seatHash=(token:string)=>createHash('sha256').update(token).digest('hex');
+export const seatHash=(token:string)=>createHash('sha256').update(token).digest('hex');
 const name=(value:unknown)=>typeof value==='string'?value.normalize('NFKC').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,24)||'Cadet':'Cadet';
 function bump(r:Room,now:number){r.updated=now;r.view.revision++;r.view.serverNow=now;}
 function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const names=['Minh','Linh','An','Nam'];const botName=names.find(n=>!used.has(n))??'Cadet bot';const m=freshMember(id(),botName,'bot',r.view.members.length,botName==='Linh'?1:0);r.view.members.push(m);return m;}
@@ -116,6 +116,7 @@ export function createCompetitionEngine(rooms = new Map<string, Room>()) {
    if(v.format!=='online')throw new RoomError('This code is not an online room.',404);
    if(input.venue!==undefined&&COMPETITIONS[v.mode].station!==input.venue)throw new RoomError(`Join this room at the ${COMPETITIONS[v.mode].venue} registration desk.`,409);
    if(v.phase!=='lobby')throw new RoomError('This race has started. Join after the host returns to the lobby.',409);
+   if(accountId&&[...r.accountSeats.values()].includes(accountId))throw new RoomError('This account already has a seat. Open the room from the original tab.',409);
    if(v.members.length===4){const replace=v.members.findIndex(m=>m.kind==='bot');if(replace<0)throw new RoomError('This room is full.',409);const [removed]=v.members.splice(replace,1);r.tokens.delete(removed.id);r.seen.delete(removed.id);r.accountSeats.delete(removed.id);}
    const member=freshMember(id(),name(input.name),'human',v.members.length,input.avatar===1?1:0),token=id()+id();member.ready=false;v.members.push(member);if(!v.hostId)v.hostId=member.id;r.tokens.set(member.id,seatHash(token));if(accountId)r.accountSeats.set(member.id,accountId);r.seen.set(member.id,now);bump(r,now);return {room:roomSnapshot(v.code,token,now),playerId:member.id,token};
   }

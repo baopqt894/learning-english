@@ -27,3 +27,22 @@ export function raceDistance(room:CompetitionRoom,member:CompetitionMember,time:
 export function finishTime(room:CompetitionRoom,member:CompetitionMember){let low=0,high=62.5;for(let i=0;i<32;i++){const mid=(low+high)/2;if(raceDistance(room,member,mid)>=COMPETITIONS[room.mode].distance)high=mid;else low=mid;}return high;}
 export function standings(room:CompetitionRoom,time:number){return room.members.map((m,index)=>({...m,index,metres:raceDistance(room,m,time)})).sort((a,b)=>b.metres-a.metres||((a.finishedAt!==null&&b.finishedAt!==null)?a.finishedAt-b.finishedAt:a.index-b.index));}
 export function freshMember(id:string,name:string,kind:'human'|'bot',index:number,avatar=0):CompetitionMember{return {id,name,kind,ready:kind==='bot'||index===0,connected:true,avatar,colour:RACE_COLOURS[index%4],answers:[],finishedAt:null};}
+
+export function raceTeamProgress(room: CompetitionRoom | null, playerId?: string) {
+ const none = { together: false, threeEach: false };
+ if (room?.format !== 'online' || !playerId) return none;
+ const humans = room.members.filter(member => member.kind === 'human' && !member.botAssisted && member.finishedAt !== null);
+ const self = humans.find(member => member.id === playerId);
+ const teammates = humans.filter(member => member.id !== playerId);
+ if (!self || !teammates.length) return none;
+ const qualified = (member: CompetitionMember) => member.answers.filter(answer => answer.correct).length >= 3;
+ return { together: true, threeEach: qualified(self) && teammates.some(qualified) };
+}
+
+/** Ease late network corrections while preserving visible forward motion. */
+export function smoothRaceDistance(current: number, target: number, delta: number) {
+ const correction = target - current;
+ if (correction <= 0) return current;
+ if (correction < .075) return target;
+ return Math.min(target, current + .075 + correction * (1 - Math.exp(-delta * 12)));
+}

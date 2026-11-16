@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { COMPETITIONS, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
-import { raceTime, raceQuestion, openedAt, standings, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import type { FeedMessage } from '@/lib/competition-feed';
 import type { DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, type SportsVenueId } from '@/lib/sports-layout';
 import { CompetitionRecordBoard } from './competition-record-board';
@@ -12,7 +13,7 @@ import './competition-arena.css';
 
 export type CompetitionView = { mode: CompetitionId; room: CompetitionRoom; playerId: string; clockOffset: number };
 type Session = { code: string; token: string; playerId: string; venue: SportsVenueId };
-type Packet = { room: CompetitionRoom };
+type Packet = { room: CompetitionRoom; receivedAt?: number };
 type NewSeat = Packet & Pick<Session, 'token' | 'playerId'>;
 type Format = 'practice' | 'online';
 const SEAT_KEY = 'campus-competition-seat';
@@ -37,8 +38,8 @@ async function post<T extends Packet>(body: Record<string, unknown>) {
   }));
 }
 
-function snapshot(seat: Session, signal: AbortSignal) {
-  return fetch(`/api/competitions?code=${encodeURIComponent(seat.code)}`, {
+function snapshot(seat: Session, signal: AbortSignal, stream = false) {
+  return fetch(`/api/competitions?code=${encodeURIComponent(seat.code)}${stream ? '&stream=1' : ''}`, {
     headers: { 'x-race-token': seat.token }, cache: 'no-store', signal,
   });
 }
@@ -73,6 +74,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(true);
+  const [live, setLive] = useState(false);
   const [now, setNow] = useState(0);
   const [offset, setOffset] = useState(0);
   const [help, setHelp] = useState(false);
@@ -80,6 +82,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const heading = useRef<HTMLHeadingElement>(null);
   const lastRevision = useRef(-1);
   const offsetRef = useRef(0);
+  const calibrated = useRef(false);
   const actionPending = useRef(false);
   const creditedRound = useRef<string | null>(null);
 
@@ -89,48 +92,88 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
     return () => cancelAnimationFrame(init);
   }, [venue]);
 
-  const receive = useCallback((packet: Packet, sent: number) => {
+  const receive = useCallback((packet: Packet, sent?: number) => {
     const r = packet.room;
     if (r.revision < lastRevision.current) return;
-    lastRevision.current = r.revision;
     const received = Date.now();
-    const clock = r.serverNow - (sent + received) / 2;
-    offsetRef.current = clock;
-    setNow(received + clock);
-    setOffset(clock);
-    setRoom(r);
+    if (sent !== undefined) {
+      const observed = ((packet.receivedAt ?? r.serverNow) - sent + r.serverNow - received) / 2;
+      const correction = observed - offsetRef.current;
+      if (!calibrated.current || Math.abs(correction) > 8) {
+        const clock = calibrated.current ? offsetRef.current + Math.max(-20, Math.min(20, correction * .25)) : observed;
+        calibrated.current = true;
+        offsetRef.current = clock;
+        setOffset(clock);
+      }
+    }
+    if (r.revision > lastRevision.current) {
+      lastRevision.current = r.revision;
+      setRoom(r);
+    }
+    setNow(received + offsetRef.current);
     setConnected(true);
   }, []);
 
+  const online = room?.format === 'online';
   useEffect(() => {
     if (!session) return;
     let timer: ReturnType<typeof setTimeout>;
-    let stop = false;
+    let stop = false, nextStream = 0;
     const abort = new AbortController();
-    const poll = async () => {
+    const expireSeat = () => {
+      stop = true;
+      try { sessionStorage.removeItem(SEAT_KEY); } catch { /* Storage may be disabled. */ }
+      setSession(null);setRoom(null);setLive(false);
+      setError('Your seat has expired. Register again to keep playing.');
+    };
+
+    const sync = async () => {
+      let delay = 750;
       const sent = Date.now();
       try {
-        const response = await snapshot(session, AbortSignal.any([abort.signal, AbortSignal.timeout(6000)]));
+        const stream = online && sent >= nextStream;
+        const response = await snapshot(session, AbortSignal.any([abort.signal, AbortSignal.timeout(stream ? 32_000 : 6000)]), stream);
         if (abort.signal.aborted) return;
-        if (response.status === 401 || response.status === 404) {
-          stop = true;
-          sessionStorage.removeItem(SEAT_KEY);
-          setSession(null);
-          setRoom(null);
-          setError('Your seat has expired. Register again to keep playing.');
+        if (response.status === 401 || response.status === 404) { expireSeat(); return; }
+
+        if (stream && response.ok && response.body && response.headers.get('Content-Type')?.includes('application/x-ndjson')) {
+          let buffered = '';
+          setLive(true);
+          const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+          try {
+            while (!abort.signal.aborted && !stop) {
+              const data = await reader.read();
+              if (data.done) break;
+              buffered += data.value;
+              const lines = buffered.split('\n');
+              buffered = lines.pop() ?? '';
+              for (const line of lines) {
+                const packet = JSON.parse(line) as FeedMessage;
+                if ('expired' in packet) { expireSeat(); break; }
+                if ('room' in packet) receive(packet);
+                else setConnected(true);
+              }
+            }
+          } finally { await reader.cancel().catch(() => {}); }
+          // A short stream with no updates usually means Atlas is reconnecting.
+          if (Date.now() - sent < 1500) nextStream = Date.now() + 8000;
+          else delay = 150;
         } else {
+          if (stream) nextStream = Date.now() + 8000;
           const packet = await getPacket(response);
           if (!abort.signal.aborted) receive(packet, sent);
         }
       } catch {
+        nextStream = Date.now() + 8000;
         if (!abort.signal.aborted) setConnected(false);
       } finally {
-        if (!stop && !abort.signal.aborted) timer = setTimeout(poll, 500);
+        if (!abort.signal.aborted) setLive(false);
+        if (!stop && !abort.signal.aborted) timer = setTimeout(sync, delay);
       }
     };
-    timer = setTimeout(poll, 400);
+    timer = setTimeout(sync, 100);
     return () => { abort.abort(); clearTimeout(timer); };
-  }, [session, receive]);
+  }, [session, online, receive]);
 
   const mode = room?.mode ?? selected;
   const level = room?.difficulty ?? difficulty;
@@ -142,6 +185,8 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const finishedAt = me?.finishedAt;
   const bestStreak = Math.max(0, ...(me?.answers.map(answer => answer.streak) ?? []));
   const wasHuman = me?.kind === 'human' && me.takeoverAt === undefined && !me.botAssisted;
+  const { together, threeEach } = raceTeamProgress(room, session?.playerId);
+  const creditKey = `${roundId}:${together}:${threeEach}`;
 
   useEffect(() => {
     if (!isRacing) return;
@@ -154,10 +199,10 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   }, [room, session, onView, offset]);
 
   useEffect(() => {
-    if (!roundId || roundStart === undefined || finishedAt == null || !wasHuman || creditedRound.current === roundId) return;
-    creditedRound.current = roundId;
-    onFinish({ type: 'race', venue, streak: bestStreak }, roundStart + 3000 + Math.round(finishedAt * 1000));
-  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak]);
+    if (!roundId || roundStart === undefined || finishedAt == null || !wasHuman || creditedRound.current === creditKey) return;
+    creditedRound.current = creditKey;
+    onFinish({ type: 'race', venue, streak: bestStreak, team: { together, threeEach } }, roundStart + 3000 + Math.round(finishedAt * 1000));
+  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak, creditKey, together, threeEach]);
 
   const perform = useCallback(async (task: () => Promise<void>) => {
     if (actionPending.current) return;
@@ -177,6 +222,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const enter = (action: 'practice' | 'create' | 'join') => perform(async () => {
     const sent = Date.now();
     lastRevision.current = -1;
+    calibrated.current = false;
     const packet = await post<NewSeat>({ action, mode: selected, difficulty, venue, code, name: displayName, avatar });
     const seat = { code: packet.room.code, token: packet.token, playerId: packet.playerId, venue };
     setSession(seat);
@@ -197,6 +243,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
       }
       const packet = await getPacket<Packet>(response);
       lastRevision.current = -1;
+      calibrated.current = false;
       setSession(seat);
       setResume(null);
       receive(packet, sent);
@@ -217,6 +264,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
     setBoardOpen(false);
     setHelp(false);
     lastRevision.current = -1;
+    calibrated.current = false;
     heading.current?.focus();
   }), [session, onView, onExit, perform]);
 
@@ -268,7 +316,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
         <div>
           <h2 ref={heading} tabIndex={-1} id="competition-title">{title}</h2>
           <p>{room
-            ? `${definition.subtitle} · ${DIFFICULTIES[level].label} · ${isPractice ? 'Solo practice' : `Room ${room.code}`}`
+            ? `${definition.subtitle} · ${DIFFICULTIES[level].label} · ${isPractice ? 'Solo practice' : `Room ${room.code}${live ? ' · Live' : ''}`}`
             : 'Choose an event and mode'}</p>
         </div>
         <div className="swim-header-actions">
@@ -366,6 +414,10 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
           {isPractice ? <p className="practice-record" role="status">{room.record ? recordMessages[room.record] : 'Checking your time…'}</p> : (
             <ol className="swim-finish-list">{ranking.map(member => <li key={member.id}><span>{member.name}{member.kind === 'bot' ? ' · Bot' : ''}</span><strong>{member.finishedAt === null ? `${member.metres.toFixed(1)} m` : `${member.finishedAt.toFixed(3)} s`}</strong></li>)}</ol>
           )}
+          {online && (together
+            ? <p>{threeEach ? 'Team missions complete.' : 'Team finish recorded.'}</p>
+            : room.members.some(member => member.id !== me.id && member.kind === 'human' && !member.botAssisted)
+              && room.phase === 'racing' && <p>Stay here until your teammate finishes to earn team credit.</p>)}
           <details>
             <summary>Review your answers</summary>
             {me.answers.map((answer, i) => {

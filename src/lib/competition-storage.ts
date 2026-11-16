@@ -1,5 +1,5 @@
 import { MongoServerError } from 'mongodb';
-import { createCompetitionEngine, ROOM_IDLE_MS, RoomError, type Room } from './competition-server.ts';
+import { createCompetitionEngine, ROOM_IDLE_MS, RoomError, seatHash, type Room } from './competition-server.ts';
 import { campusDatabase } from './mongodb.ts';
 
 type StoredRoom = Omit<Room, 'accountSeats' | 'tokens' | 'seen' | 'write'> & {
@@ -91,4 +91,36 @@ export async function changeCompetitionRoom(input: Record<string, unknown>, acco
     }
   }
   throw new RoomError('Could not reserve a room code. Try again.', 503);
+}
+
+/** Read the shared MongoDB change stream without sending credentials or seat metadata to clients. */
+export async function watchCompetitionRoom(
+  code: string, token: string, accountId: string, signal: AbortSignal,
+  onChange: (room: Room['view'] | null) => void,
+) {
+  const hash = seatHash(token), rooms = await roomsCollection();
+  if (signal.aborted) return;
+  const changes = rooms.watch([
+    { $match: { 'documentKey._id': code } },
+  ], { fullDocument: 'updateLookup', maxAwaitTimeMS: 2000 });
+  const close = () => { void changes.close().catch(() => {}); };
+  signal.addEventListener('abort', close, { once: true });
+  try {
+    for await (const change of changes) {
+      if (signal.aborted) return;
+      if (change.operationType === 'delete') { onChange(null); return; }
+      if (!('fullDocument' in change)) continue;
+      const stored = change.fullDocument;
+      if (!stored) { onChange(null); return; }
+      const seat = stored.state.tokens.find(([, tokenHash]) => tokenHash === hash)?.[0];
+      if (!seat || !stored.state.accountSeats.some(([id, owner]) => id === seat && owner === accountId)) {
+        onChange(null);
+        return;
+      }
+      onChange(stored.state.view);
+    }
+  } finally {
+    signal.removeEventListener('abort', close);
+    await changes.close();
+  }
 }

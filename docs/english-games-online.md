@@ -14,7 +14,7 @@ Waiting cadets stand on the pool deck, track apron or games field while the room
 
 ## Actual multiplayer
 
-The same-origin `/api/competitions` GET/POST route holds authoritative room state in MongoDB. Room updates compare a document version before saving, which keeps concurrent function instances from overwriting each other. Independent clients join by code and poll compact snapshots every 500 ms, interpolate movement locally and submit answers with a private per-seat token, round ID and question index. The server decides correctness, response time, combo, boosts, timeouts and finishes. Sending forged elapsed time or duplicate question indices cannot award a boost. Seat tokens are never included in public snapshots. Nicknames are limited to 24 characters and rendered as text.
+The same-origin `/api/competitions` GET/POST route holds authoritative room state in MongoDB. Room updates compare a document version before saving, which keeps concurrent function instances from overwriting each other. Online rooms send room revisions to each client as they happen over an authenticated streaming response. If the stream is interrupted, the client requests snapshots while it reconnects. Clients interpolate movement locally and submit answers with a private per-seat token, round ID and question index. The server decides correctness, response time, combo, boosts, timeouts and finishes. Sending forged elapsed time or duplicate question indices cannot award a boost. Seat tokens are never included in public snapshots. Nicknames are limited to 24 characters and rendered as text.
 
 Correct answers give a 1.5-second acceleration burst. Successive correct answers add 15% per step to that burst, capped at ×1.6 for a streak of five or more. Wrong answers and timeouts reset the streak. Bots follow the same boost rules. Online races continue if a player hides the tab. A player who leaves or disconnects during a race is replaced by a bot. Finishing players can review answers while others complete the course; the host can return everyone to the lobby after the round.
 
@@ -40,7 +40,7 @@ The shared board reads MongoDB collection `race_records`. The fastest time for a
 
 ## Daily missions
 
-**Daily missions** in the HUD offers one course finish (pool and track alternate), a three-answer race streak, and a cleared contextual quiz. The missions refresh at midnight in Vietnam. XP is saved to the player’s account once per completed mission each day.
+**Daily missions** in the HUD offers one course finish (pool and track alternate), a three-answer race streak, and a cleared contextual quiz. Two team missions award 25 XP for finishing the same online race with another human and 35 XP if each of you also gets at least three correct answers. Stay in the room until your teammate crosses the finish line. The missions refresh at midnight in Vietnam. XP is saved to the player’s account once per completed mission each day.
 
 ## Accounts and saved progress
 
@@ -60,7 +60,7 @@ Meals are spaced at least one minute apart for this game. Three meals reach Grow
 
 ## Performance changes
 
-Foliage instancing is partitioned into spatial chunks instead of one whole-campus bounding sphere, and static architecture is batched by both material and 24 m spatial cell. Off-camera chunks can be culled in both colour and shadow passes. The normal render pixel ratio is capped at 1.25. Detailed competition characters initialise only when a room is entered. UI clock updates stay within the competition component; shared snapshots update at 2 Hz rather than every frame. Shadows remain synchronised with movement.
+Foliage instancing is partitioned into spatial chunks and static architecture is batched by both material and 24 m spatial cell. Off-camera chunks can be culled in both colour and shadow passes. When the frame rate drops, the renderer lowers resolution and omits fine grass detail. During races it skips exploration updates and reuses the static shadow map. The swimmers share one instanced body mesh, while strokes, kicks and wakes run locally between network updates.
 
 ## Previous multiplayer release evidence
 

@@ -6,9 +6,9 @@ export const campusDay = (time: number) => Math.floor((time + VIETNAM_OFFSET) / 
 export const campusDayLabel = (day: number) =>
   new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(day * DAY);
 
-export type DailyMissionId = 'course' | 'streak' | 'practice';
+export type DailyMissionId = 'course' | 'streak' | 'practice' | 'team-finish' | 'team-english';
 export type DailyProgress = { day: number; completed: DailyMissionId[]; pastXP: number };
-export type DailyEvent = { type: 'race'; venue: SportsVenueId; streak: number } | { type: 'quiz' };
+export type DailyEvent = { type: 'race'; venue: SportsVenueId; streak: number; team?: { together: boolean; threeEach: boolean } } | { type: 'quiz' };
 
 export function dailyMissions(day: number) {
   const venue = day % 2 === 0 ? 'pool' : 'track';
@@ -16,6 +16,8 @@ export function dailyMissions(day: number) {
     { id: 'course', title: venue === 'pool' ? 'Make a splash' : 'Take to the track', description: venue === 'pool' ? 'Finish a swim. Practice and online races both count.' : 'Finish a sprint or hurdle race in either mode.', xp: 20, venue },
     { id: 'streak', title: 'On a roll', description: 'Get 3 English answers right in a row in one race.', xp: 25, venue: null },
     { id: 'practice', title: 'Words around campus', description: 'Pass a “Practise English here” quiz at any campus location.', xp: 15, venue: null },
+    { id: 'team-finish', title: 'Finish together', description: 'You and a friend must both finish the same online race.', xp: 25, venue: null, team: true },
+    { id: 'team-english', title: 'Team English', description: 'Finish an online race with a friend. Get at least 3 answers right each.', xp: 35, venue: null, team: true },
   ] as const;
 }
 
@@ -34,6 +36,8 @@ export function recordDaily(progress: DailyProgress | undefined, day: number, ev
   const earned: DailyMissionId[] = event.type === 'quiz' ? ['practice'] : [
     ...(event.venue === course.venue ? ['course' as const] : []),
     ...(event.streak >= 3 ? ['streak' as const] : []),
+    ...(event.team?.together ? ['team-finish' as const] : []),
+    ...(event.team?.together && event.team.threeEach ? ['team-english' as const] : []),
   ];
   const missing = earned.filter(id => !state.completed.includes(id));
   return missing.length ? { ...state, completed: [...state.completed, ...missing] } : progress;

@@ -263,7 +263,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const { floor, player, selection, destination } = environment;
     const districts=createCampusDistricts(scene);
     const competitionScene=createCompetitionScene(scene);
-    let wasSwimming=false;
+    let wasSwimming=false, lastRaceFrame="", lastLabelTime=0;
     const swimCamera={position:new THREE.Vector3(),target:new THREE.Vector3(),zoom:1};
     const swimProjection=new THREE.Vector3(),swimShift=new THREE.Vector3(),swimRight=new THREE.Vector3(),swimUp=new THREE.Vector3();
     const feedCup=new THREE.Mesh(new THREE.CylinderGeometry(.1,.07,.13,16),new THREE.MeshStandardMaterial({color:0xb59b6e,roughness:.9}));
@@ -642,6 +642,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const resize = () => {
       const { width, height } = host.getBoundingClientRect();
       if (!width || !height) return;
+      lastRaceFrame = "";
       const aspect = width / height;
       const halfHeight = Math.max(12.1, 14 / aspect);
       camera.left = -halfHeight * aspect;
@@ -661,6 +662,32 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     window.addEventListener("keyup", keyup);
     window.addEventListener("blur", blur);
     renderer.domElement.addEventListener("pointerdown", click);
+    const renderFrame=(time:number)=>{
+      renderer.render(scene, camera);
+      frames++;
+      if (time - lastFpsTime > 1000) {
+        if (fpsRef.current)
+          fpsRef.current.textContent = `${Math.round((frames * 1000) / (time - lastFpsTime))} FPS`;
+        host.dataset.fps = String(
+          Math.round((frames * 1000) / (time - lastFpsTime)),
+        );
+        const measuredFps=(frames*1000)/(time-lastFpsTime);
+        if((callbacks.current.enabled||callbacks.current.swimOpen)&&!photoSession){
+          slowFrameWindows=measuredFps<38?slowFrameWindows+1:0;
+          const resolution=renderer.getPixelRatio();
+          if(slowFrameWindows>=2&&resolution>.85){
+            renderer.setPixelRatio(resolution>1 ? 1 : .85);
+            environment.grassDetail.visible=false;
+            host.dataset.performance='balanced';
+            slowFrameWindows=0;
+          }
+        }
+        host.dataset.triangles = String(renderer.info.render.triangles);
+        host.dataset.drawCalls = String(renderer.info.render.calls);
+        frames = 0;
+        lastFpsTime = time;
+      }
+    };
     renderer.setAnimationLoop((time) => {
       if (document.hidden) {
         lastTime = time;
@@ -669,6 +696,54 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if (time - lastTime < (callbacks.current.enabled || callbacks.current.swimOpen || callbacks.current.conversation || callbacks.current.studying || photoSession ? 15 : 66)) return;
       const dt = Math.min((time - lastTime) / 1000, 0.08);
       lastTime = time;
+      const swimming=!!callbacks.current.swimOpen;
+      if(swimming&&!wasSwimming){
+        swimCamera.position.copy(camera.position);swimCamera.target.copy(controls.target);swimCamera.zoom=camera.zoom;
+        route=[];keys.clear();releaseDistrict();
+        renderer.shadowMap.autoUpdate=false;
+        renderer.shadowMap.needsUpdate=true;
+        controls.enabled=false;
+        labels.style.visibility='hidden';
+        storyMarker.visible=false;
+        selection.visible=false;
+        destination.visible=false;
+      }
+      if(!swimming&&wasSwimming){
+        player.group.visible=true;camera.position.copy(swimCamera.position);controls.target.copy(swimCamera.target);camera.zoom=swimCamera.zoom;renderer.shadowMap.autoUpdate=true;lastRaceFrame="";competitionScene.update(null,Date.now(),true,dt);camera.lookAt(controls.target);camera.updateProjectionMatrix();
+      }
+      wasSwimming=swimming;
+      if(swimming){
+        player.group.visible=false;
+        const view=callbacks.current.competitionView,definition=COMPETITIONS[view?.mode??'swimming'];
+        competitionScene.update(view??null,Date.now()+(view?.clockOffset??0),reducedMotion.matches,dt);
+        districts.updateWater(reducedMotion.matches ? 0 : time/1000);
+        const raceFrame=`${definition.id}/${view?.room?.phase==='lobby'}`;
+        if(raceFrame!==lastRaceFrame){
+          lastRaceFrame=raceFrame;
+          renderer.shadowMap.needsUpdate=true;
+          const frame:{x:number;z:number;w:number;d:number}={x:definition.x,z:definition.z,w:definition.w,d:definition.d};
+          const landscape=host.clientHeight<=620&&host.clientWidth>600;
+          if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else if(definition.axis==='x'){frame.x=-7;frame.z=-65.7;frame.w=17;frame.d=5.5;}else{frame.x=40;frame.z=6;frame.w=8;frame.d=17;}}
+          // Fit actual pool bounds into the space above/beside the question panel.
+          focusTarget.set(frame.x,0,frame.z);
+          camera.position.copy(focusTarget).add(focusPosition.set(4,27,32));controls.target.copy(focusTarget);camera.zoom=1;camera.lookAt(controls.target);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+          let left=Infinity,right=-Infinity,top=-Infinity,bottom=Infinity;
+          for(const sx of [-1,1])for(const sz of [-1,1]){
+            swimProjection.set(frame.x+sx*(frame.w/2+1),.3,frame.z+sz*(frame.d/2+1.8)).project(camera);
+            left=Math.min(left,swimProjection.x);right=Math.max(right,swimProjection.x);bottom=Math.min(bottom,swimProjection.y);top=Math.max(top,swimProjection.y);
+          }
+          const w=host.clientWidth,h=host.clientHeight,l=12/w*2-1,r=(landscape?w*.5-15:w-12)/w*2-1,viewTop=1-158/h*2,viewBottom=1-(landscape?h-55:h*.55)/h*2;
+          camera.zoom=Math.max(.1,Math.min((r-l)/(right-left),(viewTop-viewBottom)/(top-bottom))*.96);
+          camera.updateProjectionMatrix();swimProjection.set(frame.x,.3,frame.z).project(camera);
+          swimRight.setFromMatrixColumn(camera.matrixWorld,0);swimUp.setFromMatrixColumn(camera.matrixWorld,1);
+          swimShift.copy(swimRight).multiplyScalar(-( (l+r)/2-swimProjection.x)*(camera.right-camera.left)/(2*camera.zoom)).addScaledVector(swimUp,-((viewTop+viewBottom)/2-swimProjection.y)*(camera.top-camera.bottom)/(2*camera.zoom));
+          camera.position.add(swimShift);controls.target.add(swimShift);camera.lookAt(controls.target);
+          sun.target.position.set(frame.x,0,frame.z);sun.position.copy(sun.target.position).add(sunOffset);
+          host.dataset.competition=view?.mode??'none';
+        }
+        renderFrame(time);
+        return;
+      }
       if(lastWorkInput!==callbacks.current.fieldwork){lastWorkInput=callbacks.current.fieldwork;localWork=lastWorkInput||freshFieldwork();}
       const workKind=callbacks.current.workKind||null;
       if(workKind!==lastWorkKind){releaseWork();lastWorkKind=workKind;keys.clear();if(!workKind){route=[];}if(!workKind)resetCamera(player.group.position.x,player.group.position.z);}
@@ -856,6 +931,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         const signature=JSON.stringify(frame);if(signature!==lastDistrictSignature){setDistrictFrame(frame);lastDistrictSignature=signature;}lastDistrictFrame=time;
       }
       for (const [id,npc] of Object.entries(environment.npcs)) {
+        if (!conversationPlace && !photoSession && !overviewMode && npc.group.position.distanceToSquared(controls.target)>42**2) continue;
         animateCharacter(npc,time/1000,callbacks.current.speaking===id,reducedMotion.matches);
       }
       if (!route.length) destination.visible = false;
@@ -940,63 +1016,16 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
             : 1,
         );
       }
-      const swimming=!!callbacks.current.swimOpen;
-      if(swimming&&!wasSwimming){
-        swimCamera.position.copy(camera.position);swimCamera.target.copy(controls.target);swimCamera.zoom=camera.zoom;
-        route=[];keys.clear();releaseDistrict();
-      }
-      if(!swimming&&wasSwimming){
-        player.group.visible=true;camera.position.copy(swimCamera.position);controls.target.copy(swimCamera.target);camera.zoom=swimCamera.zoom;camera.lookAt(controls.target);camera.updateProjectionMatrix();
-      }
-      wasSwimming=swimming;
-      if(swimming){
-        player.group.visible=false;
-        const view=callbacks.current.competitionView,definition=COMPETITIONS[view?.mode??'swimming'];
-        const frame:{x:number;z:number;w:number;d:number}={x:definition.x,z:definition.z,w:definition.w,d:definition.d};
-        const landscape=host.clientHeight<=620&&host.clientWidth>600;
-        if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else if(definition.axis==='x'){frame.x=-7;frame.z=-65.7;frame.w=17;frame.d=5.5;}else{frame.x=40;frame.z=6;frame.w=8;frame.d=17;}}
-        competitionScene.update(view??null,Date.now()+(view?.clockOffset??0),reducedMotion.matches);
-        // Fit actual pool bounds into the space above/beside the question panel.
-        focusTarget.set(frame.x,0,frame.z);
-        camera.position.copy(focusTarget).add(focusPosition.set(4,27,32));controls.target.copy(focusTarget);camera.zoom=1;camera.lookAt(controls.target);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
-        let left=Infinity,right=-Infinity,top=-Infinity,bottom=Infinity;
-        for(const sx of [-1,1])for(const sz of [-1,1]){
-          swimProjection.set(frame.x+sx*(frame.w/2+1),.3,frame.z+sz*(frame.d/2+1.8)).project(camera);
-          left=Math.min(left,swimProjection.x);right=Math.max(right,swimProjection.x);bottom=Math.min(bottom,swimProjection.y);top=Math.max(top,swimProjection.y);
-        }
-        const w=host.clientWidth,h=host.clientHeight,l=12/w*2-1,r=(landscape?w*.5-15:w-12)/w*2-1,viewTop=1-158/h*2,viewBottom=1-(landscape?h-55:h*.55)/h*2;
-        camera.zoom=Math.max(.1,Math.min((r-l)/(right-left),(viewTop-viewBottom)/(top-bottom))*.96);
-        camera.updateProjectionMatrix();swimProjection.set(frame.x,.3,frame.z).project(camera);
-        swimRight.setFromMatrixColumn(camera.matrixWorld,0);swimUp.setFromMatrixColumn(camera.matrixWorld,1);
-        swimShift.copy(swimRight).multiplyScalar(-( (l+r)/2-swimProjection.x)*(camera.right-camera.left)/(2*camera.zoom)).addScaledVector(swimUp,-((viewTop+viewBottom)/2-swimProjection.y)*(camera.top-camera.bottom)/(2*camera.zoom));
-        camera.position.add(swimShift);controls.target.add(swimShift);camera.lookAt(controls.target);
-        sun.target.position.set(frame.x,0,frame.z);sun.position.copy(sun.target.position).add(sunOffset);
-        host.dataset.competition=view?.mode??'none';
-      }else competitionScene.update(null,Date.now(),true);
-      storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace&&!swimming;
+      storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      labels.style.opacity = conversationPlace || photoSession || workKind || studying || overviewMode || swimming ? "0" : "1";
-      labels.style.visibility = conversationPlace || photoSession || workKind || studying || overviewMode || swimming ? "hidden" : "visible";
-      selection.visible = !conversationPlace && !photoSession && !swimming;
+      labels.style.opacity = conversationPlace || photoSession || workKind || studying || overviewMode ? "0" : "1";
+      labels.style.visibility = conversationPlace || photoSession || workKind || studying || overviewMode ? "hidden" : "visible";
+      selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
-      if (!photoSession) updateLabels();
+      if (!photoSession && time-lastLabelTime >= 50) { updateLabels(); lastLabelTime=time; }
       // Shadow matrices and articulated poses are rendered in the same frame.
       host.dataset.interior = environment.updateRooms(pos, overviewMode);
-      renderer.render(scene, camera);
-      frames++;
-      if (time - lastFpsTime > 1000) {
-        if (fpsRef.current)
-          fpsRef.current.textContent = `${Math.round((frames * 1000) / (time - lastFpsTime))} FPS`;
-        host.dataset.fps = String(
-          Math.round((frames * 1000) / (time - lastFpsTime)),
-        );
-        const measuredFps=(frames*1000)/(time-lastFpsTime);
-        if((callbacks.current.enabled||callbacks.current.swimOpen)&&!photoSession){slowFrameWindows=measuredFps<38?slowFrameWindows+1:0;if(slowFrameWindows>=3&&renderer.getPixelRatio()>1){renderer.setPixelRatio(1);environment.grassDetail.visible=false;host.dataset.performance='balanced';slowFrameWindows=0;}}
-        host.dataset.triangles = String(renderer.info.render.triangles);
-        host.dataset.drawCalls = String(renderer.info.render.calls);
-        frames = 0;
-        lastFpsTime = time;
-      }
+      renderFrame(time);
     });
 
     return () => {

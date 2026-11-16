@@ -33,7 +33,7 @@ import {PlacePractice} from "./place-practice";
 import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
 import {CompetitionArena,type CompetitionView} from "./competition-arena";
 import { SportsJournal } from './sports-journal';
-import { campusDay, currentDaily, dailyXP, recordDaily, type DailyEvent } from '@/lib/daily-missions';
+import { campusDay, currentDaily, dailyMissions, dailyXP, recordDaily, type DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
 
 import { FieldworkHud } from "./fieldwork-hud";
@@ -647,7 +647,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
               <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
               <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
               <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
-              <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/3</small><Icon name="arrow" size={16}/></button>
+              <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small><Icon name="arrow" size={16}/></button>
               <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
               {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
             </div>

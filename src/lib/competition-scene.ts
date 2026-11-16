@@ -4,7 +4,7 @@ import {createSwimRaceScene} from './swim-race-scene.ts';
 import {COMPETITIONS,RACE_COLOURS,type CompetitionId} from './competition-catalog.ts';
 import {buildSportsVenues,venueSign} from './sports-venue-scene.ts';
 import { SWIMMING_POOL } from './campus-districts-layout.ts';
-import {raceDistance,raceTime,type CompetitionRoom} from './competition-engine.ts';
+import {raceDistance,raceTime,smoothRaceDistance,type CompetitionRoom} from './competition-engine.ts';
 export function createCompetitionScene(scene:THREE.Scene){
  const root=new THREE.Group();scene.add(root);
  let pool: ReturnType<typeof createSwimRaceScene> | null = null;
@@ -19,17 +19,28 @@ export function createCompetitionScene(scene:THREE.Scene){
   const baton=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.42,12),new THREE.MeshStandardMaterial({color:RACE_COLOURS[i],roughness:.6}));baton.rotation.z=Math.PI/2;baton.position.set(0,-.25,.11);rig.elbows[1].add(baton);baton.visible=false;
   return {rig,sack,baton,tag,label:''};});
  let rigs:ReturnType<typeof makeRigs>|null=null;
- const distances=[0,0,0,0];
+ const distances=[0,0,0,0], positions=[0,0,0,0];
+ let roundId: string|undefined;
+ let active = false;
  return {
-  update(view:{mode:CompetitionId;room:CompetitionRoom|null}|null,time:number,reduced:boolean){
+  update(view:{mode:CompetitionId;room:CompetitionRoom|null}|null,time:number,reduced:boolean,delta:number){
+   if(!view&&!active)return;
+   active=!!view;
    const mode=view?.mode??'swimming',definition=COMPETITIONS[mode],room=view?.room??null,lobby=!room||room.phase==='lobby';
    const elapsed=room?Math.max(0,raceTime(room,time)):0;
-   const positions=room?room.members.map(m=>raceDistance(room,m,elapsed)):[];
+   const nextRound=room?.round?.id;
+   for(let lane=0;lane<4;lane++){
+    const member=room?.members[lane];
+    const target=room&&member?raceDistance(room,member,elapsed):0;
+    positions[lane]=nextRound===roundId&&member?smoothRaceDistance(positions[lane],target,delta):target;
+    if(nextRound!==roundId)distances[lane]=positions[lane];
+   }
+   roundId=nextRound;
    const swimming = !!view && mode === 'swimming' && !lobby;
    if (swimming && !pool) pool = createSwimRaceScene(scene);
-   pool?.update(swimming,positions,elapsed,reduced,room?.phase==='finished',room?.members.length??0);
+   pool?.update(swimming,positions,delta,reduced,room?.members.length??0,nextRound);
    hurdles.visible=!!view&&mode==='hurdles'&&!lobby;
-   if(view&&room?.members.length&&!rigs)rigs=makeRigs(room.members.map(m=>m.avatar));
+   if(view&&!swimming&&room?.members.length&&!rigs)rigs=makeRigs(room.members.map(m=>m.avatar));
    rigs?.forEach(({rig,sack,baton,tag},i)=>{
     const member=room?.members[i];rig.group.visible=!!view&&!!member&&(lobby||mode!=='swimming');if(!rig.group.visible)return;
     const label=`${member!.name} · ${member!.kind==='bot'?'BOT':'PLAYER'}`;
