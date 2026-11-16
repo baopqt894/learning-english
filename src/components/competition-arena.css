@@ -98,3 +98,9 @@
   .competition-records { bottom: max(12px,env(safe-area-inset-bottom)); }
   .competition-records th, .competition-records td { padding-inline: 5px; }
 }
+
+.competition-arena .swim-choices .is-sending {
+  opacity: 1;
+  border-color: #eac777;
+  background: #3a4f39;
+}

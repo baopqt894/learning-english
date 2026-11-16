@@ -1,6 +1,6 @@
 # English Games: shared rooms, place practice and animal care
 
-**English competitions** in the HUD and the atlas give directions to three registration desks. Walk there using the map, keyboard, or world clicks. The desk highlights **Register** within 2.25 m of its approach. Press **E** or tap the button to sign up. The game leaves your cadet at the desk when the race ends.
+**English competitions** in the HUD and the atlas give directions to three registration desks. On a phone, expand **Missions & activities** to see the HUD shortcuts. Walk there using the map, keyboard, or world clicks. The desk highlights **Register** within 2.25 m of its approach. Press **E** or tap the button to sign up. The game leaves your cadet at the desk when the race ends.
 
 | Game | Venue | Action |
 | --- | --- | --- |
@@ -17,6 +17,8 @@ Waiting cadets stand on the pool deck, track apron or games field while the room
 The same-origin `/api/competitions` GET/POST route holds authoritative room state in MongoDB. Room updates compare a document version before saving, which keeps concurrent function instances from overwriting each other. Online rooms send room revisions to each client as they happen over an authenticated streaming response. If the stream is interrupted, the client requests snapshots while it reconnects. Clients interpolate movement locally and submit answers with a private per-seat token, round ID and question index. The server decides correctness, response time, combo, boosts, timeouts and finishes. Sending forged elapsed time or duplicate question indices cannot award a boost. Seat tokens are never included in public snapshots. Nicknames are limited to 24 characters and rendered as text.
 
 Correct answers give a 1.5-second acceleration burst. Successive correct answers add 15% per step to that burst, capped at ×1.6 for a streak of five or more. Wrong answers and timeouts reset the streak. Bots follow the same boost rules. Online races continue if a player hides the tab. A player who leaves or disconnects during a race is replaced by a bot. Finishing players can review answers while others complete the course; the host can return everyone to the lobby after the round.
+
+The selected choice highlights immediately while the answer is being checked. The server reads the room while it verifies the account session, then validates the private seat and scores the answer. Production functions use the Hong Kong region. The competition POST response publishes timing metrics for request processing and account verification.
 
 Rooms expire after 30 idle minutes. Vercel Functions and self-hosted Node instances share the `competition_rooms` collection. TTL cleanup removes expired rooms. Readiness, seat ownership, question time limits and race results persist across function invocations.
 
@@ -65,6 +67,8 @@ Meals are spaced at least one minute apart for this game. Three meals reach Grow
 ## Performance changes
 
 Foliage instancing is partitioned into spatial chunks and static architecture is batched by both material and 24 m spatial cell. Off-camera chunks can be culled in both colour and shadow passes. When the frame rate drops, the renderer lowers resolution and omits fine grass detail. During races it skips exploration updates and reuses the static shadow map. The swimmers share one instanced body mesh, while strokes, kicks and wakes run locally between network updates.
+
+The whole-campus view uses an instanced model generated from the same landmarks and footprints as the walkable map. Select a point in that view to return to the detailed campus as the cadet walks there. Mobile shortcuts stay collapsed until opened, and HUD portraits use display-size WebP assets.
 
 ## Previous multiplayer release evidence
 

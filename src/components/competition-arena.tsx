@@ -78,6 +78,7 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pendingAnswer, setPendingAnswer] = useState<{ round: string; index: number; choice: number; remaining: number } | null>(null);
   const [connected, setConnected] = useState(true);
   const [live, setLive] = useState(false);
   const [now, setNow] = useState(0);
@@ -279,8 +280,13 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   const last = me?.answers.at(-1);
   const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
   const canAnswer = connected && isRacing && time >= 0 && !feedback && !busy && !help;
+  const sending = pendingAnswer && pendingAnswer.round === roundId && pendingAnswer.index === me?.answers.length
+    ? pendingAnswer : null;
   const submit = (choice: number) => {
-    if (canAnswer) void act('answer', { choice, questionIndex: me?.answers.length, roundId });
+    if (!canAnswer || actionPending.current || !room || !me || !roundId) return;
+    const index = me.answers.length;
+    setPendingAnswer({ round: roundId, index, choice, remaining: Math.max(0, questionSeconds(room) - (time - openedAt(me))) });
+    void act('answer', { choice, questionIndex: index, roundId }).finally(() => setPendingAnswer(null));
   };
   function closeInvites() {
     setInviteOpen(false);
@@ -464,14 +470,16 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
               <span>Question {me.answers.length + (feedback ? 0 : 1)}</span>
               <strong>{last?.streak ? `${last.streak} correct · ×${(1 + Math.min(4, last.streak - 1) * .15).toFixed(2)} combo` : 'Build a correct-answer streak'}</strong>
             </div>
-            <progress max={questionSeconds(room)} value={feedback ? questionSeconds(room) : remaining} aria-label="Question time remaining"/>
+            <progress max={questionSeconds(room)} value={feedback ? questionSeconds(room) : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
             <h3>{question.sentence}</h3>
             <div className="swim-choices">{question.choices.map((choice, i) => (
-              <button key={`${question.id}-${i}`} disabled={!canAnswer} className={feedback ? (i === question.answer ? 'is-correct' : i === feedback.choice ? 'is-wrong' : '') : ''} onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
+              <button key={`${question.id}-${i}`} disabled={!canAnswer}
+                className={feedback ? (i === question.answer ? 'is-correct' : i === feedback.choice ? 'is-wrong' : '') : sending?.choice === i ? 'is-sending' : ''}
+                onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
             ))}</div>
             <div className="swim-feedback" aria-live="polite">{feedback
               ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Combo reset'}</strong><p>{question.explanation}</p></>
-              : <p>{error || (time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+              : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div>
         </>

@@ -131,6 +131,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [feedingPass,setFeedingPass]=useState<{station:string;expiresAt:number}|null>(null);
   const [competitionVenue,setCompetitionVenue]=useState<SportsVenueId>('pool');
   const [sportsJournal,setSportsJournal]=useState<'venues'|'daily'|null>(null);
+  const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  const mobileHudTrigger = useRef<HTMLButtonElement>(null);
   const [friendsOpen,setFriendsOpen]=useState(false);
   const [invitedRace,setInvitedRace]=useState<InvitedRace|null>(null);
   const [day,setDay]=useState(0);
@@ -272,6 +274,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   useEffect(() => {
     if (!modalOpen) return;
     const previousFocus = document.activeElement as HTMLElement | null;
+    const mobileHudButton = mobileHudTrigger.current;
     const getDialog = () => {
       const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
       return dialogs[dialogs.length - 1];
@@ -327,7 +330,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
       cancelAnimationFrame(frame);
       document.body.style.overflow = oldOverflow;
       document.removeEventListener("keydown", trap);
-      previousFocus?.focus();
+      if (previousFocus?.getClientRects().length) previousFocus.focus();
+      else mobileHudButton?.focus();
     };
   }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,sportsJournal,friendsOpen]);
 
@@ -344,6 +348,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   }, []);
   const walkToRegistration = (venue:SportsVenueId) => {
     setSportsJournal(null);
+    setMobileHudOpen(false);
     setAtlasOpen(false);
     setNotice(`Follow the path to the ${SPORTS_VENUES[venue].name} desk. Press E or tap Register when you arrive.`);
     requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
@@ -352,6 +357,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const sport = zoneId==='swimming'?'pool':zoneId==='athletics'?'track':zoneId==='field-games'?'field':null;
     if(sport){walkToRegistration(sport);return;}
     const zone = EXPLORATION_ZONES.find((z) => z.id === zoneId)!;
+    setMobileHudOpen(false);
     setAtlasOpen(false);
     setTalking(null);
     setHint(false);
@@ -364,7 +370,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   };
 
   const travelStory=(location:StoryLocation)=>{
-    setStoryOpen(false);setAtlasOpen(false);setTalking(null);setTab('explore');stopSpeech();
+    setMobileHudOpen(false);setStoryOpen(false);setAtlasOpen(false);setTalking(null);setTab('explore');stopSpeech();
     requestAnimationFrame(()=>{if(Object.hasOwn(PLACES,location))worldRef.current?.goTo(location as Place);else worldRef.current?.goToZone(location as ZoneId);});
     setNotice(`Follow the gold marker. Your English clue is at ${STORY_CHAPTERS.find(c=>c.location===location)?.place||location}.`);
   };
@@ -649,13 +655,20 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 </span>
                 <span className="player-journal" aria-hidden="true"><Icon name="book" size={16} /></span>
               </button>
-              <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
-              <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
-              <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
-              <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
-              <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small><Icon name="arrow" size={16}/></button>
-              <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
-              {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
+              <button ref={mobileHudTrigger} className="mobile-hud-toggle" lang="en"
+                aria-expanded={mobileHudOpen} aria-controls="campus-hud-activities"
+                onClick={() => setMobileHudOpen(open => !open)}>
+                <Icon name="book" size={17}/> Missions &amp; activities <Icon name="chevron" size={15}/>
+              </button>
+              <div className="hud-activities" id="campus-hud-activities" data-expanded={mobileHudOpen}>
+                <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
+                <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
+                <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
+                <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
+                <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small><Icon name="arrow" size={16}/></button>
+                <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
+                {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
+              </div>
             </div>
 
             <div className="hud-right">
@@ -797,7 +810,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
               <button onClick={() => navigate("teacher")}><Icon name="school" /> Góc giáo viên</button>
               <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> Hướng dẫn chơi</button>
               <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> Bộ sưu tập hình ảnh</button>
-              <button onClick={() => { navigate("explore"); worldRef.current?.overview(); }}><Icon name="compass" /> Xem toàn cảnh 3D</button>
+              <button onClick={() => { navigate("explore"); setMobileHudOpen(false); worldRef.current?.overview(); }}><Icon name="compass" /> Xem toàn cảnh 3D</button>
               <button className="minimap-setting" onClick={() => setMapVisible(!mapVisible)} aria-pressed={mapVisible}><Icon name="map" /> Bản đồ nhỏ <span>{mapVisible ? "Bật" : "Tắt"}</span></button>
               <button onClick={() => setHighQuality((quality) => !quality)}><Icon name="leaf" /> Đồ họa <span>{highQuality ? "Chi tiết" : "Nhẹ"}</span></button>
               <button onClick={toggleFullscreen}><Icon name="fullscreen" /> {fullscreen ? "Thoát toàn màn hình" : "Bật toàn màn hình"}</button>
@@ -1232,6 +1245,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
               <button
                 onClick={() => {
                   setAtlasOpen(false);
+                  setMobileHudOpen(false);
                   worldRef.current?.overview();
                 }}
               >

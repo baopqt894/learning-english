@@ -32,18 +32,30 @@ function deserialize(state: StoredRoom): Room {
 const expiry = (room: Room) => new Date(room.updated + ROOM_IDLE_MS);
 type Engine = ReturnType<typeof createCompetitionEngine>;
 type Packet = ReturnType<Engine['roomAction']>;
+type RoomAccount = string | Promise<string>;
 
-async function updateRoom(code: unknown, requestedAt: number, run: (engine: Engine, now: number) => Promise<Packet>) {
-  if (typeof code !== 'string' || !/^[A-F0-9]{6}$/i.test(code)) throw missingRoom();
-  const _id = code.toUpperCase(), rooms = await roomsCollection();
+async function updateRoom(code: unknown, requestedAt: number, account: RoomAccount, run: (engine: Engine, now: number, accountId: string) => Promise<Packet>) {
+  const _id = typeof code === 'string' && /^[A-F0-9]{6}$/i.test(code) ? code.toUpperCase() : null;
+  async function initialRead() {
+    if (!_id) return null;
+    const rooms = await roomsCollection();
+    const filter = { _id, expiresAt: { $gt: new Date(requestedAt) } };
+    return { rooms, filter, stored: await rooms.findOne(filter) };
+  }
+  // Verify the session concurrently with the first room read. Writes still
+  // require both the session and the seat token owned by that account.
+  const [accountId, initial] = await Promise.all([account, initialRead()]);
+  if (!initial || !_id) throw missingRoom();
+  const { rooms } = initial;
   for (let attempt = 0; attempt < 10; attempt++) {
-    const stored = await rooms.findOne({ _id, expiresAt: { $gt: new Date(requestedAt) } });
+    const stored: RoomDocument | null = attempt === 0 ? initial.stored : await rooms.findOne(initial.filter);
     if (!stored) throw missingRoom();
     const room = deserialize(stored.state);
-    const map = new Map([[_id, room]]), engine = createCompetitionEngine(map);
+    const map: Map<string, Room> = new Map([[_id, room]]);
+    const engine = createCompetitionEngine(map);
     const now = Math.max(requestedAt, room.updated, room.view.serverNow);
     const version = room.view.revision, updated = room.updated;
-    const result = await run(engine, now);
+    const result = await run(engine, now, accountId);
     const filter = { _id, version: stored.version };
     if (!map.has(_id)) {
       if ((await rooms.deleteOne(filter)).deletedCount) return result;
@@ -64,21 +76,21 @@ function missingRoom() {
   return new RoomError('Room not found. Check the code or create a new room.', 404);
 }
 
-export async function loadCompetitionRoom(code: unknown, token: string, accountId: string, now = Date.now()) {
-  return (await updateRoom(code, now, async (engine, time) => {
+export async function loadCompetitionRoom(code: unknown, token: string, account: RoomAccount, now = Date.now()) {
+  return (await updateRoom(code, now, account, async (engine, time, accountId) => {
     const view = engine.roomSnapshot(code, token, time, accountId);
     return { room: await engine.recordFinishedPractice(view, time) };
   })).room;
 }
 
-export async function changeCompetitionRoom(input: Record<string, unknown>, accountId: string, now = Date.now()) {
+export async function changeCompetitionRoom(input: Record<string, unknown>, account: RoomAccount, now = Date.now()) {
   if (input.action !== 'create' && input.action !== 'practice') {
-    return updateRoom(input.code, now, async (engine, time) => {
+    return updateRoom(input.code, now, account, async (engine, time, accountId) => {
       const result = engine.roomAction(input, time, accountId);
       return { ...result, room: await engine.recordFinishedPractice(result.room, time) };
     });
   }
-  const rooms = await roomsCollection();
+  const [accountId, rooms] = await Promise.all([account, roomsCollection()]);
   for (let attempt = 0; attempt < 5; attempt++) {
     const map = new Map<string, Room>();
     const packet = createCompetitionEngine(map).roomAction(input, now, accountId);

@@ -18,6 +18,7 @@ import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
 import { animateCharacter } from "@/lib/campus-character";
 import { createCampusEnvironment } from "@/lib/campus-environment";
+import { createCampusOverview } from "@/lib/campus-overview";
 import { PLACES, type Place } from "@/lib/game";
 import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
 import {
@@ -27,6 +28,8 @@ import {
   campusAreaName,
   campusFloorHeight,
   findCampusPath,
+  advanceCampusRoute,
+  type MapPoint,
   type ZoneId,
 } from "@/lib/campus-map";
 
@@ -228,6 +231,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
     let followPlayer = false,
       overviewMode = false;
+    let campusOverview: ReturnType<typeof createCampusOverview> | undefined;
+    const prepareOverview = () => campusOverview ??= createCampusOverview(PHOTO_LIGHTS.daylight.sky);
     const resetCamera = (x = 0, z = -1) => {
       // Keep the same orthographic framing with enough clearance for portrait screens.
       camera.position.set(x + 21, 26.6, z + 39.2);
@@ -306,7 +311,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const focusPosition = new THREE.Vector3();
     const focusTarget = new THREE.Vector3();
     let gait = 0, movementBlend = 0;
-    let route: THREE.Vector3[] = [];
+    let route: MapPoint[] = [];
     let nearest: Place | null = null;
     let lastTime = 0;
     let frames = 0;
@@ -332,7 +337,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       const path = findCampusPath(player.group.position, { x, z });
       if (!path.length) return;
       resumeFollowing();
-      route = path.map((p) => new THREE.Vector3(p.x, 0.13, p.z));
+      route = path;
       destination.position.set(x, campusFloorHeight({x,z})+.02, z);
       destination.visible = true;
     };
@@ -505,10 +510,14 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         walkTo(zone.x, zone.z);
       },
       overview: () => {
+        prepareOverview();
         overviewMode = true;
         followPlayer = false;
         route = [];
         destination.visible = false;
+        districtNear = undefined;
+        setDistrictFrame(null);
+        labels.style.visibility = 'hidden';
         frameCampus();
       },
       beginPhoto,
@@ -653,17 +662,20 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if(overviewMode)frameCampus();
       renderer.setSize(width, height);
       updateLabels();
-      renderer.render(scene, camera);
+      renderer.render(overviewMode && !photoSession && campusOverview ? campusOverview.scene : scene, camera);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
+    const warmOverview = window.setTimeout(() => {
+      void renderer.compileAsync(prepareOverview().scene, camera).catch(() => {});
+    }, 1000);
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
     window.addEventListener("blur", blur);
     renderer.domElement.addEventListener("pointerdown", click);
-    const renderFrame=(time:number)=>{
-      renderer.render(scene, camera);
+    const renderFrame=(time:number, activeScene = scene)=>{
+      renderer.render(activeScene, camera);
       frames++;
       if (time - lastFpsTime > 1000) {
         if (fpsRef.current)
@@ -744,6 +756,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         renderFrame(time);
         return;
       }
+      if (overviewMode && campusOverview && !photoSession) {
+        if (callbacks.current.conversation || callbacks.current.workKind || callbacks.current.studying) {
+          resumeFollowing();
+        } else {
+          controls.update();
+          campusOverview.mark(player.group.position.x, player.group.position.z);
+          host.dataset.mapView = 'overview';
+          host.dataset.interior = 'outside';
+          renderFrame(time, campusOverview.scene);
+          return;
+        }
+      }
       if(lastWorkInput!==callbacks.current.fieldwork){lastWorkInput=callbacks.current.fieldwork;localWork=lastWorkInput||freshFieldwork();}
       const workKind=callbacks.current.workKind||null;
       if(workKind!==lastWorkKind){releaseWork();lastWorkKind=workKind;keys.clear();if(!workKind){route=[];}if(!workKind)resetCamera(player.group.position.x,player.group.position.z);}
@@ -794,54 +818,34 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         }
       } else controls.update();
       const pos = player.group.position;
-      let dx = 0,
-        dz = 0;
-      let routeDistance = Infinity;
-      if (callbacks.current.enabled && !photoSession) {
-        const horizontal = holdingWork||districtActive ? 0 :
-          Number(keys.has("d") || keys.has("arrowright")) -
+      const lastX = pos.x, lastZ = pos.z;
+      if (callbacks.current.enabled && !photoSession && !holdingWork && !districtActive) {
+        const horizontal = Number(keys.has("d") || keys.has("arrowright")) -
           Number(keys.has("a") || keys.has("arrowleft"));
-        const vertical = holdingWork||districtActive ? 0 :
-          Number(keys.has("w") || keys.has("arrowup")) -
+        const vertical = Number(keys.has("w") || keys.has("arrowup")) -
           Number(keys.has("s") || keys.has("arrowdown"));
-        camera.getWorldDirection(cameraForward);
-        cameraForward.y = 0;
-        cameraForward.normalize();
-        cameraRight.crossVectors(cameraForward, camera.up).normalize();
-        dx = horizontal * cameraRight.x + vertical * cameraForward.x;
-        dz = horizontal * cameraRight.z + vertical * cameraForward.z;
-        if (route.length && !horizontal && !vertical) {
-          vector.copy(route[0]).sub(pos);
-          const length = Math.hypot(vector.x, vector.z);
-          routeDistance = length;
-          if (length < 0.12) route.shift();
-          else {
-            dx = vector.x / length;
-            dz = vector.z / length;
-          }
-        }
+        if (horizontal || vertical) {
+          camera.getWorldDirection(cameraForward);
+          cameraForward.y = 0;
+          cameraForward.normalize();
+          cameraRight.crossVectors(cameraForward, camera.up).normalize();
+          const dx = horizontal * cameraRight.x + vertical * cameraForward.x;
+          const dz = horizontal * cameraRight.z + vertical * cameraForward.z;
+          const step = dt * (keys.has("shift") ? 9 : 5) / Math.hypot(dx, dz);
+          const nextX = pos.x + dx * step, nextZ = pos.z + dz * step;
+          if (canWalk(nextX, nextZ)) { pos.x = nextX; pos.z = nextZ; }
+          else if (canWalk(nextX, pos.z)) pos.x = nextX;
+          else if (canWalk(pos.x, nextZ)) pos.z = nextZ;
+        } else if (route.length) advanceCampusRoute(pos, route, dt * (keys.has("shift") ? 9 : 6));
       }
-      const distance = Math.hypot(dx, dz);
-      if (distance) {
-        const step = Math.min(
-          dt * (keys.has("shift") ? 9 : route.length ? 6 : 5),
-          routeDistance,
-        );
-        const nextX = pos.x + (dx / distance) * step;
-        const nextZ = pos.z + (dz / distance) * step;
-        if (canWalk(nextX, nextZ)) pos.set(nextX, 0.13, nextZ);
-        else if (canWalk(nextX, pos.z)) pos.x = nextX;
-        else if (canWalk(pos.x, nextZ)) pos.z = nextZ;
-        else {
-          route = [];
-          destination.visible = false;
-        }
-        const desiredAngle = Math.atan2(dx, dz);
-        const turn = Math.atan2(Math.sin(desiredAngle - player.group.rotation.y), Math.cos(desiredAngle - player.group.rotation.y));
+      const moving = pos.x !== lastX || pos.z !== lastZ;
+      if (moving) {
+        const desiredAngle = Math.atan2(pos.x - lastX, pos.z - lastZ);
+        const angle = desiredAngle - player.group.rotation.y;
+        const turn = Math.atan2(Math.sin(angle), Math.cos(angle));
         player.group.rotation.y += turn * (1 - Math.exp(-dt * 14));
       }
-      pos.y=campusFloorHeight(pos);
-      const moving = distance > 0 && callbacks.current.enabled && !photoSession;
+      pos.y = campusFloorHeight(pos);
       movementBlend = THREE.MathUtils.lerp(movementBlend, moving ? 1 : 0, 1 - Math.exp(-dt * 12));
       const running = keys.has("shift");
       animateCharacter(player,time/1000,false,reducedMotion.matches);
@@ -1060,6 +1064,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       geometries.forEach((g) => g.dispose());
       textures.forEach((t) => t.dispose());
       allMaterials.forEach((m) => m.dispose());
+      window.clearTimeout(warmOverview);
+      campusOverview?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
       actionRef.current = emptyActions();

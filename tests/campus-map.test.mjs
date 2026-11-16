@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { SPORTS_VENUES } from "../src/lib/sports-layout.ts";
 import {
   MAP_BOUNDS, CORE_BUILDINGS,
   EXPLORATION_ZONES,
@@ -9,6 +10,8 @@ import {
   canWalkCampus,
   canWalkSegment,
   findCampusPath,
+  advanceCampusRoute,
+  campusAreaName,
 } from "../src/lib/campus-map.ts";
 
 test("expanded campus triples the previous campus area", () => {
@@ -78,4 +81,27 @@ test("navigation can leave a valid fractional position beside furniture", () => 
     previous = step;
   }
   assert.deepEqual(path.at(-1), to);
+});
+
+test("auto-walk reaches the track from the precise A1 positions that stuck at the wall", () => {
+  const finish = SPORTS_VENUES.track.approach;
+  for (const z of [-22, -21.94, -21.96]) {
+    for (const fps of [30, 55, 60, 120]) {
+      const position = { x: -9, z };
+      const route = findCampusPath(position, finish);
+      assert.ok(route.length);
+      for (let i = 0; i < fps * 15 && route.length; i++) {
+        advanceCampusRoute(position, route, 6 / fps);
+        assert.ok(canWalkCampus(position.x, position.z));
+      }
+      assert.deepEqual(position, finish, `${z} at ${fps} FPS`);
+    }
+  }
+});
+
+test("the registration approaches use their own English practice area", () => {
+  assert.equal(campusAreaName(SPORTS_VENUES.track.approach), 'Đường chạy tiếng Anh');
+  assert.equal(campusAreaName(SPORTS_VENUES.pool.approach), 'Hồ bơi');
+  assert.equal(campusAreaName(SPORTS_VENUES.field.approach), 'Sân trò chơi tiếng Anh');
+  assert.equal(campusAreaName({ x: 0, z: -36 }), 'Sân tập');
 });

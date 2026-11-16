@@ -1,4 +1,4 @@
-import { SPORTS_OBSTACLES } from './sports-layout.ts';
+import { SPORTS_OBSTACLES, nearbySportsVenue } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
 import { FARM_LAYOUT, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
 import { WORK_OBSTACLES } from './fieldwork.ts';
@@ -302,16 +302,42 @@ export function canWalkCampus(x: number, z: number) {
   );
 }
 export function canWalkSegment(a: MapPoint, b: MapPoint) {
-  const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.2));
-  for (let i = 0; i <= count; i++)
-    if (
-      !canWalkCampus(
-        a.x + ((b.x - a.x) * i) / count,
-        a.z + ((b.z - a.z) * i) / count,
-      )
-    )
-      return false;
+  if (!canWalkCampus(a.x, a.z) || !canWalkCampus(b.x, b.z)) return false;
+  const dx = b.x - a.x, dz = b.z - a.z;
+  function crosses(box: (typeof MAP_OBSTACLES)[number]) {
+    const x = a.x - box.x, z = a.z - box.z;
+    const halfW = box.w / 2 + .4, halfD = box.d / 2 + .4;
+    if ((!dx && Math.abs(x) >= halfW) || (!dz && Math.abs(z) >= halfD)) return false;
+    const tx1 = dx ? (-halfW - x) / dx : -Infinity, tx2 = dx ? (halfW - x) / dx : Infinity;
+    const tz1 = dz ? (-halfD - z) / dz : -Infinity, tz2 = dz ? (halfD - z) / dz : Infinity;
+    return Math.max(0, Math.min(tx1, tx2), Math.min(tz1, tz2)) <
+      Math.min(1, Math.max(tx1, tx2), Math.max(tz1, tz2));
+  }
+  const minX = Math.floor(Math.min(a.x, b.x) / 4), maxX = Math.floor(Math.max(a.x, b.x) / 4);
+  const minZ = Math.floor(Math.min(a.z, b.z) / 4), maxZ = Math.floor(Math.max(a.z, b.z) / 4);
+  if ((maxX - minX + 1) * (maxZ - minZ + 1) > 24) return !MAP_OBSTACLES.some(crosses);
+  for (let x = minX; x <= maxX; x++) for (let z = minZ; z <= maxZ; z++) {
+    if (obstacleCells.get(`${x},${z}`)?.some(crosses)) return false;
+  }
   return true;
+}
+
+/** Follow the planned segments exactly, including tight turns along walls. */
+export function advanceCampusRoute(position: MapPoint, route: MapPoint[], budget: number) {
+  while (route.length && budget > 0) {
+    const waypoint = route[0];
+    const dx = waypoint.x - position.x, dz = waypoint.z - position.z;
+    const distance = Math.hypot(dx, dz);
+    const arrives = distance <= budget;
+    const nextX = arrives ? waypoint.x : position.x + (dx / distance) * budget;
+    const nextZ = arrives ? waypoint.z : position.z + (dz / distance) * budget;
+    if (!canWalkCampus(nextX, nextZ)) { route.length = 0; return; }
+    position.x = nextX;
+    position.z = nextZ;
+    if (!arrives) return;
+    route.shift();
+    budget -= distance;
+  }
 }
 
 /** Small A* grid, followed by line-of-sight smoothing, for the whole campus. */
@@ -417,7 +443,10 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   return [];
 }
 export function campusAreaName(point: MapPoint) {
-  if(point.z< -65&&point.z> -77&&Math.abs(point.x)<25)return "Đường chạy tiếng Anh";
+  const venue = nearbySportsVenue(point.x, point.z);
+  if (venue === 'track' || (point.z < -65 && point.z > -77 && Math.abs(point.x) < 25)) return 'Đường chạy tiếng Anh';
+  if (venue === 'pool') return 'Hồ bơi';
+  if (venue === 'field') return 'Sân trò chơi tiếng Anh';
   const district=DISTRICT_AREAS.find(d=>point.x>=d.minX&&point.x<=d.maxX&&point.z>=d.minZ&&point.z<=d.maxZ);
   if(district)return NEW_DISTRICT_ZONES.find(z=>z.id===district.id)!.name;
   const farm = FARM_LAYOUT.bounds;
