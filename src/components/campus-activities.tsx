@@ -7,8 +7,8 @@ import type { Progress } from '@/lib/game';
 import { Icon } from './icon';
 import type { ZoneId } from '@/lib/campus-map';
 
-type Props={level:number;quizHistory:QuizHistory;onLevelMission:(id:LevelMissionId)=>void;onStudy:(active:boolean)=>void;onFieldwork:(kind:'garden'|'duty')=>void;inClassroom:boolean;onStudyTravel:()=>void;progress:Progress;saveAvailable:boolean;onClose:()=>void;onTravel:(zone:ZoneId)=>void;onComplete:(id:ActivityId,answers:ActivityAnswer[],tier:EnglishTier)=>void;initial?:ActivityId};
-export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComplete,initial,onFieldwork,inClassroom,onStudyTravel,onStudy,level,quizHistory,onLevelMission}:Props){
+type Props={level:number;quizHistory:QuizHistory;onLevelMission:(id:LevelMissionId)=>void;onWalkToBeam:()=>void;onStudy:(active:boolean)=>void;onFieldwork:(kind:'garden'|'duty')=>void;inClassroom:boolean;onStudyTravel:()=>void;progress:Progress;saveAvailable:boolean;onClose:()=>void;onTravel:(zone:ZoneId)=>void;onComplete:(id:ActivityId,answers:ActivityAnswer[],tier:EnglishTier)=>void;initial?:ActivityId};
+export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComplete,initial,onFieldwork,inClassroom,onStudyTravel,onStudy,level,quizHistory,onLevelMission,onWalkToBeam}:Props){
  const panelRef=useRef<HTMLElement>(null);
  const [selected,setSelected]=useState<ActivityId|null>(initial||null);
  const [runTier,setRunTier]=useState<EnglishTier>(()=>englishTier(level));
@@ -51,7 +51,10 @@ export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComp
   {!selected?<><div className="activities-intro"><ImageGuide/><div><h3>Your team needs you</h3><p>Complete the garden and dormitory activities to unlock the classroom challenge. Complete the practical work and report in English. Earn 80/100 in the classroom challenge.</p><small>Practice at your own pace. Replay to improve your best score.</small></div></div><ol className="activity-list">{ACTIVITY_IDS.map(id=>{const a=ACTIVITIES[id],record=progress.activities?.[id],unlocked=activityUnlocked(id,progress.activities);return <li key={id}><Icon name={a.icon} size={25}/><div><h3>{a.title}</h3><p>{a.location} · {a.minutes} · +{a.xp} XP once</p><small>{record?`Best ${record.best}/100 · ${record.attempts} ${record.attempts===1?"attempt":"attempts"}${record.passed?' · Passed':''}`:unlocked?'Ready to practise':'Pass the garden and dormitory activities first'}</small></div><button className="activity-button" disabled={!unlocked} onClick={()=>setSelected(id)}>{id!=='academy'?(progress.fieldwork?.[id]?.reported?'Completed':'Enter 3D practice'):record?.passed?'Replay':unlocked?'Explore':'Locked'}<Icon name={unlocked?'arrow':'lock'} size={16}/></button></li>;})}</ol>
       <section className="level-missions" aria-labelledby="level-missions-title">
         <h3 id="level-missions-title">Level missions</h3>
-        <p>Level {level} · {englishTier(level)} English</p>
+        <div className="level-shortcuts">
+          <p>Level {level} · {englishTier(level)} English</p>
+          <button className="activity-back" onClick={onWalkToBeam}>Walk to balance beam <Icon name="arrow" size={16}/></button>
+        </div>
         <ol className="activity-list">{LEVEL_MISSION_IDS.map(id=>{
           const mission=LEVEL_MISSIONS[id], required=TIER_LEVEL[mission.tier], unlocked=level>=required;
           const completed=progress.challenges?.includes(`mission/${id}`);

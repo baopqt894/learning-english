@@ -19,4 +19,5 @@
 
 .level-missions { margin-top: 20px; }
 .level-missions > h3 { margin: 0 0 4px; }
-.level-missions > p { margin: 0 0 12px; color: var(--muted); font-size: .875rem; }
+.level-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 16px; margin-bottom: 10px; }
+.level-shortcuts p { margin: 0; color: var(--muted); font-size: .875rem; }

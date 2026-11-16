@@ -913,7 +913,14 @@ export function CampusGame({ account, onExpired, onLogout }: {
         onRetry={chapter=>saveProgress({...progress,campaign:retryStory(campaign,chapter)})}
         onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
       {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setLevelMissionTravel(null);setStudyTravel(true);goToZone('classrooms');}}
-        level={level.level} onLevelMission={startLevelMission} quizHistory={quizHistory} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers,quizTier)=>saveReward(finishActivity(progress,id,answers,quizTier))}/>}
+        level={level.level} onLevelMission={startLevelMission} quizHistory={quizHistory}
+        onWalkToBeam={()=>{
+          closeActivities();
+          setMobileHudOpen(false);
+          setStudyTravel(false);
+          setLevelMissionTravel(null);
+          requestAnimationFrame(()=>worldRef.current?.goToPractice('balance'));
+        }} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers,quizTier)=>saveReward(finishActivity(progress,id,answers,quizTier))}/>}
 
       {tab === "menu" && (
         <div className="modal-backdrop">
