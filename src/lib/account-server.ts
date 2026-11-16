@@ -154,3 +154,15 @@ export async function saveAccountProgress(account: Account, revision: unknown, d
   if (JSON.stringify(progress) === JSON.stringify(restoreProgress(JSON.stringify(current.progress)))) return current;
   throw new AccountError('Tiến độ đã được cập nhật ở thiết bị khác.', 409, current);
 }
+
+export async function findCadetProfile(username: unknown) {
+  const key = keyFor(username);
+  const stored = await accounts().findOne({ _id: key }, {
+    projection: { id: 1, 'save.progress.name': 1, 'save.progress.avatar': 1 },
+  });
+  if (!stored) throw new AccountError('No cadet found with that username.', 404);
+  return {
+    id: stored.id,
+    profile: { username: key, nickname: stored.save.progress.name, avatar: stored.save.progress.avatar },
+  };
+}

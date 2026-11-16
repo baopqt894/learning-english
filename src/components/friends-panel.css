@@ -1,0 +1,108 @@
+.friends-launch { position: relative; }
+.friends-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 10px;
+  background: #efc371;
+  color: #20312a;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+.friends-ledger { width: min(550px, 100%); }
+.friends-ledger header strong { overflow-wrap: anywhere; }
+.friends-tabs { display: flex; gap: 16px; border-bottom: 1px solid #c8c5af; margin-bottom: 16px; }
+.friends-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 4px;
+  border-bottom: 2px solid transparent;
+  font-size: .91rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.friends-tabs button[aria-pressed=true] { border-color: #27513d; color: #17392e; }
+.friends-tabs button small {
+  min-width: 21px;
+  border-radius: 10px;
+  padding: 2px 5px;
+  color: #244336;
+  background: #dde2c9;
+  font-size: .72rem;
+  text-align: center;
+}
+.friends-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.friends-search label { display: grid; gap: 5px; font-size: .81rem; font-weight: 700; }
+.friends-search input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #86957e;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #183b2e;
+  background: #fffaf0;
+  font-size: 16px;
+}
+.friends-search input::placeholder { color: #556858; }
+.friends-search input:focus-visible { outline: 2px solid #285746; outline-offset: 2px; }
+.friends-ledger .friends-primary, .friend-actions button, .friends-error button {
+  min-height: 44px;
+  padding: 6px 11px;
+  border-radius: 7px;
+  font-size: .83rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.friend-actions button, .friends-error button { border: 1px solid #9aa68e; }
+.friends-ledger .friends-primary { background: #254c39; color: #fff5dc; }
+.friends-ledger button:disabled, .race-friend-invites button:disabled { opacity: .58; cursor: default; }
+.friends-ledger .friend-actions button:hover:not(.friends-primary):not(:disabled) { background: #eae0c7; }
+.friends-ledger .friends-danger { color: #803725; border-color: #a66b55; }
+.friend-list { list-style: none; padding: 0; margin: 0; }
+.friends-search-result { margin-top: 10px; border-bottom: 1px solid #c8c5af; }
+.friend-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 0;
+}
+.friend-row + .friend-row { border-top: 1px solid #cecab3; }
+.cadet-portrait.friend-avatar {
+  width: 32px;
+  height: 32px;
+}
+.friend-identity { min-width: 0; overflow-wrap: anywhere; }
+.friend-identity strong, .friend-identity small { display: block; }
+.friend-identity strong { font-size: .93rem; }
+.friend-identity small { margin-top: 3px; font-size: .76rem; }
+.friend-actions { display: flex; gap: 5px; align-items: center; }
+.friend-status { display: inline-flex; gap: 5px; align-items: center; font-weight: 750; font-size: .83rem; }
+.friends-group + .friends-group { margin-top: 12px; }
+.friends-group h3 { margin: 0; font-size: .93rem; padding-bottom: 4px; border-bottom: 1px solid #c8c5af; }
+.friends-ledger .friends-empty { margin-top: 16px; }
+.friends-ledger .friends-error { margin: 9px 0; color: #793727; }
+.friends-ledger .friends-message { margin: 9px 0; color: #255b3e; font-weight: 700; }
+.friends-error button { margin-left: 7px; }
+.race-friends-heading { display: flex; justify-content: space-between; align-items: center; gap: 9px; }
+.race-friend-invites button, .competition-invite-friends { min-height: 44px; }
+.competition-invite-friends { display: inline-flex; align-items: center; gap: 7px; }
+.race-friend-invites .friend-row + .friend-row { border-color: #405d4d; }
+.race-friend-invites .friend-identity small { color: #cbd8c3; }
+.race-friend-invites .friend-actions button, .race-friends-heading button { border-color: #658572; }
+@media (max-width: 620px) {
+  .hud-actions { position: relative; }
+  .hud-actions .friends-launch { position: absolute; top: calc(100% + 6px); right: 0; }
+}
+@media (max-width: 450px) {
+  .friend-actions { flex-wrap: wrap; justify-content: end; }
+  .friend-row:has(.friend-actions > :nth-child(2)) .friend-actions { grid-column: 2 / -1; justify-content: start; }
+}

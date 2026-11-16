@@ -8,6 +8,8 @@ import type { DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, type SportsVenueId } from '@/lib/sports-layout';
 import { CompetitionRecordBoard } from './competition-record-board';
 import { Icon } from './icon';
+import { RaceFriendInvites } from './friends-panel';
+import type { InvitedRace } from '@/lib/friends';
 import './swim-race.css';
 import './competition-arena.css';
 
@@ -51,24 +53,27 @@ const recordMessages = {
   retrying: 'The server is retrying your record save. Stay here to see the result.',
 };
 
-export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish }: {
+export function CompetitionArena({ name, avatar, venue, invitation, onInvitationJoined, onView, onExit, onFinish }: {
   name: string;
   avatar: number;
   venue: SportsVenueId;
+  invitation: InvitedRace | null;
+  onInvitationJoined: (id: string) => void;
   onView: (view: CompetitionView | null) => void;
   onExit: () => void;
   onFinish: (event: DailyEvent, at: number) => void;
 }) {
   const venueInfo = SPORTS_VENUES[venue];
   const events = venueCompetitions(venue);
-  const [selected, setSelected] = useState(events[0]);
+  const [selected, setSelected] = useState(invitation?.mode ?? events[0]);
   const [difficulty, setDifficulty] = useState<RaceDifficulty>('beginner');
-  const [format, setFormat] = useState<Format>('practice');
+  const [format, setFormat] = useState<Format>(invitation ? 'online' : 'practice');
   const [boardOpen, setBoardOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [room, setRoom] = useState<CompetitionRoom | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [resume, setResume] = useState<Session | null>(null);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(invitation?.code ?? '');
   const [displayName, setDisplayName] = useState(name || 'Cadet');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -80,6 +85,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const [help, setHelp] = useState(false);
   const root = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const inviteLaunch = useRef<HTMLButtonElement>(null);
   const lastRevision = useRef(-1);
   const offsetRef = useRef(0);
   const calibrated = useRef(false);
@@ -230,6 +236,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
     setCopied(false);
     try { sessionStorage.setItem(SEAT_KEY, JSON.stringify(seat)); } catch { /* This seat can still play. */ }
     receive(packet, sent);
+    if (action === 'join' && invitation?.code === seat.code) onInvitationJoined(invitation.id);
     heading.current?.focus();
   });
 
@@ -275,10 +282,15 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
   const submit = (choice: number) => {
     if (canAnswer) void act('answer', { choice, questionIndex: me?.answers.length, roundId });
   };
+  function closeInvites() {
+    setInviteOpen(false);
+    requestAnimationFrame(() => inviteLaunch.current?.focus());
+  }
   const onKey = useEffectEvent((event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         if (boardOpen) setBoardOpen(false);
+        else if (inviteOpen && room?.phase === 'lobby') closeInvites();
         else if (help || room) setHelp(value => !value);
         else void exit();
       }
@@ -371,6 +383,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
             <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
           </div>
           {format === 'online' && <>
+          {invitation && code === invitation.code && <p className="level-note">Your friend’s room code is ready. Press Join room to enter.</p>}
           <form className="competition-join" onSubmit={event => { event.preventDefault(); void enter('join'); }}>
             <label>Join a friend’s room
               <input aria-label="Room code" maxLength={6} value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="ABC123" autoComplete="off" disabled={busy} aria-describedby="race-join-note"/>
@@ -381,6 +394,8 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
           </>}
           {resume && <button className="resume-race" disabled={busy} onClick={() => resumeSeat(resume)}>Resume previous race</button>}
         </div>
+      ) : inLobby && inviteOpen && isHost ? (
+        <RaceFriendInvites code={room.code} onClose={closeInvites}/>
       ) : inLobby ? (
         <div className="swim-panel competition-lobby">
           <div className="competition-room-code">
@@ -399,6 +414,7 @@ export function CompetitionArena({ name, avatar, venue, onView, onExit, onFinish
               <button key={index} disabled={!isHost || busy} className="competition-add-bot" aria-label={`Add bot to seat ${index + 1}`} onClick={() => void act('add-bot')}><Icon name="plus" size={22}/>{isHost ? 'Add bot' : 'Empty seat'}</button>
             ))}
           </div>
+          {isHost && <button ref={inviteLaunch} className="competition-invite-friends" onClick={() => setInviteOpen(true)}><Icon name="users" size={17}/> Invite friends</button>}
           <p className="swim-help">Friends can replace bots while registration is open. Empty seats fill on Start.</p>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           <div className="swim-result-actions">

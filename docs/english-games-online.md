@@ -30,6 +30,10 @@ Rooms expire after 30 idle minutes. Vercel Functions and self-hosted Node instan
 
 The **How to play** button stays available at the desk and in the race. The pool has four marked lanes with floats, dive blocks, ladders, rescue rings and a surveillance chair. The four-lane 46 × 9 m track has a 40 m timed straight, distance marks and covered stands. The registration desks, waiting aprons and pathways sit outside the race lanes.
 
+## Friends and race invitations
+
+Open **Friends** in the campus HUD, search for a classmate's exact username, and send a request. Your classmate accepts it in **Inbox**. In an online lobby, the host can choose **Invite friends**. The recipient opens the invitation from **Inbox**, walks to the venue, and selects **Join room** with the room code already filled in. Invitations expire after 15 minutes and apply to an open lobby.
+
 ## Solo practice and campus records
 
 Choose **Solo practice** at a registration desk. The race uses one lane and no bots. **Beginner (A1)** allows 12 seconds per question, **Intermediate (A2)** allows 10, and **Advanced (B1)** allows 8. Each level has its own questions. The timer, answer explanations and combo rules also apply to solo practices.

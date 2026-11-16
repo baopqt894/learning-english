@@ -124,3 +124,20 @@ export async function watchCompetitionRoom(
     await changes.close();
   }
 }
+
+/** A room invitation may only point to an open lobby owned by its sender. */
+export async function invitableRace(code: unknown, sender: string, recipient: string, now: number) {
+  if (typeof code !== 'string' || !/^[A-F0-9]{6}$/i.test(code)) throw missingRoom();
+  const rooms = await roomsCollection();
+  const stored = await rooms.findOne({ _id: code.toUpperCase(), expiresAt: { $gt: new Date(now) } });
+  const room = stored?.state.view;
+  const seats = stored?.state.accountSeats ?? [];
+  if (room?.format !== 'online' || room.phase !== 'lobby'
+      || !seats.some(([seat, account]) => seat === room.hostId && account === sender))
+    throw new RoomError('This lobby is no longer open for invitations.', 409);
+  if (seats.some(([, account]) => account === recipient))
+    throw new RoomError('This friend already has a seat in the lobby.', 409);
+  if (room.members.every(member => member.kind === 'human') && room.members.length >= 4)
+    throw new RoomError('This lobby is full.', 409);
+  return { code: room.code, mode: room.mode };
+}

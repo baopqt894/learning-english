@@ -33,6 +33,9 @@ import {PlacePractice} from "./place-practice";
 import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
 import {CompetitionArena,type CompetitionView} from "./competition-arena";
 import { SportsJournal } from './sports-journal';
+import { FriendsButton, FriendsPanel, sendFriendsAction } from './friends-panel';
+import type { InvitedRace } from '@/lib/friends';
+import { COMPETITIONS } from '@/lib/competition-catalog';
 import { campusDay, currentDaily, dailyMissions, dailyXP, recordDaily, type DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
 
@@ -128,6 +131,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [feedingPass,setFeedingPass]=useState<{station:string;expiresAt:number}|null>(null);
   const [competitionVenue,setCompetitionVenue]=useState<SportsVenueId>('pool');
   const [sportsJournal,setSportsJournal]=useState<'venues'|'daily'|null>(null);
+  const [friendsOpen,setFriendsOpen]=useState(false);
+  const [invitedRace,setInvitedRace]=useState<InvitedRace|null>(null);
   const [day,setDay]=useState(0);
   const registration=nearbySportsVenue(playerPosition.x,playerPosition.z);
   const deskTrigger=useRef<HTMLButtonElement>(null);
@@ -257,7 +262,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     reward !== null ||
     retryReset ||
     artGallery ||
-    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice || !!sportsJournal;
+    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice || !!sportsJournal || friendsOpen;
   useEffect(() => {
     if (!notice || talking || modalOpen || swimOpen) return;
     const timer = window.setTimeout(() => setNotice(""), 4200);
@@ -291,7 +296,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if(sportsJournal){setSportsJournal(null);}
+        if(friendsOpen){setFriendsOpen(false);}
+        else if(sportsJournal){setSportsJournal(null);}
         else if(placePractice){setPlacePractice(null);}
         else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
         else if (activityOpen) { window.speechSynthesis?.cancel(); setActivityOpen(false); setClassStudy(false); }
@@ -323,7 +329,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       document.removeEventListener("keydown", trap);
       previousFocus?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,sportsJournal]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,sportsJournal,friendsOpen]);
 
   const updateMapPlayer = useCallback((x: number, z: number) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
@@ -654,6 +660,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
             <div className="hud-right">
               <div className="hud-actions" aria-label="Công cụ khuôn viên">
+                <FriendsButton muted={modalOpen} onOpen={() => setFriendsOpen(true)}/>
                 <button className="hud-button photo-launch" ref={photoTrigger} onClick={openPhoto} aria-label="Mở máy ảnh" title="Máy ảnh"><Icon name="camera" size={20} /></button>
                 <button className="hud-button" onClick={() => setAtlasOpen(true)} aria-label="Mở bản đồ toàn trường" title="Bản đồ toàn trường"><Icon name="map" size={20} /></button>
                 <button className="hud-button" onClick={() => navigate("menu")} aria-label="Mở menu" title="Menu"><Icon name="menu" size={20} /></button>
@@ -757,7 +764,18 @@ export function CampusGame({ account, onExpired, onLogout }: {
       )}
       {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??''}`} area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}} onExit={()=>setPlacePractice(null)} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})} onComplete={()=>{completeDaily({type:'quiz'});const pet=placePractice.feeding;if(pet){const status=petStatus(progress.pets??{},pet);if(status.nextMealIn>0){setNotice(`Next meal available in ${Math.ceil(status.nextMealIn/1000)} seconds.`);}else{setFeedingPass({station:PETS[pet].station,expiresAt:Date.now()+300000});requestAnimationFrame(()=>worldRef.current?.goToPractice(PETS[pet].station));setNotice('Food earned! Walk to the feeding point and hold E to feed your animals.');}}setPlacePractice(null);}}/>}
       {sportsJournal&&<SportsJournal kind={sportsJournal} day={day} progress={progress.daily} onClose={()=>setSportsJournal(null)} onWalk={walkToRegistration}/>}
-      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} venue={competitionVenue} onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
+      {friendsOpen&&<FriendsPanel username={account.username} onClose={()=>setFriendsOpen(false)} onRace={race=>{
+        setInvitedRace(race);
+        setFriendsOpen(false);
+        walkToRegistration(COMPETITIONS[race.mode].station);
+      }}/>}
+      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} venue={competitionVenue}
+        invitation={invitedRace && COMPETITIONS[invitedRace.mode].station === competitionVenue ? invitedRace : null}
+        onInvitationJoined={id=>{
+          setInvitedRace(previous=>previous?.id===id?null:previous);
+          void sendFriendsAction({action:'dismiss-invite',id}).catch(()=>{});
+        }}
+        onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
       {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveProgress(updated);return true;}}/>}
       {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
       {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
