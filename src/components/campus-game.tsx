@@ -21,6 +21,7 @@ import {
   QUESTS,
   SCHOOL,
   type Place,
+  type Progress,
 } from "@/lib/game";
 import {CampaignJournal,CampaignTracker} from './campaign-journal';
 import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,hintStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
@@ -36,7 +37,9 @@ import { SportsJournal } from './sports-journal';
 import { FriendsButton, FriendsPanel, sendFriendsAction } from './friends-panel';
 import type { InvitedRace } from '@/lib/friends';
 import { COMPETITIONS } from '@/lib/competition-catalog';
-import { campusDay, currentDaily, dailyMissions, dailyXP, recordDaily, type DailyEvent } from '@/lib/daily-missions';
+import { cadetLevel, completeChallenge } from '@/lib/challenge-xp';
+import type { DistrictStationId } from '@/lib/campus-districts-layout';
+import { campusDay, currentDaily, dailyMissions, recordDaily, type DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
 
 import { FieldworkHud } from "./fieldwork-hud";
@@ -127,8 +130,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [activityOpen,setActivityOpen] = useState(false);
   const [swimOpen,setSwimOpen]=useState(false);
   const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
-  const [placePractice,setPlacePractice]=useState<{area:string;feeding?:PetId}|null>(null);
-  const [feedingPass,setFeedingPass]=useState<{station:string;expiresAt:number}|null>(null);
+  const [placePractice,setPlacePractice]=useState<{area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring'}|null>(null);
+  const [stationPass,setStationPass]=useState<{station:string;expiresAt:number}|null>(null);
   const [competitionVenue,setCompetitionVenue]=useState<SportsVenueId>('pool');
   const [sportsJournal,setSportsJournal]=useState<'venues'|'daily'|null>(null);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
@@ -166,15 +169,22 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [help, setHelp] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState("");
-  const completeDaily = useCallback((event:DailyEvent, at=Date.now())=>{
+  const saveReward = useCallback((updated: Progress) => {
+    if (updated === progress) return;
+    saveProgress(updated);
+    const before = earnedXP(progress), after = earnedXP(updated);
+    if (after <= before) return;
+    const level = cadetLevel(after).level;
+    setNotice(level > cadetLevel(before).level ? `Level ${level} reached · +${after - before} XP` : `Mission complete · +${after - before} XP`);
+  }, [progress, saveProgress]);
+  const completeDaily = useCallback((event:DailyEvent, at=Date.now(), challenge?:string)=>{
     const today=campusDay(Date.now()), eventDay=campusDay(at);
-    if (today!==eventDay) return;
-    const next=recordDaily(progress.daily,eventDay,event);
-    if(next===progress.daily)return;
-    saveProgress({...progress,daily:next});
+    const daily = today === eventDay ? recordDaily(progress.daily,eventDay,event) : progress.daily;
+    const challenges = challenge ? completeChallenge(progress.challenges, challenge) : progress.challenges;
+    if (daily === progress.daily && challenges === progress.challenges) return;
     setDay(today);
-    setNotice(`Daily mission complete · +${dailyXP(next)-dailyXP(progress.daily)} XP`);
-  },[progress,saveProgress]);
+    saveReward({...progress,daily,challenges});
+  },[progress,saveReward]);
   const [autoVoiceMuted, setAutoVoiceMuted] = useState(false);
   const [speaking, setSpeaking] = useState<Place | null>(null);
   const [reward, setReward] = useState<number | null>(null);
@@ -204,6 +214,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const lesson = LESSONS[progress.active];
   const goal = nextGoal(progress);
   const xp = earnedXP(progress);
+  const level = cadetLevel(xp);
   const finished = quest.goals.every((g) => progress.goals.includes(g.id));
   const allDone = progress.completed.length === QUESTS.length;
   const currentPlace = talking || near || goal?.place || "courtyard";
@@ -256,6 +267,56 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const task=nextWorkTask(progress.fieldwork||freshFieldwork(),kind);
     requestAnimationFrame(()=>worldRef.current?.goToWork(task?.station||(kind==='garden'?'garden-board':'duty-board')));
   };
+  const prepareFieldwork = (kind: WorkKind) => {
+    closeActivities();
+    setPlacePractice({ area: kind === 'garden' ? 'vegetable-garden' : 'dormitory', work: kind });
+  };
+  const closePlacePractice = useCallback(() => {
+    setPlacePractice(null);
+    if (placePractice?.work && storyReturn.current) {
+      storyReturn.current = false;
+      setStoryOpen(true);
+    }
+  }, [placePractice?.work]);
+  function completePlacePractice() {
+    if (!placePractice) return;
+    const { area, feeding, work, station } = placePractice;
+    completeDaily({type:'quiz'}, Date.now(), feeding || station ? undefined : `quiz/${area}`);
+    setPlacePractice(null);
+    if (work) { beginFieldwork(work); return; }
+    if (!feeding && !station) return;
+    if (feeding) {
+      const status = petStatus(progress.pets??{},feeding);
+      if (status.nextMealIn > 0) { setNotice(`Next meal available in ${Math.ceil(status.nextMealIn / 1000)} seconds.`); return; }
+    }
+    const destination = station ?? PETS[feeding!].station;
+    setStationPass({station:destination,expiresAt:Date.now()+300000});
+    requestAnimationFrame(()=>worldRef.current?.goToPractice(destination));
+    setNotice(station ? 'Safety quiz passed. Hold E to throw the life ring.' : 'Food earned. At the feeding point, hold E to feed your animals.');
+  }
+  function openStationQuiz(id: DistrictStationId) {
+    if (id === 'rescue-ring') { setPlacePractice({area:'swimming',station:id}); return; }
+    const pet = petForStation(id);
+    if (!pet) return;
+    if (petStatus(progress.pets??{},pet).nextMealIn > 0) { setPlacePractice({area:'livestock'}); return; }
+    setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet});
+  }
+  function completeStation(id: DistrictStationId) {
+    const pet = petForStation(id);
+    let pets = progress.pets;
+    if (pet) {
+      const care = pets ?? {};
+      pets = feedPet(care, pet);
+      if (pets === care) return;
+    }
+    if (pet || id === 'rescue-ring') setStationPass(null);
+    const next = recordStoryEvent(campaign,id);
+    const challenges = completeChallenge(progress.challenges,`station/${id}`);
+    const daily = id === 'balance' ? recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'}) : progress.daily;
+    if (next !== campaign || pets !== progress.pets || challenges !== progress.challenges || daily !== progress.daily) {
+      saveReward({...progress,campaign:next,pets,challenges,daily});
+    }
+  }
   useEffect(()=>{if(!physicalWork)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape'){worldRef.current?.holdWork(false);window.speechSynthesis?.cancel();setPhysicalWork(null);if(storyReturn.current){storyReturn.current=false;setStoryOpen(true);}}};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[physicalWork]);
 
   const modalOpen =
@@ -301,7 +362,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         event.preventDefault();
         if(friendsOpen){setFriendsOpen(false);}
         else if(sportsJournal){setSportsJournal(null);}
-        else if(placePractice){setPlacePractice(null);}
+        else if(placePractice){closePlacePractice();}
         else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
         else if (activityOpen) { window.speechSynthesis?.cancel(); setActivityOpen(false); setClassStudy(false); }
         else if (photoOpen) closePhoto();
@@ -333,7 +394,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       if (previousFocus?.getClientRects().length) previousFocus.focus();
       else mobileHudButton?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,sportsJournal,friendsOpen]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,closePlacePractice,sportsJournal,friendsOpen]);
 
   const updateMapPlayer = useCallback((x: number, z: number) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
@@ -377,7 +438,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const openStory=()=>{stopSpeech();setTalking(null);setTab('explore');setStoryOpen(true);};
   const practicalStory=(chapter:StoryChapter)=>{
     setStoryOpen(false);
-    if(chapter.proof==='garden'||chapter.proof==='duty'){storyReturn.current=true;beginFieldwork(chapter.proof);}
+    if(chapter.proof==='garden'||chapter.proof==='duty'){storyReturn.current=true;prepareFieldwork(chapter.proof);}
     else if(chapter.proof!=='visit'){requestAnimationFrame(()=>worldRef.current?.goToPractice(chapter.proof as 'feed-chickens'|'feed-fish'|'balance'|'rescue-ring'));setNotice('Complete the marked 3D action, then reopen your mission to write the report.');}
     else travelStory(chapter.location);
   };
@@ -623,8 +684,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
             avatar={progress.avatar}
             studying={classStudy}
             pets={progress.pets}
-            feedingPass={feedingPass}
-            onFeedingQuiz={station=>{const pet=petForStation(station);if(pet)setPlacePractice(petStatus(progress.pets??{},pet).nextMealIn>0?{area:'livestock'}:{area:pet==='fish'?'fish-pond':'livestock',feeding:pet});}}
+            stationPass={stationPass}
+            onStationQuiz={openStationQuiz}
             fieldwork={progress.fieldwork}
             workKind={physicalWork}
             workTool={workTool}
@@ -632,7 +693,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             onWorkFrame={updateWorkFrame}
             objective={storyIndex<0?goal?.place:undefined}
             storyTarget={storyChapter?storyPosition(storyChapter.location):undefined}
-            onDistrictComplete={id=>{const next=recordStoryEvent(campaign,id),pet=petForStation(id);let pets=progress.pets;if(pet&&feedingPass?.station===id&&feedingPass.expiresAt>Date.now()){pets=feedPet(pets??{},pet);setFeedingPass(null);}if(next!==campaign||pets!==progress.pets)saveProgress({...progress,campaign:next,pets});}}
+            onDistrictComplete={completeStation}
             conversation={talking}
             speaking={speaking}
             highQuality={highQuality}
@@ -651,7 +712,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <Cadet variant={progress.avatar} small />
                 <span className="player-identity">
                   <strong>{progress.name}</strong>
-                  <small>Cấp {Math.floor(xp / 150) + 1} <span>·</span> {xp} XP</small>
+                  <small>Cấp {level.level} <span>·</span> {xp} XP</small>
+                  <progress className="player-level-progress" max={level.perLevel} value={level.earned} aria-label={`Còn ${level.remaining} XP để lên cấp ${level.level + 1}`}/>
                 </span>
                 <span className="player-journal" aria-hidden="true"><Icon name="book" size={16} /></span>
               </button>
@@ -775,7 +837,11 @@ export function CampusGame({ account, onExpired, onLogout }: {
           onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
         />
       )}
-      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??''}`} area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}} onExit={()=>setPlacePractice(null)} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})} onComplete={()=>{completeDaily({type:'quiz'});const pet=placePractice.feeding;if(pet){const status=petStatus(progress.pets??{},pet);if(status.nextMealIn>0){setNotice(`Next meal available in ${Math.ceil(status.nextMealIn/1000)} seconds.`);}else{setFeedingPass({station:PETS[pet].station,expiresAt:Date.now()+300000});requestAnimationFrame(()=>worldRef.current?.goToPractice(PETS[pet].station));setNotice('Food earned! Walk to the feeding point and hold E to feed your animals.');}}setPlacePractice(null);}}/>}
+      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??''}`}
+        area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}
+        purpose={placePractice.work?'work':placePractice.station?'rescue':undefined}
+        onExit={closePlacePractice} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})}
+        onComplete={completePlacePractice}/>}
       {sportsJournal&&<SportsJournal kind={sportsJournal} day={day} progress={progress.daily} onClose={()=>setSportsJournal(null)} onWalk={walkToRegistration}/>}
       {friendsOpen&&<FriendsPanel username={account.username} onClose={()=>setFriendsOpen(false)} onRace={race=>{
         setInvitedRace(race);
@@ -789,14 +855,14 @@ export function CampusGame({ account, onExpired, onLogout }: {
           void sendFriendsAction({action:'dismiss-invite',id}).catch(()=>{});
         }}
         onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
-      {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveProgress(updated);return true;}}/>}
+      {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveReward(updated);return true;}}/>}
       {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
       {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
         onAnswer={(chapter,word)=>{const result=answerStory(campaign,chapter,word,storyNearby);if(result.state!==campaign)saveProgress({...progress,campaign:result.state});return result.correct;}}
         onHint={chapter=>saveProgress({...progress,campaign:hintStory(campaign,chapter)})}
         onRetry={chapter=>saveProgress({...progress,campaign:retryStory(campaign,chapter)})}
         onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
-      {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={beginFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setStudyTravel(true);goToZone('classrooms');}} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers)=>saveProgress(finishActivity(progress,id,answers))}/>}
+      {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setStudyTravel(true);goToZone('classrooms');}} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers)=>saveReward(finishActivity(progress,id,answers))}/>}
 
       {tab === "menu" && (
         <div className="modal-backdrop">

@@ -1,3 +1,4 @@
+import type { BalanceRun } from './balance-challenge.ts';
 import { SPORTS_VENUES } from './sports-layout.ts';
 /** Every new district shares footprints between geometry, navigation and the atlas. */
 export const CAMPUS_EXTENT={minX:-46,maxX:110,minZ:-87,maxZ:68};
@@ -63,11 +64,11 @@ export const BASE_DISTRICT_STATIONS=[
   {id:'feed-goats',x:56,z:18,look:{x:59.5,z:18},seconds:4,title:'Feed the goats',instruction:'Earn food with English questions, then hold to place grass in the feeder.',sentence:'The goats are eating fresh grass.',verb:'Place fresh grass',done:'The goats have fresh grass.'},
   {id:'feed-ducks',x:56,z:28,look:{x:59.5,z:28},seconds:4,title:'Feed the ducks',instruction:'Earn food with English questions, then hold to scatter duck feed.',sentence:'We give the ducks a small portion of food.',verb:'Scatter duck feed',done:'The ducks are eating.'},
   {id:'feed-fish',x:55.5,z:4.5,look:{x:55.5,z:0},seconds:4,title:'Feed the fish',instruction:'Hold to sprinkle a small portion of fish food.',sentence:'The fish are swimming towards the food.',verb:'Sprinkle food',done:'The fish have gathered at the feeding deck.'},
-  {id:'balance',x:-2,z:-38.5,look:{x:-2,z:-43},seconds:6,title:'Cross the balance beam',instruction:'Hold to step onto the beam and walk to the other end.',sentence:'Walk slowly. Keep your arms out for balance.',verb:'Keep your balance',done:'You crossed the beam. Great balance!'},
-  {id:'rescue-ring',x:56,z:-32,look:{x:56,z:-37},seconds:3,title:'Practise a rescue throw',instruction:'Stay on the deck. Hold to throw the life ring into the practice lane.',sentence:'Throw the life ring. Stay out of the water.',verb:'Throw the life ring',done:'The life ring landed in the practice lane.'},
+  {id:'balance',x:-2,z:-38.5,look:{x:-2,z:-43},seconds:6,title:'Cross the balance beam',instruction:'Answer three quick English questions to cross. A wrong answer or a timeout makes you fall.',sentence:'Walk slowly. Keep your arms out for balance.',verb:'Keep your balance',done:'You crossed the beam. Great balance!'},
+  {id:'rescue-ring',x:56,z:-32,look:{x:56,z:-37},seconds:3,title:'Practise a rescue throw',instruction:'Pass the safety quiz, then stay on the deck and hold to throw the life ring.',sentence:'Throw the life ring. Stay out of the water.',verb:'Throw the life ring',done:'The life ring landed in the practice lane.'},
 ] as const;
 export type DistrictStationId=typeof BASE_DISTRICT_STATIONS[number]['id'];
-export type DistrictFrame={id:DistrictStationId;title:string;instruction:string;sentence:string;verb:string;percent:number;busy:boolean;done:boolean};
+export type DistrictFrame={id:DistrictStationId;title:string;instruction:string;sentence:string;verb:string;percent:number;busy:boolean;done:boolean;balance?: { run: BalanceRun; remaining: number }};
 
 export const BASE_DISTRICT_AREAS=[{id:'livestock',minX:42,maxX:74,minZ:10,maxZ:34},{id:'training',minX:-17,maxX:17,minZ:-53,maxZ:-31},{id:'swimming',minX:43,maxX:70,minZ:-57,maxZ:-26},{id:'fish-pond',minX:43,maxX:73,minZ:-12,maxZ:8}] as const;
 
@@ -95,7 +96,7 @@ export const TRAINING_CONES=BASE_TRAINING_CONES.map(footprint);
 export const EXPANDED_TREES=[[-42,-30],[-38,-36],[-30,-51],[-27,-68],[28,-65],[29,-44],[40,-71],[55,-68],[98,-70],[102,-34],[53,-24],[103,-22],[104,12],[57,58],[75,58],[95,58],[105,47],[25,62],[10,40],[-8,38],[-40,47]].map(([x,z],i)=>({x,z,scale:.95+(i%4)*.14,flowering:i%5===0}));
 export const DISTRICT_OBSTACLES=[...BASE_DISTRICT_OBSTACLES.map(footprint),...EXPANDED_TREES.map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale}))];
 export const NEW_DISTRICT_ZONES=[...BASE_NEW_DISTRICT_ZONES.map(z=>z.id==='swimming'?{...z,...SPORTS_VENUES.pool.approach}:districtPoint(z.id,z)),{id:'athletics',name:'Đường chạy tiếng Anh',english:'English athletics',...SPORTS_VENUES.track.approach,icon:'run',color:'#bd986b'},{id:'field-games',name:'Sân trò chơi tiếng Anh',english:'English field games',...SPORTS_VENUES.field.approach,icon:'ball',color:'#92b171'}] as const;
-export const DISTRICT_STATIONS=BASE_DISTRICT_STATIONS.map(s=>{const id=baseDistrictAt(s);return {...districtPoint(id,s),look:districtPoint(id,s.look),seconds:s.id==='balance'?9:s.seconds};});
+export const DISTRICT_STATIONS=BASE_DISTRICT_STATIONS.map(s=>{const id=baseDistrictAt(s);return {...districtPoint(id,s),look:districtPoint(id,s.look)};});
 export const BALANCE_START=DISTRICT_STATIONS.find(s=>s.id==='balance')!;
 export const BALANCE_END=districtPoint('training',{x:-2,z:-47});
 export const DISTRICT_AREAS=BASE_DISTRICT_AREAS.map(a=>{const low=districtPoint(a.id,{x:a.minX,z:a.minZ}),high=districtPoint(a.id,{x:a.maxX,z:a.maxZ});return {...a,minX:low.x,maxX:high.x,minZ:low.z,maxZ:high.z};});

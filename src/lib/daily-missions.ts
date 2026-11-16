@@ -15,7 +15,7 @@ export function dailyMissions(day: number) {
   return [
     { id: 'course', title: venue === 'pool' ? 'Make a splash' : 'Take to the track', description: venue === 'pool' ? 'Finish a swim. Practice and online races both count.' : 'Finish a sprint or hurdle race in either mode.', xp: 20, venue },
     { id: 'streak', title: 'On a roll', description: 'Get 3 English answers right in a row in one race.', xp: 25, venue: null },
-    { id: 'practice', title: 'Words around campus', description: 'Pass a “Practise English here” quiz at any campus location.', xp: 15, venue: null },
+    { id: 'practice', title: 'Words around campus', description: 'Pass an English quiz or complete the balance challenge.', xp: 15, venue: null },
     { id: 'team-finish', title: 'Finish together', description: 'You and a friend must both finish the same online race.', xp: 25, venue: null, team: true },
     { id: 'team-english', title: 'Team English', description: 'Finish an online race with a friend. Get at least 3 answers right each.', xp: 35, venue: null, team: true },
   ] as const;

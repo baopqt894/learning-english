@@ -61,7 +61,7 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   onInvitationJoined: (id: string) => void;
   onView: (view: CompetitionView | null) => void;
   onExit: () => void;
-  onFinish: (event: DailyEvent, at: number) => void;
+  onFinish: (event: DailyEvent, at: number, challenge?: string) => void;
 }) {
   const venueInfo = SPORTS_VENUES[venue];
   const events = venueCompetitions(venue);
@@ -190,6 +190,7 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   const roundId = room?.round?.id;
   const roundStart = room?.round?.startedAt;
   const finishedAt = me?.finishedAt;
+  const correctCount = me?.answers.filter(answer => answer.correct).length ?? 0;
   const bestStreak = Math.max(0, ...(me?.answers.map(answer => answer.streak) ?? []));
   const wasHuman = me?.kind === 'human' && me.takeoverAt === undefined && !me.botAssisted;
   const { together, threeEach } = raceTeamProgress(room, session?.playerId);
@@ -208,8 +209,8 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   useEffect(() => {
     if (!roundId || roundStart === undefined || finishedAt == null || !wasHuman || creditedRound.current === creditKey) return;
     creditedRound.current = creditKey;
-    onFinish({ type: 'race', venue, streak: bestStreak, team: { together, threeEach } }, roundStart + 3000 + Math.round(finishedAt * 1000));
-  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak, creditKey, together, threeEach]);
+    onFinish({ type: 'race', venue, streak: bestStreak, team: { together, threeEach } }, roundStart + 3000 + Math.round(finishedAt * 1000), correctCount >= 3 ? `race/${mode}` : undefined);
+  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak, creditKey, together, threeEach, correctCount, mode]);
 
   const perform = useCallback(async (task: () => Promise<void>) => {
     if (actionPending.current) return;

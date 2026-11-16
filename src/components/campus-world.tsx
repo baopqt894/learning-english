@@ -12,7 +12,8 @@ import type {CompetitionView} from "./competition-arena";
 
 import { DistrictPrompt } from './district-prompt';
 import { createCampusDistricts } from '@/lib/campus-districts';
-import { DISTRICT_STATIONS, BALANCE_START, BALANCE_END, type DistrictFrame, type DistrictStationId } from '@/lib/campus-districts-layout';
+import { advanceBalance, answerBalance, balancePosition, startBalance, type BalanceRun } from '@/lib/balance-challenge';
+import { DISTRICT_STATIONS, BALANCE_START, BALANCE_END, BALANCE_BEAM, DISTRICT_TRANSFORMS, type DistrictFrame, type DistrictStationId } from '@/lib/campus-districts-layout';
 import { FARM_LAYOUT } from "@/lib/campus-spaces";
 import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
@@ -57,8 +58,8 @@ export type WorldHandle = {
 };
 type Props = {
   pets?:PetCare;
-  feedingPass?:{station:string;expiresAt:number}|null;
-  onFeedingQuiz?:(station:DistrictStationId)=>void;
+  stationPass?:{station:string;expiresAt:number}|null;
+  onStationQuiz?:(station:DistrictStationId)=>void;
   swimOpen?:boolean;
   competitionView?:CompetitionView|null;
   onCompetition?:(venue:SportsVenueId)=>void;
@@ -100,7 +101,7 @@ const emptyActions = (): WorldHandle => ({
 
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
-    pets,feedingPass,onFeedingQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
     avatar,
     enabled,
     objective,
@@ -117,6 +118,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
 ) {
   const [districtFrame,setDistrictFrame]=useState<DistrictFrame|null>(null);
   const districtHoldRef=useRef<(hold:boolean)=>void>(()=>{});
+  const balanceAnswerRef=useRef<(answer:string)=>void>(()=>{});
+  const balanceCancelRef=useRef<()=>void>(()=>{});
   const districtTravelRef=useRef<(id:DistrictStationId)=>void>(()=>{});
   const onDistrictHold=useRef((hold:boolean)=>districtHoldRef.current(hold)).current;
   const hostRef = useRef<HTMLDivElement>(null);
@@ -124,7 +127,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   const actionRef = useRef<WorldHandle>(emptyActions());
   const fpsRef = useRef<HTMLSpanElement>(null);
   const callbacks = useRef({
-    pets,feedingPass,onFeedingQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
     onNear,
     onInteract,
     enabled,
@@ -136,7 +139,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   });
   useEffect(() => {
     callbacks.current = {
-      pets,feedingPass,onFeedingQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
       onNear,
       onInteract,
       enabled,
@@ -146,7 +149,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       onMove,
       onAreaChange,
     };
-  }, [pets,feedingPass,onFeedingQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, studying]);
+  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, studying]);
   useImperativeHandle(
     ref,
     () => ({
@@ -287,18 +290,43 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let districtNear:typeof DISTRICT_STATIONS[number]|undefined, districtActive:typeof DISTRICT_STATIONS[number]|undefined;
     let districtElapsed=0,lastDistrictFrame=0,districtComplete:DistrictStationId|null=null,lastDistrictSignature='';
     const districtStart=new THREE.Vector3();
+    let balanceRun: BalanceRun | null = null;
+    let balanceResult: BalanceRun | null = null;
+    let balanceReverse = false;
     const releaseDistrict=(completed=false)=>{
-      if(districtActive?.id==='balance'){player.group.position.copy(districtStart);if(completed)player.group.position.z=districtStart.z < (BALANCE_START.z+BALANCE_END.z)/2 ? BALANCE_START.z : BALANCE_END.z;player.body.rotation.set(0,0,0);}
+      if (districtActive?.id === 'balance') {
+        player.group.position.copy(districtStart);
+        if (completed) {
+          const finish = balanceReverse ? BALANCE_START : BALANCE_END;
+          player.group.position.set(finish.x, campusFloorHeight(finish), finish.z);
+        }
+        player.group.rotation.z = 0;
+        player.body.rotation.set(0,0,0);
+        balanceRun = null;
+      }
       if(districtActive){player.leftArm.rotation.z=-.085;player.rightArm.rotation.z=.085;player.leftArm.rotation.x=player.rightArm.rotation.x=0;}
       districtActive=undefined;districtElapsed=0;
     };
     districtHoldRef.current=hold=>{
-      if(!hold){releaseDistrict();return;}
+      if(!hold){if(districtActive?.id!=='balance')releaseDistrict();return;}
+      if(districtActive)return;
       if(!districtNear||!callbacks.current.enabled||callbacks.current.workKind||callbacks.current.studying||callbacks.current.conversation||photoSession)return;
-      if(petForStation(districtNear.id)&&!(callbacks.current.feedingPass?.station===districtNear.id&&callbacks.current.feedingPass.expiresAt>Date.now())){callbacks.current.onFeedingQuiz?.(districtNear.id);return;}
+      if((petForStation(districtNear.id)||districtNear.id==='rescue-ring')&&!(callbacks.current.stationPass?.station===districtNear.id&&callbacks.current.stationPass.expiresAt>Date.now())){callbacks.current.onStationQuiz?.(districtNear.id);return;}
       districtActive=districtNear;districtElapsed=0;districtComplete=null;districtStart.copy(player.group.position);route=[];keys.clear();destination.visible=false;
+      balanceResult = null;
+      if (districtActive.id === 'balance') {
+        balanceReverse = Math.abs(districtStart.z - BALANCE_END.z) < Math.abs(districtStart.z - BALANCE_START.z);
+        balanceRun = startBalance(performance.now());
+      }
     };
-    const releaseActions=()=>{releaseWork();releaseDistrict();};
+    balanceAnswerRef.current = answer => {
+      if (balanceRun) balanceRun = answerBalance(balanceRun, answer, performance.now());
+    };
+    balanceCancelRef.current = () => {
+      if (districtActive?.id === 'balance') releaseDistrict();
+      balanceResult = null;
+    };
+    const releaseActions=()=>{releaseWork();if(districtActive?.id!=='balance')releaseDistrict();};
     const releaseWork=()=>{holdingWork=false;workElapsed=0;};
     const visibilityWork=()=>{if(document.hidden)releaseActions();};
     window.addEventListener('pointerup',releaseActions);
@@ -557,8 +585,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       (target.matches("input,textarea,select,button,a") ||
         target.isContentEditable);
     const keydown = (event: KeyboardEvent) => {
-      if (photoSession || typing(event.target) || !callbacks.current.enabled) return;
+      if (photoSession || !callbacks.current.enabled) return;
       const key = event.key.toLowerCase();
+      if (districtActive?.id === 'balance') {
+        if (key === 'escape') balanceCancelRef.current();
+        const stage = balanceRun?.stage;
+        if (!event.repeat && /^[1-3]$/.test(key) && balanceRun && stage?.kind === 'quiz') {
+          event.preventDefault();
+          balanceAnswerRef.current(balanceRun.questions[balanceRun.index].choices[Number(key)-1]);
+        }
+        return;
+      }
+      if (typing(event.target)) return;
       if(callbacks.current.workKind && key===' '){event.preventDefault();if(!event.repeat)actionRef.current.holdWork(true);return;}
       if(key==='e'&&!event.repeat&&actionRef.current.openRegistration()){event.preventDefault();return;}
       if(key==='e'&&districtNear&&!callbacks.current.workKind){event.preventDefault();if(!event.repeat)districtHoldRef.current(true);return;}
@@ -588,7 +626,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         callbacks.current.onInteract();
     };
     const keyup = (event: KeyboardEvent) => {
-      keys.delete(event.key.toLowerCase());if(event.key===' ')releaseWork();if(event.key.toLowerCase()==='e')releaseDistrict();
+      keys.delete(event.key.toLowerCase());if(event.key===' ')releaseWork();if(event.key.toLowerCase()==='e'&&districtActive?.id!=='balance')releaseDistrict();
     };
     const blur = () => keys.clear();
     const click = (event: PointerEvent) => {
@@ -881,19 +919,59 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if(!canPractise)releaseDistrict();
       if(!districtActive){districtNear=canPractise?DISTRICT_STATIONS.find(s=>Math.hypot(pos.x-s.x,pos.z-s.z)<1.15||(s.id==='balance'&&Math.hypot(pos.x-BALANCE_END.x,pos.z-BALANCE_END.z)<1.15)):undefined;}
       if(districtComplete&&districtNear?.id!==districtComplete)districtComplete=null;
-      if(districtActive){
-        districtElapsed+=dt;const p=Math.min(1,districtElapsed/districtActive.seconds),t=reducedMotion.matches?0:time/1000;
+      if(!districtActive&&districtNear?.id!=='balance')balanceResult=null;
+      let districtProgress=districtComplete?1:0;
+      if (districtActive?.id === 'balance' && balanceRun) {
+        balanceRun = advanceBalance(balanceRun, time);
+        const run = balanceRun;
+        const stage = run.stage;
+        const p = balancePosition(run, time);
+        districtProgress = p;
+        if (stage.kind === 'done' || stage.kind === 'failed') {
+          balanceResult = run;
+          const completed = stage.kind === 'done';
+          if (completed) {
+            districtComplete = 'balance';
+            callbacks.current.onDistrictComplete?.('balance');
+          }
+          releaseDistrict(completed);
+          districtProgress = completed ? 1 : 0;
+        } else {
+          const finish = balanceReverse ? BALANCE_START : BALANCE_END;
+          const height = BALANCE_BEAM.top * DISTRICT_TRANSFORMS.training.scale;
+          const onBeam = Math.min(1, p / .21, (1 - p) / .18);
+          pos.set(THREE.MathUtils.lerp(districtStart.x, BALANCE_START.x, Math.min(p / .15, 1)),
+            THREE.MathUtils.lerp(.13, height, onBeam),
+            THREE.MathUtils.lerp(districtStart.z, finish.z, p));
+          player.group.rotation.y = balanceReverse ? 0 : Math.PI;
+          player.leftArm.rotation.z = -1.22;
+          player.rightArm.rotation.z = 1.22;
+          player.head.rotation.x = .09;
+          if (stage.kind === 'walk' && !reducedMotion.matches) {
+            const stride = Math.sin((time - stage.since) * .014) * .34;
+            player.leftLeg.rotation.x = stride;
+            player.rightLeg.rotation.x = -stride;
+            player.body.position.y = Math.abs(stride) * .16;
+          } else if (stage.kind === 'fall') {
+            const drop = THREE.MathUtils.smoothstep(time - stage.since, 0, 650);
+            pos.x += (balanceReverse ? -1 : 1) * (reducedMotion.matches ? 0 : 1.15 * drop);
+            pos.y = THREE.MathUtils.lerp(pos.y, .22, drop);
+            player.group.rotation.z = reducedMotion.matches ? 0 : -1.36 * drop;
+            player.leftArm.rotation.z = -1.22 + drop * .6;
+            player.rightArm.rotation.z = 1.22 - drop * .6;
+          } else if (!reducedMotion.matches) {
+            player.body.rotation.z = Math.sin(time * .006) * .055;
+          }
+        }
+      } else if (districtActive) {
+        districtElapsed+=dt;
+        const p=Math.min(1,districtElapsed/districtActive.seconds), t=reducedMotion.matches?0:time/1000;
+        districtProgress=p;
         player.group.rotation.y=Math.atan2(districtActive.look.x-pos.x,districtActive.look.z-pos.z);
         player.body.rotation.x=.035;
-        if(districtActive.id==='balance'){
-          pos.set(BALANCE_START.x,.13+Math.sin(Math.min(1,p*5)*Math.PI/2)*.42,THREE.MathUtils.lerp(districtStart.z < -43 ? -47 : -38.5,districtStart.z < (BALANCE_START.z+BALANCE_END.z)/2 ? BALANCE_START.z : BALANCE_END.z,p));
-          if(p>.85)pos.y=THREE.MathUtils.lerp(.55,.13,(p-.85)/.15);
-          player.group.rotation.y=districtStart.z < (BALANCE_START.z+BALANCE_END.z)/2 ? 0 : Math.PI;player.leftArm.rotation.z=-1.22;player.rightArm.rotation.z=1.22;
-          player.leftLeg.rotation.x=Math.sin(t*7)*.18;player.rightLeg.rotation.x=-player.leftLeg.rotation.x;player.head.rotation.x=.09;
-        }else {player.leftArm.rotation.x=-.62;player.elbows[0].rotation.x=-.65;player.rightArm.rotation.x=-1.05-(reducedMotion.matches?0:Math.sin(t*4)*.17);player.elbows[1].rotation.x=-.35;player.head.rotation.x=.1;}
-        if(p>=1){districtComplete=districtActive.id;callbacks.current.onDistrictComplete?.(districtActive.id);releaseDistrict(true);}
+        player.leftArm.rotation.x=-.62;player.elbows[0].rotation.x=-.65;player.rightArm.rotation.x=-1.05-(reducedMotion.matches?0:Math.sin(t*4)*.17);player.elbows[1].rotation.x=-.35;player.head.rotation.x=.1;
+        if(p>=1){districtComplete=districtActive.id;callbacks.current.onDistrictComplete?.(districtActive.id);releaseDistrict();}
       }
-      const districtProgress=districtActive?Math.min(1,districtElapsed/districtActive.seconds):districtComplete?1:0;
       feedCup.visible=!!districtActive&&districtActive.id.startsWith('feed-');
       if(districtActive){
         const station=districtActive,aim=focusTarget.set((pos.x+station.look.x)/2,.8,(pos.z+station.look.z)/2);
@@ -902,7 +980,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       districts.update(time/1000,reducedMotion.matches,districtActive?.id||districtComplete,districtProgress,callbacks.current.pets);
       if(time-lastDistrictFrame>100){
         const station=districtActive||districtNear;
-        const frame:DistrictFrame|null=canPractise&&station?{id:station.id,title:station.title,instruction:districtComplete===station.id?station.done:station.instruction,sentence:station.sentence,verb:station.verb,percent:Math.round(districtProgress*100),busy:!!districtActive,done:districtComplete===station.id}:null;
+        const run = station?.id === 'balance' ? balanceRun ?? balanceResult : null;
+        const remaining = run?.stage.kind === 'quiz' ? Math.max(0, Math.ceil((run.stage.deadline-time)/1000)) : 0;
+        const frame:DistrictFrame|null=canPractise&&station?{id:station.id,title:station.title,instruction:districtComplete===station.id?station.done:station.instruction,sentence:station.sentence,verb:station.verb,percent:Math.round(districtProgress*100),busy:!!districtActive,done:districtComplete===station.id,balance:run?{run,remaining}:undefined}:null;
         const signature=JSON.stringify(frame);if(signature!==lastDistrictSignature){setDistrictFrame(frame);lastDistrictSignature=signature;}lastDistrictFrame=time;
       }
       for (const [id,npc] of Object.entries(environment.npcs)) {
@@ -993,7 +1073,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode);
+      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive);
       selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);
@@ -1040,7 +1120,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderer.dispose();
       renderer.domElement.remove();
       actionRef.current = emptyActions();
-      districtHoldRef.current=()=>{};districtTravelRef.current=()=>{};
+      districtHoldRef.current=()=>{};districtTravelRef.current=()=>{};balanceAnswerRef.current=()=>{};balanceCancelRef.current=()=>{};
     };
   }, [avatar]);
   useEffect(() => {
@@ -1077,7 +1157,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           </button>
         ))}
       </div>
-      {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt frame={districtFrame} onHold={onDistrictHold}/>}
+      {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt key={districtFrame.id} frame={districtFrame} onHold={onDistrictHold} onAnswer={answer=>balanceAnswerRef.current(answer)} onCancel={()=>balanceCancelRef.current()}/>}
       <div className="campus-nameplate">
         <span>PHÂN HIỆU 1</span>
         <small>Trường Thiếu sinh quân miền Trung</small>

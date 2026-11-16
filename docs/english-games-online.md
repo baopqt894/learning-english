@@ -58,6 +58,12 @@ Set Node-only `MONGODB_URI` and optionally `MONGODB_DB` in an ignored `.env.loca
 
 **Practise English here** selects a context-specific challenge for every mapped district and the courtyard/library/canteen. Nineteen lesson sets cover word meanings, missing words, polite conversation and ordering sentence words. Three questions must be solved, with explanations and retries and no time limit. These are separate from the ten-chapter story and do not overwrite story or activity progress.
 
+## Quiz checkpoints and XP
+
+The balance beam runs a three-question English challenge at the training ground. Each question opens once the cadet reaches a checkpoint and allows eight seconds. The cadet walks to the next checkpoint after a correct answer and falls before resetting to the starting side after a wrong answer or timeout. Either end of the beam can start a run.
+
+The rescue throw, garden work and dormitory work open with short English quizzes. The quiz unlocks the physical action or assignment, and finishing it still requires the in-world controls. First clears award XP for distinct location quizzes, physical stations and sports events with at least three correct answers. Each 150 XP earns another level. The account keeps these first-clear records together with story, assignment and daily mission progress.
+
 ## Animal care loop
 
 Five groups—chickens, pigs, goats, ducks and fish—have saved meal counts, growth stage and feeding time. Before any feeding hold action, the player must solve three English questions to earn a single food portion for that exact group. The portion lasts five minutes and is consumed only after the full physical feeding action. Keyboard E and pointer holds use the same gate.
