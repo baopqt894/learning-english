@@ -32,7 +32,7 @@ import type { WorldHandle } from "./campus-world";
 import { CampusPhotoMode } from "./campus-photo-mode";
 import {PlacePractice} from "./place-practice";
 import { levelMissionRound, placePracticeRound, practiceQuestionKey, type PlaceQuestion } from '@/lib/place-practice';
-import { LEVEL_MISSIONS, englishTier, TIER_LEVEL, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
+import { LEVEL_MISSIONS, LEVEL_MISSION_IDS, englishTier, TIER_LEVEL, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
 import { createQuizHistory } from '@/lib/browser-quiz-history';
 import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
 import {CompetitionArena,type CompetitionView} from "./competition-arena";
@@ -183,7 +183,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     if (after <= before) return;
     const level = cadetLevel(after).level;
     const beforeLevel = cadetLevel(before).level;
-    const unlock = englishTier(level) !== englishTier(beforeLevel) ? ` · ${englishTier(level)} unlocked` : '';
+    const newMission = LEVEL_MISSION_IDS.some(id => LEVEL_MISSIONS[id].level > beforeLevel && LEVEL_MISSIONS[id].level <= level);
+    const unlock = englishTier(level) !== englishTier(beforeLevel) ? ` · ${englishTier(level)} unlocked`
+      : newMission ? ' · New level mission unlocked' : '';
     setNotice(level > beforeLevel ? `Level ${level} reached${unlock} · +${after - before} XP` : `Mission complete · +${after - before} XP`);
   }, [progress, saveProgress]);
   const completeDaily = useCallback((event:DailyEvent, at=Date.now(), challenge?:string)=>{
@@ -280,7 +282,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   };
   function openPlacePractice(request: PracticeRequest) {
     const mission = request.mission ? LEVEL_MISSIONS[request.mission] : null;
-    if (mission && (level.level < TIER_LEVEL[mission.tier] || !nearStoryLocation(mission.area, playerPosition))) return;
+    if (mission && (level.level < mission.level || !nearStoryLocation(mission.area, playerPosition))) return;
     const quizTier = mission?.tier ?? tier;
     const key = request.mission ? `mission/${request.mission}` : `practice/${request.feeding ?? request.area}/${quizTier}`;
     const previous = quizHistory.previous(key);
@@ -303,7 +305,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   function completePlacePractice() {
     if (!placePractice) return;
     const { area, feeding, work, station, mission } = placePractice;
-    if (mission && level.level < TIER_LEVEL[LEVEL_MISSIONS[mission].tier]) { setPlacePractice(null); return; }
+    if (mission && level.level < LEVEL_MISSIONS[mission].level) { setPlacePractice(null); return; }
     const achievement = mission ? `mission/${mission}` : feeding || station ? undefined : `quiz/${area}`;
     completeDaily({type:'quiz'}, Date.now(), achievement);
     setPlacePractice(null);
@@ -458,7 +460,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
   function startLevelMission(id: LevelMissionId) {
     const mission = LEVEL_MISSIONS[id];
-    if (level.level < TIER_LEVEL[mission.tier]) return;
+    if (level.level < mission.level) return;
     closeActivities();
     setStudyTravel(false);
     if (nearStoryLocation(mission.area, playerPosition)) {
@@ -902,7 +904,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveReward(updated);return true;}}/>}
       {travelingMission && levelMissionTravel && !physicalWork && !modalOpen && !swimOpen && !talking && <div className="study-arrival level-mission-arrival" lang="en">
         <p>{travelingMission.title} · {travelingMission.place}</p>
-        <button className="activity-button" disabled={!nearStoryLocation(travelingMission.area,playerPosition) || level.level < TIER_LEVEL[travelingMission.tier]}
+        <button className="activity-button" disabled={!nearStoryLocation(travelingMission.area,playerPosition) || level.level < travelingMission.level}
           onClick={()=>startLevelMission(levelMissionTravel)}>Start mission quiz</button>
         <button className="activity-back" onClick={()=>setLevelMissionTravel(null)}>Cancel</button>
       </div>}

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { ACTIVITIES, ACTIVITY_IDS, activityRounds, activityUnlocked, type ActivityAnswer, type ActivityId } from '@/lib/activities';
-import { LEVEL_MISSIONS, LEVEL_MISSION_IDS, englishTier, TIER_LEVEL, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
+import { LEVEL_MISSIONS, LEVEL_MISSION_IDS, englishTier, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import type { Progress } from '@/lib/game';
 import { Icon } from './icon';
@@ -56,11 +56,11 @@ export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComp
           <button className="activity-back" onClick={onWalkToBeam}>Walk to balance beam <Icon name="arrow" size={16}/></button>
         </div>
         <ol className="activity-list">{LEVEL_MISSION_IDS.map(id=>{
-          const mission=LEVEL_MISSIONS[id], required=TIER_LEVEL[mission.tier], unlocked=level>=required;
+          const mission=LEVEL_MISSIONS[id], required=mission.level, unlocked=level>=required;
           const completed=progress.challenges?.includes(`mission/${id}`);
           return <li key={id}>
             <Icon name={completed?'check':unlocked?'target':'lock'} size={24}/>
-            <div><h3>{mission.title}</h3><p>{mission.place} · {mission.tier} · +{mission.xp} XP once</p>
+            <div><h3>{mission.title}</h3><p>{mission.place} · Level {required} · {mission.tier} · +{mission.xp} XP once</p>
               <small>{completed?'Complete':unlocked?mission.brief:`Unlocks at Level ${required}`}</small></div>
             <button className="activity-button" disabled={!unlocked} onClick={()=>onLevelMission(id)}>
               {completed?'Replay':unlocked?'Go to mission':`Level ${required} required`}

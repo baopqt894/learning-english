@@ -1,9 +1,10 @@
 import {PETS,type PetId} from './pet-care.ts';
 import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from './cadet-tiers.ts';
 import { CAMPUS_ENGLISH, FIELD_BRIEFING_QUESTIONS, TEAM_LEADER_QUESTIONS, gap, type EnglishQuestion } from './level-questions.ts';
+import { MISSION_EXERCISES, type MissionExercise } from './mission-exercises.ts';
 import { drawQuestions, shuffled } from './question-rotation.ts';
 
-export type PlaceQuestion = EnglishQuestion;
+export type PlaceQuestion = EnglishQuestion | MissionExercise;
 const q=(prompt:string,options:string[],answer:string,explanation:string):PlaceQuestion=>({prompt,options,answer,explanation});
 const order=(sentence:string):PlaceQuestion=>({prompt:'Put the words in order.',options:sentence.split(' ').reverse(),answer:sentence,explanation:`The complete sentence is: ${sentence}`,kind:'order'});
 const vocab=(word:string,correct:string,wrong1:string,wrong2:string)=>q(`Choose the meaning of “${word}”.`,[correct,wrong1,wrong2],correct,`“${word}” means ${correct.toLowerCase()}.`);
@@ -84,12 +85,14 @@ const animalQuestions = {
   ],
 };
 
-function mix(question: PlaceQuestion) {
+function mix(question: PlaceQuestion): PlaceQuestion {
+  if (!('options' in question)) return question;
   const options = shuffled(question.options);
   if (question.kind === 'order' && options.join(' ') === question.answer) options.reverse();
   return { ...question, options };
 }
 export function practiceQuestionKey(question: PlaceQuestion) {
+  if ('id' in question) return question.id;
   return question.kind === 'order' ? question.answer : question.prompt;
 }
 export function placePracticeRound(area: string, tier: EnglishTier, previous: readonly string[], feeding?: PetId) {
@@ -113,6 +116,14 @@ export function placePracticeRound(area: string, tier: EnglishTier, previous: re
 }
 
 export function levelMissionRound(id: LevelMissionId, previous: readonly string[]) {
+  if (id !== 'field-briefing' && id !== 'team-leader') {
+    const mission = LEVEL_MISSIONS[id];
+    const bank = MISSION_EXERCISES[id];
+    const quotas = { listen: mission.listen, fill: mission.count - mission.listen - mission.dictation, dictation: mission.dictation };
+    const round = (['listen', 'fill', 'dictation'] as const).flatMap(kind =>
+      drawQuestions(bank.filter(question => question.kind === kind), quotas[kind], practiceQuestionKey, previous));
+    return shuffled(round).map(mix);
+  }
   const bank = id === 'field-briefing' ? FIELD_BRIEFING_QUESTIONS : TEAM_LEADER_QUESTIONS;
   return drawQuestions(bank, LEVEL_MISSIONS[id].count, practiceQuestionKey, previous).map(mix);
 }
