@@ -659,3 +659,15 @@
 
 .balance-tier { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 10px 0; color: var(--muted); font-size: .8rem; }
 .balance-tier select { max-width: 100%; padding: 6px 9px; color: var(--ink); background: #162a21; border: 1px solid var(--line); border-radius: 5px; }
+
+.hud-activities .story-tracker-compact { display: flex; align-items: stretch; }
+.hud-activities .story-tracker-compact .quest-heading { flex: 1; width: auto; min-width: 0; }
+.story-tracker-compact .quest-heading > span { display: grid; gap: 3px; min-width: 0; text-align: left; }
+.story-tracker-compact .quest-heading small { color: var(--muted); font-size: .72rem; }
+.hud-activities .story-tracker-compact .story-travel { flex: none; width: 44px; min-height: 44px; padding: 0; justify-content: center; border-left: 1px solid var(--line); }
+.hud-more-practice { background: var(--deep); color: var(--ink); border-radius: 7px; margin-top: 5px; pointer-events: auto; }
+.hud-more-practice summary { display: flex; align-items: center; gap: 7px; min-height: 44px; padding-inline: 11px; cursor: pointer; list-style: none; font-size: .8rem; font-weight: 650; }
+.hud-more-practice summary::-webkit-details-marker { display: none; }
+.hud-more-practice summary svg { rotate: 90deg; }
+.hud-more-practice[open] summary svg { rotate: -90deg; }
+.hud-more-practice .activities-launch { margin: 0; border-radius: 0; border: 0; border-top: 1px solid var(--line); }

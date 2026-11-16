@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { statSync } from 'node:fs';
 import { storyPosition, nearStoryLocation } from '../src/lib/campaign-locations.ts';
+import { SPEAKING_MISSIONS } from '../src/lib/speaking-missions.ts';
+import { matchesSpokenAnswer } from '../src/lib/speaking-answer.ts';
 import { MISSION_EXERCISES, isTypedAnswerCorrect, missionAudioPath } from '../src/lib/mission-exercises.ts';
 import { TIER_LEVEL, englishTier, LEVEL_MISSION_IDS, LEVEL_MISSIONS } from '../src/lib/cadet-tiers.ts';
 import { advanceBalance, BALANCE_TIERS, startBalance } from '../src/lib/balance-challenge.ts';
@@ -61,7 +63,7 @@ test('each beam tier gives more checkpoints and a shorter time window, with new 
 
 test('levels four through ten unlock a different location with a full mix of listening and typing', () => {
   const zones = new Set();
-  const ids = LEVEL_MISSION_IDS.filter(id => LEVEL_MISSIONS[id].level >= 4);
+  const ids = LEVEL_MISSION_IDS.filter(id => LEVEL_MISSIONS[id].level >= 4 && LEVEL_MISSIONS[id].level <= 10);
   let progress = { ...freshProgress(), name: 'Tester', challenges: [
     'station/balance', 'station/balance/A2', 'station/balance/B1', 'mission/field-briefing',
     'mission/team-leader', 'station/rescue-ring',
@@ -106,4 +108,47 @@ test('typed exercises check the word and every spoken exercise has a unique reco
     }
   }
   assert.equal(recordingIds.size, 44);
+});
+
+test('levels eleven to twenty rotate speaking prompts at ten distinct reachable destinations', () => {
+  const ids = Object.keys(SPEAKING_MISSIONS);
+  assert.deepEqual(ids.map(id => LEVEL_MISSIONS[id].level), Array.from({ length: 10 }, (_, i) => 11 + i));
+  assert.equal(new Set(LEVEL_MISSION_IDS.map(id => LEVEL_MISSIONS[id].area)).size, LEVEL_MISSION_IDS.length);
+  const keys = new Set(Object.values(MISSION_EXERCISES).flat().map(question => question.id));
+  let clips = 0;
+  for (const id of ids) {
+    const mission = LEVEL_MISSIONS[id];
+    const position = storyPosition(mission.area);
+    assert.ok(nearStoryLocation(mission.area, position));
+    for (const q of SPEAKING_MISSIONS[id]) {
+      assert.ok(!keys.has(q.id));
+      keys.add(q.id);
+      if ('transcript' in q) {
+        assert.ok(statSync(new URL(`../public${missionAudioPath(q.id)}`, import.meta.url)).size > 1000);
+        clips++;
+      }
+      if (q.kind === 'repeat') assert.equal(q.answer, q.transcript);
+    }
+    const round = levelMissionRound(id, []);
+    assert.equal(round.filter(q => q.kind === 'repeat').length, mission.speak);
+    assert.equal(round.filter(q => q.kind === 'listen').length, mission.listen);
+    assert.equal(round.filter(q => q.kind === 'fill').length, 1);
+    const key = `mission/${id}`;
+    const progress = restoreProgress(JSON.stringify({ ...freshProgress(), name: 'Tester', challenges: [key, key] }));
+    assert.deepEqual(progress.challenges, [key]);
+    assert.equal(earnedXP(progress), 150);
+  }
+  assert.equal(clips, 80);
+  const firstPhrases = SPEAKING_MISSIONS[ids[0]].filter(q => q.kind === 'repeat').map(q => q.answer.split(' ').length);
+  const finalPhrases = SPEAKING_MISSIONS[ids.at(-1)].filter(q => q.kind === 'repeat').map(q => q.answer.split(' ').length);
+  assert.ok(Math.min(...finalPhrases) > Math.max(...firstPhrases));
+});
+
+test('speech scoring tolerates punctuation, spelling conventions and contractions while requiring the complete message', () => {
+  const phrase = 'Do not use the programme until the organisers have checked it.';
+  assert.ok(matchesSpokenAnswer(phrase, '  Don’t use the program until the organizers have checked it! '));
+  assert.ok(matchesSpokenAnswer('Warm-up starts beside the touchline.', 'warm up starts beside the touch line'));
+  assert.equal(matchesSpokenAnswer(phrase, 'Use the programme until the organisers have checked it.'), false);
+  assert.equal(matchesSpokenAnswer(phrase, 'Do not use the programme.'), false);
+  assert.equal(matchesSpokenAnswer('Meet your group beside the welcome board.', 'Meet your group behind the welcome board'), false);
 });

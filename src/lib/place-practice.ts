@@ -2,6 +2,7 @@ import {PETS,type PetId} from './pet-care.ts';
 import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from './cadet-tiers.ts';
 import { CAMPUS_ENGLISH, FIELD_BRIEFING_QUESTIONS, TEAM_LEADER_QUESTIONS, gap, type EnglishQuestion } from './level-questions.ts';
 import { MISSION_EXERCISES, type MissionExercise } from './mission-exercises.ts';
+import { SPEAKING_MISSIONS } from './speaking-missions.ts';
 import { drawQuestions, shuffled } from './question-rotation.ts';
 
 export type PlaceQuestion = EnglishQuestion | MissionExercise;
@@ -115,12 +116,14 @@ export function placePracticeRound(area: string, tier: EnglishTier, previous: re
   return shuffled([...contextQuestion, ...drawQuestions(rest, 2, practiceQuestionKey, previous)]).map(mix);
 }
 
+const missionBanks = { ...MISSION_EXERCISES, ...SPEAKING_MISSIONS };
+
 export function levelMissionRound(id: LevelMissionId, previous: readonly string[]) {
   if (id !== 'field-briefing' && id !== 'team-leader') {
     const mission = LEVEL_MISSIONS[id];
-    const bank = MISSION_EXERCISES[id];
-    const quotas = { listen: mission.listen, fill: mission.count - mission.listen - mission.dictation, dictation: mission.dictation };
-    const round = (['listen', 'fill', 'dictation'] as const).flatMap(kind =>
+    const bank = missionBanks[id], repeat = 'speak' in mission ? mission.speak : 0;
+    const quotas = { listen: mission.listen, fill: mission.count - mission.listen - mission.dictation - repeat, dictation: mission.dictation, repeat };
+    const round = (['listen', 'fill', 'dictation', 'repeat'] as const).flatMap(kind =>
       drawQuestions(bank.filter(question => question.kind === kind), quotas[kind], practiceQuestionKey, previous));
     return shuffled(round).map(mix);
   }

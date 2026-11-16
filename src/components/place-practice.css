@@ -1,4 +1,4 @@
-.practice-backdrop{position:absolute;inset:0;z-index:80;background:#0b251c88;display:grid;place-items:center;padding:16px}.practice-modal{width:min(580px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:#f3f0dc;color:#1c3b2c;padding:24px;border-radius:14px;box-shadow:0 18px 65px #13271f33}.practice-modal header{display:flex;gap:18px;align-items:start;justify-content:space-between;margin-bottom:22px}.practice-modal h2{font-size:22px;line-height:1.25;margin:0 0 8px}.practice-modal h3{font-size:20px;line-height:1.4}.practice-modal p{font-size:14px;line-height:1.6}.practice-modal button{font:inherit;min-height:44px;padding:10px 14px;border:1px solid #81947a;border-radius:8px;background:#e3e8ce;color:#1c3b2c;cursor:pointer}.practice-modal button:disabled{opacity:.55;cursor:default}.practice-modal button:focus-visible{outline:3px solid #a77a29;outline-offset:3px}.practice-modal header>button{padding:10px;display:grid;place-items:center;flex-shrink:0}.practice-modal .practice-primary{background:#345c3e;color:#fff8e3;display:inline-flex;align-items:center;gap:10px;margin-top:14px}.practice-meta{font-size:12px;color:#486844}.practice-choices{display:grid;gap:8px}.practice-choices button{text-align:left;background:#fcfbef}.practice-choices button.correct{background:#c9dfa5}.practice-feedback{margin-top:15px;padding:14px;background:#dde6c7;border-radius:8px}.practice-feedback p{margin:5px 0}.practice-sentence{padding:15px;background:#fffef3;border:1px solid #93a180;min-height:70px;margin:14px 0;border-radius:8px;line-height:1.6}.practice-word-bank{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px}.practice-complete{text-align:center;padding:18px 0}.pet-care-list{display:grid;gap:10px;margin:18px 0}.pet-care-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;background:#e3e8ce;border-radius:8px}.pet-care-list article>div{display:grid;gap:5px;flex:1}.pet-care-list span,.pet-care-list small{font-size:12px;color:#48613f}.pet-care-list progress{width:100%;height:7px;accent-color:#4b783c}.pet-care-list button{min-width:100px;font-size:12px}.care-explanation{font-size:13px!important}@media(max-width:600px){.practice-backdrop{padding:10px}.practice-modal{padding:18px;max-height:calc(100dvh - 20px)}.practice-modal h2{font-size:20px}.practice-modal h3{font-size:18px}}
+.practice-backdrop{position:absolute;inset:0;z-index:80;background:#0b251c88;display:grid;place-items:center;padding:16px}.practice-modal{width:min(580px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:#f3f0dc;color:#1c3b2c;padding:24px;border-radius:14px;box-shadow:0 18px 65px #13271f33}.practice-modal header{display:flex;gap:18px;align-items:start;justify-content:space-between;margin-bottom:22px}.practice-modal h2{font-size:22px;line-height:1.25;margin:0 0 8px}.practice-modal h3{font-size:20px;line-height:1.4}.practice-modal p{font-size:14px;line-height:1.6}.practice-modal button{font:inherit;min-height:44px;padding:10px 14px;border:1px solid #81947a;border-radius:8px;background:#e3e8ce;color:#1c3b2c;cursor:pointer}.practice-modal button:disabled{opacity:.55;cursor:default}.practice-modal button:focus-visible{outline:3px solid #a77a29;outline-offset:3px}.practice-modal header>button{padding:10px;display:grid;place-items:center;flex-shrink:0}.practice-modal .practice-primary{background:#345c3e;color:#fff8e3;display:inline-flex;align-items:center;gap:10px;margin-top:14px}.practice-choices{display:grid;gap:8px}.practice-choices button{text-align:left;background:#fcfbef}.practice-choices button.correct{background:#c9dfa5}.practice-feedback{margin-top:15px;padding:14px;background:#dde6c7;border-radius:8px}.practice-feedback p{margin:5px 0}.practice-sentence{padding:15px;background:#fffef3;border:1px solid #93a180;min-height:70px;margin:14px 0;border-radius:8px;line-height:1.6}.practice-word-bank{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px}.practice-complete{text-align:center;padding:18px 0}.pet-care-list{display:grid;gap:10px;margin:18px 0}.pet-care-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;background:#e3e8ce;border-radius:8px}.pet-care-list article>div{display:grid;gap:5px;flex:1}.pet-care-list span,.pet-care-list small{font-size:12px;color:#48613f}.pet-care-list progress{width:100%;height:7px;accent-color:#4b783c}.pet-care-list button{min-width:100px;font-size:12px}.care-explanation{font-size:13px!important}@media(max-width:600px){.practice-backdrop{padding:10px}.practice-modal{padding:18px;max-height:calc(100dvh - 20px)}.practice-modal h2{font-size:20px}.practice-modal h3{font-size:18px}}
 
 .practice-modal .practice-mode { margin: 10px 0 0; color: #486844; font-size: .8rem; font-weight: 650; }
 .practice-mode + h3 { margin-top: 5px; }
@@ -16,3 +16,31 @@
 }
 .practice-fill input:focus-visible { outline: 3px solid #a77a29; outline-offset: 2px; }
 .practice-fill .practice-primary { justify-self: start; margin-top: 2px; }
+
+.practice-modal { overscroll-behavior: contain; }
+.practice-modal header { margin-bottom: 16px; }
+.practice-modal header > div { min-width: 0; flex: 1; }
+.practice-header-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; color: #486844; font-size: .8rem; }
+.practice-header-progress progress { width: min(110px, 35%); height: 6px; accent-color: #446b43; }
+.practice-mode + h3 { margin-bottom: 14px; }
+.practice-modal .practice-text-action { background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.practice-modal .practice-secondary-audio { background: transparent; display: inline-flex; align-items: center; gap: 7px; }
+.practice-listen blockquote { border: 1px solid #a1ad8b; border-radius: 6px; }
+.practice-repeat-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.practice-repeat p { margin: 8px 0 0; color: #486844; }
+.practice-repeat .practice-mic-note { font-size: .8rem; }
+.practice-repeat .practice-mic-error { color: #74432b; }
+.practice-heard span { font-weight: 650; color: #1c3b2c; overflow-wrap: anywhere; }
+.practice-repeat .practice-fill { margin-top: 12px; }
+.practice-fill textarea {
+  width: 100%; min-height: 78px; padding: 9px 11px; box-sizing: border-box; resize: vertical;
+  border: 1px solid #81947a; border-radius: 8px; background: #fcfbef; color: #1c3b2c;
+  font: inherit; font-size: 16px; line-height: 1.45;
+}
+.practice-fill textarea:focus-visible { outline: 3px solid #a77a29; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .practice-backdrop { padding: 8px; }
+  .practice-modal { padding: 16px; max-height: calc(100dvh - 16px); }
+  .practice-modal header { gap: 10px; }
+  .practice-modal header > button { min-width: 44px; }
+}

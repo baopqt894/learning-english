@@ -5,14 +5,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MISSION_EXERCISES } from '../src/lib/mission-exercises.ts';
+import { SPEAKING_MISSIONS } from '../src/lib/speaking-missions.ts';
 import { LEVEL_MISSIONS } from '../src/lib/cadet-tiers.ts';
 
 const directory = fileURLToPath(new URL('../public/mission-audio/', import.meta.url));
 const temporary = mkdtempSync(join(tmpdir(), 'campus-mission-audio-'));
 mkdirSync(directory, { recursive: true });
 try {
-  for (const [id, questions] of Object.entries(MISSION_EXERCISES)) {
-    const rate = Math.min(174, 152 + (LEVEL_MISSIONS[id].level - 4) * 4);
+  const banks = process.argv.includes('--speaking-only') ? SPEAKING_MISSIONS : { ...MISSION_EXERCISES, ...SPEAKING_MISSIONS };
+  for (const [id, questions] of Object.entries(banks)) {
+    const level = LEVEL_MISSIONS[id].level;
+    const rate = level <= 10 ? Math.min(174, 152 + (level - 4) * 4) : Math.min(182, 154 + (level - 11) * 3);
     for (const question of questions) {
       if (!('transcript' in question)) continue;
       const source = join(temporary, `${question.id}.aiff`);

@@ -6,8 +6,14 @@ import {Icon} from './icon';
 import './campaign.css';
 type Props={progress:Progress;nearby:boolean;saveAvailable:boolean;onClose:()=>void;onTravel:(where:StoryLocation)=>void;onAnswer:(chapter:string,word:string)=>boolean;onHint:(chapter:string)=>void;onRetry:(chapter:string)=>void;onFinish:(chapter:string,word:string)=>boolean;onPractical:(chapter:StoryChapter)=>void};
 export function CampaignTracker({state,onOpen,onTravel}:{state?:CampaignProgress;onOpen:()=>void;onTravel:(location:StoryLocation)=>void}){
- const i=storyChapterIndex(state),chapter=STORY_CHAPTERS[i],solved=chapter?chapter.exercises.filter((_,q)=>state?.exercises[`${chapter.id}.${q}`]?.solved).length:5;
- return <section className="quest-tracker story-tracker" lang="en" aria-label="Story mission"><button className="quest-heading" onClick={onOpen}><Icon name={chapter?'book':'trophy'} size={18}/><strong>{chapter?chapter.title:'Discovery Day is open!'}</strong><span>{i<0?10:i+1}/10</span></button><p>{chapter?`${chapter.place} · ${chapter.skill}`:'Your team restored the exhibition. Review your English.'}</p><button className="story-next" onClick={onOpen}>{chapter?solved<5?`Open mission · ${solved}/5 word clues`:'Continue the practical task':'View your team’s story'}<Icon name="arrow" size={16}/></button>{chapter&&<button className="story-travel" onClick={()=>onTravel(chapter.location)}><Icon name="target" size={13}/> Go to {chapter.place}</button>}</section>;
+ const index=storyChapterIndex(state), chapter=STORY_CHAPTERS[index];
+ return <section className="quest-tracker story-tracker story-tracker-compact" lang="en" aria-label="Story mission">
+   <button className="quest-heading" onClick={onOpen}>
+     <Icon name={chapter?'book':'trophy'} size={18}/>
+     <span><strong>{chapter?chapter.title:'Discovery Day is open!'}</strong><small>{chapter?`Story · ${index+1}/10`:'Story complete'}</small></span>
+   </button>
+   {chapter&&<button className="story-travel" aria-label={`Go to ${chapter.place}`} onClick={()=>onTravel(chapter.location)}><Icon name="target" size={18}/></button>}
+ </section>;
 }
 function proofReady(chapter:StoryChapter,progress:Progress){return chapter.proof==='visit'||(chapter.proof==='garden'||chapter.proof==='duty'?progress.fieldwork?.[chapter.proof]?.reported===true:progress.campaign?.events.includes(chapter.proof)===true);}
 export function CampaignJournal({progress,nearby,saveAvailable,onClose,onTravel,onAnswer,onHint,onRetry,onFinish,onPractical}:Props){

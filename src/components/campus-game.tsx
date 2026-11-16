@@ -375,7 +375,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       return dialog
         ? Array.from(
             dialog.querySelectorAll<HTMLElement>(
-              'button:not(:disabled),a[href],input:not(:disabled),summary,[tabindex="0"]',
+              'button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),summary,[tabindex="0"]',
             ),
           ).filter((item) => !item.closest("[inert]") && item.getClientRects().length > 0)
         : [];
@@ -462,14 +462,17 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const mission = LEVEL_MISSIONS[id];
     if (level.level < mission.level) return;
     closeActivities();
+    setMobileHudOpen(false);
     setStudyTravel(false);
     if (nearStoryLocation(mission.area, playerPosition)) {
       setLevelMissionTravel(null);
       openPlacePractice({area:mission.area,mission:id});
     } else {
       setLevelMissionTravel(id);
-      goToZone(mission.area);
-      setNotice(`Go to the ${mission.place.toLowerCase()} to start ${mission.title}.`);
+      const area = mission.area;
+      if (area === 'courtyard' || area === 'library' || area === 'canteen') goTo(area);
+      else goToZone(area);
+      setNotice(`Head to ${mission.place} to start ${mission.title}.`);
     }
   }
 
@@ -750,7 +753,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             onAreaChange={setAreaName}
           />
         </div>
-        {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && (
+        {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && !placePractice && (
           <div className={`campus-hud${mapVisible ? " hud-has-map" : ""}`} inert={modalOpen}>
             <div className="hud-left">
               <button className="player-badge" onClick={() => navigate("journey")} aria-label="Mở nhật ký và xem tiến độ">
@@ -769,12 +772,15 @@ export function CampusGame({ account, onExpired, onLogout }: {
               </button>
               <div className="hud-activities" id="campus-hud-activities" data-expanded={mobileHudOpen}>
                 <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
-                <button className="story-conversations" lang="en" onClick={()=>navigate('journey')}>Conversation practice · {progress.completed.length}/6 · {questTitle}</button>
-                <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
-                <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
-                <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small><Icon name="arrow" size={16}/></button>
-                <button className="activities-launch" lang="en" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
-                {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
+                <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <Icon name="arrow" size={16}/></button>
+                <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small></button>
+                <details className="hud-more-practice" lang="en">
+                  <summary><Icon name="chevron" size={15}/>More practice</summary>
+                  <button className="activities-launch" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={16}/>Practise English here</button>
+                  <button className="activities-launch swim-race-launch" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={16}/>English competitions</button>
+                  <button className="activities-launch" onClick={()=>navigate('journey')}><Icon name="chat" size={16}/>Conversation practice</button>
+                  {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={16}/>{ACTIVITIES[id].title}</button>)}
+                </details>
               </div>
             </div>
 

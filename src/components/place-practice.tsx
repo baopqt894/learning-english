@@ -6,6 +6,8 @@ import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from '@/lib/cad
 import { isTypedAnswerCorrect, missionAudioPath } from '@/lib/mission-exercises';
 import { PETS, petStatus, type PetCare, type PetId } from '@/lib/pet-care';
 import { Icon } from './icon';
+import { SpeechRepeat } from './speech-repeat';
+import { matchesSpokenAnswer } from '@/lib/speaking-answer';
 import './place-practice.css';
 
 type Props = {
@@ -46,11 +48,16 @@ export function PlacePractice({ area, feeding, care, purpose, mission, tier, que
   return <div className="practice-backdrop">
     <section ref={panel} className="practice-modal" role="dialog" aria-modal="true" aria-labelledby="place-practice-title" lang="en">
       <header>
-        <div><h2 id="place-practice-title">{title}</h2><p>{brief}</p></div>
+        <div><h2 id="place-practice-title">{title}</h2>
+          {question && showQuiz ? <div className="practice-header-progress">
+            <span>Question {index + 1} of {questions.length}</span>
+            <progress value={index} max={questions.length} aria-label="Questions answered"/>
+          </div> : <p>{brief}</p>}
+        </div>
         <button type="button" onClick={onExit} aria-label="Close place practice"><Icon name="close"/></button>
       </header>
       {!showQuiz ? <AnimalCare care={care} onFeed={onFeed} onPractice={() => setShowQuiz(true)}/>
-        : question ? <PracticeStep key={index} question={question} index={index} count={questions.length} tier={tier} onNext={() => setIndex(index + 1)}/>
+        : question ? <PracticeStep key={index} question={question} index={index} tier={tier} onNext={() => setIndex(index + 1)}/>
         : <div className="practice-complete">
           <Icon name="check" size={32}/><h3>{assignment ? 'Mission complete' : 'All three solved!'}</h3>
           <p>{result}</p>
@@ -87,8 +94,8 @@ function AnimalCare({ care, onFeed, onPractice }: { care: PetCare; onFeed: Props
   </>;
 }
 
-function PracticeStep({ question, index, count, tier, onNext }: {
-  question: PlaceQuestion; index: number; count: number; tier: EnglishTier; onNext: () => void;
+function PracticeStep({ question, index, tier, onNext }: {
+  question: PlaceQuestion; index: number; tier: EnglishTier; onNext: () => void;
 }) {
   const [value, setValue] = useState('');
   const [words, setWords] = useState<number[]>([]);
@@ -97,15 +104,18 @@ function PracticeStep({ question, index, count, tier, onNext }: {
   const [playing, setPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [micInUse, setMicInUse] = useState(false);
   const audio = useRef<HTMLAudioElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const isSpoken = 'transcript' in question;
+  const isRepeat = question.kind === 'repeat';
   const isTyped = question.kind === 'fill' || question.kind === 'dictation';
   const ready = !isSpoken || heard || showTranscript;
   const answer = question.kind === 'order' ? words.map(i => question.options[i]).join(' ') : value;
-  const correct = checked && (isTyped ? isTypedAnswerCorrect(question, answer) : answer === question.answer);
-  const mode = question.kind === 'dictation' ? 'Listen and fill in the blank'
-    : question.kind === 'listen' ? 'Listening' : question.kind === 'fill' ? 'Fill in the blank' : null;
+  const correct = checked && (isRepeat ? matchesSpokenAnswer(question.answer, answer)
+    : isTyped ? isTypedAnswerCorrect(question, answer) : answer === question.answer);
+  const mode = isRepeat ? 'Listen and repeat' : question.kind === 'dictation' ? 'Listen and fill in the blank'
+    : question.kind === 'listen' ? 'Listening' : question.kind === 'fill' ? 'Fill in the blank' : 'Practice';
 
   useEffect(() => {
     const player = audio.current;
@@ -131,8 +141,7 @@ function PracticeStep({ question, index, count, tier, onNext }: {
   }
 
   return <>
-    <div className="practice-meta">Challenge {index + 1} of {count} · {tier} · No time limit</div>
-    {mode && <p className="practice-mode">{mode}</p>}
+    <p className="practice-mode">{mode} · {tier}</p>
     <h3 tabIndex={-1} ref={heading}>{question.prompt}</h3>
     {isSpoken && <div className="practice-listen">
       <audio ref={audio} preload="none" src={missionAudioPath(question.id)}
@@ -140,10 +149,10 @@ function PracticeStep({ question, index, count, tier, onNext }: {
         onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
         onError={() => { setPlaying(false); setAudioError(true); }}/>
       <div className="practice-listen-actions">
-        <button type="button" className="practice-audio-button" onClick={playAudio}>
+        <button type="button" className={isRepeat && ready && !playing ? 'practice-secondary-audio' : 'practice-audio-button'} disabled={micInUse} onClick={playAudio}>
           <Icon name="sound" size={17}/> {playing ? 'Pause audio' : heard ? 'Listen again' : 'Listen'}
         </button>
-        <button type="button" aria-expanded={showTranscript} onClick={() => {
+        <button type="button" className="practice-text-action" aria-expanded={showTranscript} onClick={() => {
           if (!showTranscript) setHeard(true);
           setShowTranscript(!showTranscript);
         }}>{showTranscript ? 'Hide transcript' : 'Read transcript'}</button>
@@ -152,7 +161,9 @@ function PracticeStep({ question, index, count, tier, onNext }: {
       {showTranscript && <blockquote>{question.transcript}</blockquote>}
       {!ready && !audioError && <p>Play the recording or read the transcript before answering.</p>}
     </div>}
-    {isTyped ? <form className="practice-fill" onSubmit={checkTyped}>
+    {isRepeat ? <SpeechRepeat expected={question.answer} ready={ready} playback={playing} passed={correct}
+      onAnswer={text => { setValue(text); setChecked(true); }} onMicrophone={setMicInUse}/>
+      : isTyped ? <form className="practice-fill" onSubmit={checkTyped}>
       <label htmlFor="practice-missing-word">Missing word</label>
       <input id="practice-missing-word" type="text" value={value} disabled={!ready} readOnly={correct} maxLength={64}
         autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done"
@@ -164,12 +175,13 @@ function PracticeStep({ question, index, count, tier, onNext }: {
         disabled={words.includes(i) || correct} onClick={() => { setChecked(false); setWords([...words, i]); }}>{word}</button>)}</div>
       <button type="button" onClick={() => { setWords([]); setChecked(false); }}>Reset words</button>
       <button type="button" className="practice-primary" disabled={words.length !== question.options.length} onClick={() => setChecked(true)}>Check sentence</button>
-    </> : <div className="practice-choices">{question.options.map(option => <button key={option} type="button"
+    </> : 'options' in question && <div className="practice-choices">{question.options.map(option => <button key={option} type="button"
       aria-pressed={value === option} className={(isSpoken ? correct : checked) && option === question.answer ? 'correct' : ''}
       disabled={!ready || correct} onClick={() => { setValue(option); setChecked(true); }}>{option}</button>)}</div>}
     {checked && <div className="practice-feedback" role="status">
       <strong>{correct ? 'Correct!' : 'Try again'}</strong>
       <p>{correct || (!isSpoken && !isTyped) ? question.explanation
+        : isRepeat ? 'Listen again and repeat the whole message in order.'
         : isSpoken ? 'Listen again and check the detail in the question.' : 'Check your spelling and the words around the blank.'}</p>
     </div>}
     {correct && <button type="button" className="practice-primary" onClick={onNext}>Next <Icon name="arrow" size={16}/></button>}

@@ -53,6 +53,56 @@ export const LEVEL_MISSIONS = {
     level: 10, tier: 'B1', count: 6, listen: 3, dictation: 1, xp: 150,
     brief: 'Compare what was planned with what happened. Listen for causes and complete your team’s recommendations.',
   },
+  'courtyard-radio': {
+    title: 'Courtyard welcome relay', area: 'courtyard', place: 'Courtyard',
+    level: 11, tier: 'B1', count: 4, listen: 1, dictation: 0, speak: 2, xp: 150,
+    brief: 'Listen and repeat short directions for arriving visitors.',
+  },
+  'library-pickup': {
+    title: 'Library booking desk', area: 'library', place: 'Library',
+    level: 12, tier: 'B1', count: 4, listen: 1, dictation: 0, speak: 2, xp: 150,
+    brief: 'Pass on collection times and changes to library bookings.',
+  },
+  'canteen-orders': {
+    title: 'Canteen order handoff', area: 'canteen', place: 'Canteen',
+    level: 13, tier: 'B1', count: 4, listen: 1, dictation: 0, speak: 2, xp: 150,
+    brief: 'Repeat order changes while keeping the original request clear.',
+  },
+  'dormitory-brief': {
+    title: 'Dormitory duty handover', area: 'dormitory', place: 'Dormitory',
+    level: 14, tier: 'B1', count: 5, listen: 2, dictation: 0, speak: 2, xp: 150,
+    brief: 'Relay duty instructions with a sequence or a time limit.',
+  },
+  'classroom-tutor': {
+    title: 'Classroom peer tutor', area: 'classrooms', place: 'Classroom A1',
+    level: 15, tier: 'B1', count: 5, listen: 2, dictation: 0, speak: 2, xp: 150,
+    brief: 'Repeat explanations and clarify what a partner should do next.',
+  },
+  'pond-observer': {
+    title: 'Fish pond observation log', area: 'fish-pond', place: 'Fish pond',
+    level: 16, tier: 'B1', count: 5, listen: 2, dictation: 0, speak: 2, xp: 150,
+    brief: 'Report observations and distinguish a change from its likely cause.',
+  },
+  'football-captain': {
+    title: 'Football captain’s briefing', area: 'sports', place: 'Football pitch',
+    level: 17, tier: 'B1', count: 5, listen: 2, dictation: 0, speak: 2, xp: 150,
+    brief: 'Relay team decisions that include conditions and exceptions.',
+  },
+  'pool-announcer': {
+    title: 'Pool safety announcer', area: 'swimming', place: 'Pool registration deck',
+    level: 18, tier: 'B1', count: 6, listen: 2, dictation: 0, speak: 3, xp: 150,
+    brief: 'Repeat announcements that combine a rule with an exception.',
+  },
+  'track-official': {
+    title: 'Track meet official', area: 'athletics', place: 'Track registration',
+    level: 19, tier: 'B1', count: 6, listen: 2, dictation: 0, speak: 3, xp: 150,
+    brief: 'Report what happened before a race and explain what changes next.',
+  },
+  'field-final': {
+    title: 'Field games broadcast', area: 'field-games', place: 'Field games registration',
+    level: 20, tier: 'B1', count: 6, listen: 2, dictation: 0, speak: 3, xp: 150,
+    brief: 'Relay multi-part announcements about changes, conditions and results.',
+  },
 } as const;
 export type LevelMissionId = keyof typeof LEVEL_MISSIONS;
 export const LEVEL_MISSION_IDS = Object.keys(LEVEL_MISSIONS) as LevelMissionId[];

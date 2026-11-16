@@ -1,17 +1,17 @@
-import type { LevelMissionId } from './cadet-tiers.ts';
+import type { LEVEL_MISSIONS, LevelMissionId } from './cadet-tiers.ts';
 
 type AnswerKey = { answer: string; alternatives?: readonly string[] };
 type Exercise = AnswerKey & { id: string; prompt: string; explanation: string };
 type SpokenExercise = Exercise & { transcript: string };
 export type MissionExercise =
   | (Exercise & { kind: 'fill' })
-  | (SpokenExercise & { kind: 'dictation' })
+  | (SpokenExercise & { kind: 'dictation' | 'repeat' })
   | (SpokenExercise & { kind: 'listen'; options: string[] });
 
-const listen = (id: string, transcript: string, prompt: string, [answer, ...wrong]: [string, string, string], explanation: string): MissionExercise =>
+export const listen = (id: string, transcript: string, prompt: string, [answer, ...wrong]: [string, string, string], explanation: string): MissionExercise =>
   ({ id, kind: 'listen', transcript, prompt, options: [answer, ...wrong], answer, explanation });
 
-const fill = (id: string, prompt: string, answer: string, explanation: string, alternatives?: string[]): MissionExercise =>
+export const fill = (id: string, prompt: string, answer: string, explanation: string, alternatives?: string[]): MissionExercise =>
   ({ id, kind: 'fill', prompt, answer, explanation, alternatives });
 
 const dictation = (id: string, transcript: string, prompt: string, answer: string, explanation: string, alternatives?: string[]): MissionExercise =>
@@ -26,7 +26,7 @@ export function isTypedAnswerCorrect(question: AnswerKey, value: string): boolea
   return !!actual && [question.answer, ...(question.alternatives ?? [])].some(answer => normalize(answer) === actual);
 }
 
-type AdvancedMissionId = Exclude<LevelMissionId, 'field-briefing' | 'team-leader'>;
+type AdvancedMissionId = { [Id in LevelMissionId]: (typeof LEVEL_MISSIONS)[Id] extends { listen: number; speak?: never } ? Id : never }[LevelMissionId];
 export const MISSION_EXERCISES = {
   'language-desk': [
     listen('language-01', 'The welcome talk has moved from nine fifteen to nine forty-five. Please be in the language lab five minutes before the new start time.', 'When should you arrive?', ['At 9:40', 'At 9:15', 'At 9:50'], 'Five minutes before 9:45 is 9:40.'),
