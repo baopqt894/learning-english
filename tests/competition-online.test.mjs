@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {roomAction,roomSnapshot} from '../src/lib/competition-server.ts';
+import {createCompetitionEngine} from '../src/lib/competition-server.ts';
 import {raceQuestion,raceDistance,makeAnswer,openedAt} from '../src/lib/competition-engine.ts';
+const { roomAction, roomSnapshot } = createCompetitionEngine();
 let now=1_800_000_000_000;const create=(mode='sprint')=>roomAction({action:'create',mode,name:'Host'},now+=100_000);
 test('two real players share a lobby, only host edits seats, readiness gates start and bots fill empty seats',()=>{
  const a=create(),code=a.room.code,b=roomAction({action:'join',code,name:'Friend'},now+1),auth={code,token:a.token};

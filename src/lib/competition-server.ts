@@ -1,16 +1,14 @@
-import {randomBytes} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 import {COMPETITIONS,DIFFICULTIES,RECORD_MIN_CORRECT,competitionQuestions,type CompetitionId,type RaceDifficulty} from './competition-catalog.ts';
 import {freshMember,raceTime,raceDistance,finishTime,raceQuestion,openedAt,makeAnswer,questionSeconds,type CompetitionRoom} from './competition-engine.ts';
 import {raceProfile,raceRecords,type RecordStore} from './competition-records.ts';
-type Room={profile?:string;accountSeats:Map<string,string>;write?:Promise<void>;retryAt?:number;view:CompetitionRoom;tokens:Map<string,string>;seen:Map<string,number>;updated:number};
-type Registry={rooms:Map<string,Room>};
-const host=globalThis as typeof globalThis&{__campusCompetitions?:Registry};
-const registry:Registry=host.__campusCompetitions??=( {rooms:new Map<string,Room>()} );
+export type Room={profile?:string;accountSeats:Map<string,string>;write?:Promise<void>;retryAt?:number;view:CompetitionRoom;tokens:Map<string,string>;seen:Map<string,number>;updated:number};
+export const ROOM_IDLE_MS=30*60_000;
+const HEARTBEAT_MS=3000;
 export class RoomError extends Error{status:number;constructor(message:string,status=400){super(message);this.status=status;}}
 const id=()=>randomBytes(12).toString('hex');
+const seatHash=(token:string)=>createHash('sha256').update(token).digest('hex');
 const name=(value:unknown)=>typeof value==='string'?value.normalize('NFKC').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,24)||'Cadet':'Cadet';
-function clean(now:number){for(const [code,r]of registry.rooms)if(now-r.updated>30*60_000)registry.rooms.delete(code);}
-function getRoom(code:unknown,now:number){clean(now);const r=typeof code==='string'?registry.rooms.get(code.toUpperCase()):undefined;if(!r)throw new RoomError('Room not found. Check the code or create a new room.',404);return r;}
 function bump(r:Room,now:number){r.updated=now;r.view.revision++;r.view.serverNow=now;}
 function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const names=['Minh','Linh','An','Nam'];const botName=names.find(n=>!used.has(n))??'Cadet bot';const m=freshMember(id(),botName,'bot',r.view.members.length,botName==='Linh'?1:0);r.view.members.push(m);return m;}
 function startRound(view: CompetitionRoom, now: number) {
@@ -48,14 +46,6 @@ async function savePractice(r: Room, now: number, store: RecordStore) {
  bump(r, now);
 }
 
-export async function recordFinishedPractice(view: CompetitionRoom, now = Date.now(), store = raceRecords) {
- const r = registry.rooms.get(view.code);
- if (!r || view.format !== 'practice' || view.phase !== 'finished') return view;
- r.write ??= savePractice(r, now, store).finally(() => { r.write = undefined; });
- await r.write;
- return { ...view, record: r.view.record, revision: r.view.revision };
-}
-
 function hasSeat(r: Room, memberId: string, accountId?: string) {
  return accountId === undefined || r.accountSeats.get(memberId) === accountId;
 }
@@ -88,56 +78,75 @@ function advance(r:Room,now:number){
   if(v.members.every(m=>m.finishedAt!==null)){v.phase='finished';bump(r,now);}
  }
 }
-export function roomSnapshot(code:unknown,token?:string,now=Date.now(),accountId?:string){
- const r=getRoom(code,now);if(r.view.format==='practice'&&!token)throw new RoomError('Your practice seat is required.',401);if(token){const m=r.view.members.find(m=>r.tokens.get(m.id)===token);if(!m||!hasSeat(r,m.id,accountId))throw new RoomError('Your seat is no longer available. Join the room again.',401);r.seen.set(m.id,now);r.updated=now;if(m.kind==='bot'&&!m.connected){m.kind='human';m.connected=true;delete m.takeoverAt;bump(r,now);}}
- advance(r,now);return structuredClone({...r.view,serverNow:now});
-}
-export function roomAction(input:Record<string,unknown>,now=Date.now(),accountId?:string){
- clean(now);const action=input.action;
- if(action==='create'||action==='practice'){
-  if(!(typeof input.mode==='string'&&Object.hasOwn(COMPETITIONS,input.mode)))throw new RoomError('Choose a competition.');
-  const difficulty = input.difficulty ?? 'beginner';
-  if (typeof difficulty !== 'string' || !Object.hasOwn(DIFFICULTIES, difficulty)) throw new RoomError('Choose a difficulty.');
-  const profile = action === 'practice' ? raceProfile(accountId??input.profile) : null;
-  if (action === 'practice' && !profile) throw new RoomError('A practice profile is required.');
-  if(registry.rooms.size>=200)throw new RoomError('All rooms are busy. Try again shortly.',503);
-  let code=randomBytes(4).toString('hex').slice(0,6).toUpperCase();while(registry.rooms.has(code))code=randomBytes(4).toString('hex').slice(0,6).toUpperCase();
-  const member=freshMember(id(),name(input.name),'human',0,input.avatar===1?1:0),token=id()+id();
-  const r:Room={profile:profile??undefined,accountSeats:new Map(accountId?[[member.id,accountId]]:[]),view:{code,mode:input.mode as CompetitionId,difficulty:difficulty as RaceDifficulty,format:action==='practice'?'practice':'online',hostId:member.id,phase:'lobby',members:[member],round:null,revision:0,serverNow:now},tokens:new Map([[member.id,token]]),seen:new Map([[member.id,now]]),updated:now};
-  if(action==='practice')startRound(r.view,now);else bot(r);registry.rooms.set(code,r);return {room:roomSnapshot(code,token,now),playerId:member.id,token};
+// The map belongs to the caller. Production supplies one persisted room per request.
+export function createCompetitionEngine(rooms = new Map<string, Room>()) {
+ function getRoom(code: unknown, now: number) {
+  for (const [key, room] of rooms) if (now - room.updated > ROOM_IDLE_MS) rooms.delete(key);
+  const room = typeof code === 'string' ? rooms.get(code.toUpperCase()) : undefined;
+  if (!room) throw new RoomError('Room not found. Check the code or create a new room.', 404);
+  return room;
  }
- const r=getRoom(input.code,now);advance(r,now);const v=r.view;
- if(action==='join'){
-  if(v.format!=='online')throw new RoomError('This code is not an online room.',404);
-  if(input.venue!==undefined&&COMPETITIONS[v.mode].station!==input.venue)throw new RoomError(`Join this room at the ${COMPETITIONS[v.mode].venue} registration desk.`,409);
-  if(v.phase!=='lobby')throw new RoomError('This race has started. Join after the host returns to the lobby.',409);
-  if(v.members.length===4){const replace=v.members.findIndex(m=>m.kind==='bot');if(replace<0)throw new RoomError('This room is full.',409);const [removed]=v.members.splice(replace,1);r.tokens.delete(removed.id);r.seen.delete(removed.id);r.accountSeats.delete(removed.id);}
-  const member=freshMember(id(),name(input.name),'human',v.members.length,input.avatar===1?1:0),token=id()+id();member.ready=false;v.members.push(member);if(!v.hostId)v.hostId=member.id;r.tokens.set(member.id,token);if(accountId)r.accountSeats.set(member.id,accountId);r.seen.set(member.id,now);bump(r,now);return {room:roomSnapshot(v.code,token,now),playerId:member.id,token};
+ async function recordFinishedPractice(view: CompetitionRoom, now = Date.now(), store = raceRecords) {
+  const r = rooms.get(view.code);
+  if (!r || view.format !== 'practice' || view.phase !== 'finished') return view;
+  r.write ??= savePractice(r, now, store).finally(() => { r.write = undefined; });
+  await r.write;
+  return { ...view, record: r.view.record, revision: r.view.revision };
  }
- const m=v.members.find(m=>r.tokens.get(m.id)===input.token);if(!m||!hasSeat(r,m.id,accountId))throw new RoomError('You do not have access to this seat.',401);r.seen.set(m.id,now);
- const hostOnly=()=>{if(v.hostId!==m.id)throw new RoomError('Only the host can do that.',403);};
- if(action==='leave'){
-  if (v.format==='practice') { registry.rooms.delete(v.code); return {room:structuredClone(v)}; }
-  r.tokens.delete(m.id);r.seen.delete(m.id);r.accountSeats.delete(m.id);
-  if(v.phase==='lobby')v.members=v.members.filter(x=>x.id!==m.id);else{m.kind='bot';m.connected=false;m.takeoverAt=Math.max(0,raceTime(v,now));}
-  if(v.hostId===m.id)v.hostId=v.members.find(x=>x.kind==='human')?.id??'';
- }else if(action==='ready'){if(v.phase!=='lobby')throw new RoomError('Wait until the next lobby.',409);m.ready=!!input.ready;
- }else if(action==='add-bot'){hostOnly();if(v.phase!=='lobby'||v.members.length>=4)throw new RoomError('No empty seat is available.',409);bot(r);
- }else if(action==='remove'){hostOnly();if(v.phase!=='lobby')throw new RoomError('Seats cannot change during a race.',409);if(input.playerId===m.id)throw new RoomError('Use Leave room to leave your own seat.');const target=v.members.find(x=>x.id===input.playerId);if(!target)throw new RoomError('Seat not found.',404);v.members=v.members.filter(x=>x!==target);r.tokens.delete(target.id);r.seen.delete(target.id);r.accountSeats.delete(target.id);
- }else if(action==='start'){
-  hostOnly();if(v.phase!=='lobby')throw new RoomError('The race has already started.',409);
-  if(v.members.some(x=>x.kind==='human'&&!x.ready))throw new RoomError('Wait for every player to press Ready.',409);
-  while(v.members.length<4)bot(r);
-  startRound(v,now);
- }else if(action==='answer'){
-  if(v.phase!=='racing'||!v.round||input.roundId!==v.round.id||input.questionIndex!==m.answers.length||m.finishedAt!==null)throw new RoomError('That question has changed. Read the current question.',409);
-  const t=raceTime(v,now);if(t<openedAt(m)||t<0)throw new RoomError('Wait for the question to open.',409);
-  if(!Number.isInteger(input.choice)||Number(input.choice)<0||Number(input.choice)>3)throw new RoomError('Choose one of the four answers.');
-  m.answers.push(makeAnswer(v,m,Number(input.choice),t));
- }else if(action==='lobby'){
-  hostOnly();if(v.format!=='online'||v.phase!=='finished')throw new RoomError('Wait for the race to finish.',409);v.phase='lobby';v.round=null;v.members.forEach(x=>{x.answers=[];x.finishedAt=null;x.ready=x.kind==='bot'||x.id===v.hostId;delete x.takeoverAt;delete x.botAssisted;});
- }else throw new RoomError('Unknown room action.');
- bump(r,now);advance(r,now);return {room:structuredClone({...v,serverNow:now})};
+
+ function roomSnapshot(code:unknown,token?:string,now=Date.now(),accountId?:string){
+  const r=getRoom(code,now);if(r.view.format==='practice'&&!token)throw new RoomError('Your practice seat is required.',401);if(token){const hash=seatHash(token),m=r.view.members.find(m=>r.tokens.get(m.id)===hash);if(!m||!hasSeat(r,m.id,accountId))throw new RoomError('Your seat is no longer available. Join the room again.',401);if(now-(r.seen.get(m.id)??0)>=HEARTBEAT_MS){r.seen.set(m.id,now);r.updated=Math.max(r.updated,now);}if(m.kind==='bot'&&!m.connected){m.kind='human';m.connected=true;delete m.takeoverAt;bump(r,now);}}
+  advance(r,now);return structuredClone({...r.view,serverNow:now});
+ }
+ function roomAction(input:Record<string,unknown>,now=Date.now(),accountId?:string){
+  const action=input.action;
+  if(action==='create'||action==='practice'){
+   if(!(typeof input.mode==='string'&&Object.hasOwn(COMPETITIONS,input.mode)))throw new RoomError('Choose a competition.');
+   const difficulty = input.difficulty ?? 'beginner';
+   if (typeof difficulty !== 'string' || !Object.hasOwn(DIFFICULTIES, difficulty)) throw new RoomError('Choose a difficulty.');
+   const profile = action === 'practice' ? raceProfile(accountId??input.profile) : null;
+   if (action === 'practice' && !profile) throw new RoomError('A practice profile is required.');
+   let code=randomBytes(4).toString('hex').slice(0,6).toUpperCase();while(rooms.has(code))code=randomBytes(4).toString('hex').slice(0,6).toUpperCase();
+   const member=freshMember(id(),name(input.name),'human',0,input.avatar===1?1:0),token=id()+id();
+   const r:Room={profile:profile??undefined,accountSeats:new Map(accountId?[[member.id,accountId]]:[]),view:{code,mode:input.mode as CompetitionId,difficulty:difficulty as RaceDifficulty,format:action==='practice'?'practice':'online',hostId:member.id,phase:'lobby',members:[member],round:null,revision:0,serverNow:now},tokens:new Map([[member.id,seatHash(token)]]),seen:new Map([[member.id,now]]),updated:now};
+   if(action==='practice')startRound(r.view,now);else bot(r);rooms.set(code,r);return {room:roomSnapshot(code,token,now),playerId:member.id,token};
+  }
+  const r=getRoom(input.code,now);advance(r,now);const v=r.view;
+  if(action==='join'){
+   if(v.format!=='online')throw new RoomError('This code is not an online room.',404);
+   if(input.venue!==undefined&&COMPETITIONS[v.mode].station!==input.venue)throw new RoomError(`Join this room at the ${COMPETITIONS[v.mode].venue} registration desk.`,409);
+   if(v.phase!=='lobby')throw new RoomError('This race has started. Join after the host returns to the lobby.',409);
+   if(v.members.length===4){const replace=v.members.findIndex(m=>m.kind==='bot');if(replace<0)throw new RoomError('This room is full.',409);const [removed]=v.members.splice(replace,1);r.tokens.delete(removed.id);r.seen.delete(removed.id);r.accountSeats.delete(removed.id);}
+   const member=freshMember(id(),name(input.name),'human',v.members.length,input.avatar===1?1:0),token=id()+id();member.ready=false;v.members.push(member);if(!v.hostId)v.hostId=member.id;r.tokens.set(member.id,seatHash(token));if(accountId)r.accountSeats.set(member.id,accountId);r.seen.set(member.id,now);bump(r,now);return {room:roomSnapshot(v.code,token,now),playerId:member.id,token};
+  }
+  const hash=typeof input.token==='string'?seatHash(input.token):null;
+  const m=v.members.find(m=>r.tokens.get(m.id)===hash);if(!m||!hasSeat(r,m.id,accountId))throw new RoomError('You do not have access to this seat.',401);r.seen.set(m.id,now);
+  const hostOnly=()=>{if(v.hostId!==m.id)throw new RoomError('Only the host can do that.',403);};
+  if(action==='leave'){
+   if (v.format==='practice') { rooms.delete(v.code); return {room:structuredClone(v)}; }
+   r.tokens.delete(m.id);r.seen.delete(m.id);r.accountSeats.delete(m.id);
+   if(v.phase==='lobby')v.members=v.members.filter(x=>x.id!==m.id);else{m.kind='bot';m.connected=false;m.takeoverAt=Math.max(0,raceTime(v,now));}
+   if(v.hostId===m.id)v.hostId=v.members.find(x=>x.kind==='human')?.id??'';
+  }else if(action==='ready'){if(v.phase!=='lobby')throw new RoomError('Wait until the next lobby.',409);m.ready=!!input.ready;
+  }else if(action==='add-bot'){hostOnly();if(v.phase!=='lobby'||v.members.length>=4)throw new RoomError('No empty seat is available.',409);bot(r);
+  }else if(action==='remove'){hostOnly();if(v.phase!=='lobby')throw new RoomError('Seats cannot change during a race.',409);if(input.playerId===m.id)throw new RoomError('Use Leave room to leave your own seat.');const target=v.members.find(x=>x.id===input.playerId);if(!target)throw new RoomError('Seat not found.',404);v.members=v.members.filter(x=>x!==target);r.tokens.delete(target.id);r.seen.delete(target.id);r.accountSeats.delete(target.id);
+  }else if(action==='start'){
+   hostOnly();if(v.phase!=='lobby')throw new RoomError('The race has already started.',409);
+   if(v.members.some(x=>x.kind==='human'&&!x.ready))throw new RoomError('Wait for every player to press Ready.',409);
+   while(v.members.length<4)bot(r);
+   startRound(v,now);
+  }else if(action==='answer'){
+   if(v.phase!=='racing'||!v.round||input.roundId!==v.round.id||input.questionIndex!==m.answers.length||m.finishedAt!==null)throw new RoomError('That question has changed. Read the current question.',409);
+   const t=raceTime(v,now);if(t<openedAt(m)||t<0)throw new RoomError('Wait for the question to open.',409);
+   if(!Number.isInteger(input.choice)||Number(input.choice)<0||Number(input.choice)>3)throw new RoomError('Choose one of the four answers.');
+   m.answers.push(makeAnswer(v,m,Number(input.choice),t));
+  }else if(action==='lobby'){
+   hostOnly();if(v.format!=='online'||v.phase!=='finished')throw new RoomError('Wait for the race to finish.',409);v.phase='lobby';v.round=null;v.members.forEach(x=>{x.answers=[];x.finishedAt=null;x.ready=x.kind==='bot'||x.id===v.hostId;delete x.takeoverAt;delete x.botAssisted;});
+  }else throw new RoomError('Unknown room action.');
+  bump(r,now);advance(r,now);return {room:structuredClone({...v,serverNow:now})};
+ }
+
+ return { roomAction, roomSnapshot, recordFinishedPractice };
 }
 
 export async function competitionBoard(mode: unknown, difficulty: unknown, profile: unknown, store = raceRecords) {

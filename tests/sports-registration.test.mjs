@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DIFFICULTIES, competitionQuestions } from '../src/lib/competition-catalog.ts';
-import { competitionBoard, recordFinishedPractice, roomAction, roomSnapshot } from '../src/lib/competition-server.ts';
+import { competitionBoard, createCompetitionEngine } from '../src/lib/competition-server.ts';
 import { openedAt, questionSeconds, raceQuestion } from '../src/lib/competition-engine.ts';
 import { campusDay, dailyMissions, dailyXP, recordDaily } from '../src/lib/daily-missions.ts';
 import { earnedXP, freshProgress, restoreProgress } from '../src/lib/game.ts';
+const { roomAction, roomSnapshot, recordFinishedPractice } = createCompetitionEngine();
 
 const records = new Map();
 const order = (a, b) => a.milliseconds - b.milliseconds || b.correct - a.correct || a.achievedAt - b.achievedAt;

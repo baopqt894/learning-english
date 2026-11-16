@@ -73,7 +73,9 @@ export const raceRecords: RecordStore = {
       return true;
     } catch (error) {
       if (!(error instanceof MongoServerError) || error.code !== 11000) throw error;
-      return (await collection.replaceOne(faster, row)).matchedCount === 1;
+      if ((await collection.replaceOne(faster, row)).matchedCount) return true;
+      // A second polling request may have already saved this exact finish.
+      return !!await collection.findOne({ _id, milliseconds, correct, achievedAt }, { projection: { _id: 1 } });
     }
   },
 };

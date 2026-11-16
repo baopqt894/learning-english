@@ -14,11 +14,11 @@ Waiting cadets stand on the pool deck, track apron or games field while the room
 
 ## Actual multiplayer
 
-The same-origin `/api/competitions` GET/POST route holds authoritative room state in the running Node process. Independent clients join by code and poll compact snapshots every 500 ms, interpolate movement locally and submit answers with a private per-seat token, round ID and question index. The server decides correctness, response time, combo, boosts, timeouts and finishes. Sending forged elapsed time or duplicate question indices cannot award a boost. Seat tokens are never included in public snapshots. Nicknames are limited to 24 characters and rendered as text.
+The same-origin `/api/competitions` GET/POST route holds authoritative room state in MongoDB. Room updates compare a document version before saving, which keeps concurrent function instances from overwriting each other. Independent clients join by code and poll compact snapshots every 500 ms, interpolate movement locally and submit answers with a private per-seat token, round ID and question index. The server decides correctness, response time, combo, boosts, timeouts and finishes. Sending forged elapsed time or duplicate question indices cannot award a boost. Seat tokens are never included in public snapshots. Nicknames are limited to 24 characters and rendered as text.
 
 Correct answers give a 1.5-second acceleration burst. Successive correct answers add 15% per step to that burst, capped at ×1.6 for a streak of five or more. Wrong answers and timeouts reset the streak. Bots follow the same boost rules. Online races continue if a player hides the tab. A player who leaves or disconnects during a race is replaced by a bot. Finishing players can review answers while others complete the course; the host can return everyone to the lobby after the round.
 
-Rooms are temporary and expire after 30 idle minutes. They currently require one running Node instance; restarting it clears rooms. Scaling to multiple server replicas requires moving the registry to shared storage. This implementation provides the multiplayer protocol and local/LAN runtime; it does not itself publish a public internet domain.
+Rooms expire after 30 idle minutes. Vercel Functions and self-hosted Node instances share the `competition_rooms` collection. TTL cleanup removes expired rooms. Readiness, seat ownership, question time limits and race results persist across function invocations.
 
 ## How to join
 
@@ -36,7 +36,7 @@ Choose **Solo practice** at a registration desk. The race uses one lane and no b
 
 Finish with at least three correct answers to qualify. The server calculates the time and keeps the fastest result per account, event and level. **Campus records** shows the ten fastest cadets for the selected event and level along with your personal rank. Change either filter to browse the entire campus. The chosen nickname appears with qualifying records. Online results appear in the room.
 
-The shared board reads MongoDB collection `race_records`. The fastest time for an account, event and difficulty survives server restarts. Live room state stays in the Node process.
+The shared board reads MongoDB collection `race_records`. The fastest time for an account, event and difficulty survives server restarts. Live rooms use separate documents in `competition_rooms`.
 
 ## Daily missions
 
@@ -46,7 +46,7 @@ The shared board reads MongoDB collection `race_records`. The fastest time for a
 
 On entry, create a cadet account with a login name, password, nickname and avatar. If this browser has an older local save, the registration form can import it. Sign in on another device to retrieve the same learning progress and race records. The pause menu shows save status and offers logout and recovery when two devices update the same account at once.
 
-Set Node-only `MONGODB_URI` and optionally `MONGODB_DB` in an ignored `.env.local` or the server environment. The database defaults to `campusquest`. The `accounts` collection holds the learner save, salted password hash and revocable session hashes. Public hosting should use HTTPS so the session cookie carries the Secure flag. No live room is copied into MongoDB.
+Set Node-only `MONGODB_URI` and optionally `MONGODB_DB` in an ignored `.env.local` or the server environment. The database defaults to `campusquest`. The `accounts` collection holds the learner save, salted password hash and revocable session hashes. Public hosting should use HTTPS so the session cookie carries the Secure flag. Set `MONGODB_URI` in the Vercel project’s Production environment before deploying. The public link should resolve to the production deployment built from `main`.
 
 ## Practice at each place
 

@@ -93,6 +93,6 @@ NPC portraits now use four static authored expressions per character. The previo
 
 Open **English competitions**, choose a venue and walk to its registration desk. Press **E** or tap **Register**. Choose **Solo practice** for the shared record board, or **Race with friends** to create or join a room from that desk. Each event has A1, A2 and B1 difficulty. Friends join with the room code and mark themselves ready. Empty seats become bots when the host starts.
 
-For devices on one LAN, run the app with an accessible hostname, for example `npm run dev -- --hostname 0.0.0.0`, and use the host computer’s LAN address on every device. `127.0.0.1` always refers to the device currently opening it. Rooms run in one Node process and clear on restart. See [the implementation and verification notes](docs/english-games-online.md).
+For devices on one LAN, run the app with an accessible hostname, for example `npm run dev -- --hostname 0.0.0.0`, and use the host computer’s LAN address on every device. `127.0.0.1` always refers to the device currently opening it. Rooms share MongoDB across Node processes and Vercel Functions. They expire after 30 idle minutes. See [the implementation and verification notes](docs/english-games-online.md).
 
 Every campus district also has **Practise English here**. Animal feeding requires its short English quiz, then the physical feeding action in the pen.

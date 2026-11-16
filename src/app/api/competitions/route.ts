@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ACCOUNT_COOKIE, signedInAccount } from '@/lib/account-server';
-import { competitionBoard, recordFinishedPractice, roomAction, roomSnapshot, RoomError } from '@/lib/competition-server';
+import { competitionBoard, RoomError } from '@/lib/competition-server';
+import { changeCompetitionRoom, loadCompetitionRoom } from '@/lib/competition-storage';
 
 const headers = { 'Cache-Control': 'no-store' };
 const json = (body: unknown, status = 200) => Response.json(body, { headers, status });
@@ -17,8 +18,7 @@ export async function GET(request: NextRequest) {
     if (query.has('records')) return json(await competitionBoard(query.get('mode'), query.get('difficulty'), account.id));
     const token = request.headers.get('x-race-token');
     if (!token) throw new RoomError('Your seat token is required.', 401);
-    const room = roomSnapshot(query.get('code'), token, Date.now(), account.id);
-    return json({ room: await recordFinishedPractice(room) });
+    return json({ room: await loadCompetitionRoom(query.get('code'), token, account.id) });
   } catch (error) { return failure(error); }
 }
 
@@ -29,8 +29,7 @@ export async function POST(request: NextRequest) {
     const account = await playerAccount(request);
     const body = await request.json();
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid request.' }, 400);
-    const packet = roomAction(body, Date.now(), account.id);
-    return json({ ...packet, room: await recordFinishedPractice(packet.room) });
+    return json(await changeCompetitionRoom(body, account.id));
   } catch (error) { return failure(error); }
 }
 
