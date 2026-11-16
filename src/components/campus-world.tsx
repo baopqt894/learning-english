@@ -19,6 +19,7 @@ import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork,
 import { animateCharacter } from "@/lib/campus-character";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
+import { createCampusWorldLabels } from "@/lib/campus-world-labels";
 import { PLACES, type Place } from "@/lib/game";
 import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
 import {
@@ -264,11 +265,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     scene.add(sun);
     scene.add(sun.target);
 
+    const worldLabels = createCampusWorldLabels(labels);
     const environment = createCampusEnvironment(scene, avatar);
     const { floor, player, selection, destination } = environment;
     const districts=createCampusDistricts(scene);
     const competitionScene=createCompetitionScene(scene);
-    let wasSwimming=false, lastRaceFrame="", lastLabelTime=0;
+    let wasSwimming=false, lastRaceFrame="";
     const swimCamera={position:new THREE.Vector3(),target:new THREE.Vector3(),zoom:1};
     const swimProjection=new THREE.Vector3(),swimShift=new THREE.Vector3(),swimRight=new THREE.Vector3(),swimUp=new THREE.Vector3();
     const feedCup=new THREE.Mesh(new THREE.CylinderGeometry(.1,.07,.13,16),new THREE.MeshStandardMaterial({color:0xb59b6e,roughness:.9}));
@@ -320,7 +322,6 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let lastMapUpdate = 0;
     let lastArea = "";
     const keys = new Set<string>();
-    const vector = new THREE.Vector3();
     const cameraForward = new THREE.Vector3();
     const cameraRight = new THREE.Vector3();
     const pointer = new THREE.Vector2();
@@ -517,7 +518,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         destination.visible = false;
         districtNear = undefined;
         setDistrictFrame(null);
-        labels.style.visibility = 'hidden';
+        worldLabels.show(false);
         frameCampus();
       },
       beginPhoto,
@@ -539,6 +540,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         renderer.setPixelRatio(
           Math.min(window.devicePixelRatio, high ? 1.25 : 1),
         );
+        delete host.dataset.performance;
+        slowFrameWindows = 0;
         renderer.shadowMap.enabled = high;
         renderer.shadowMap.needsUpdate = true;
         environment.leafDetail.visible = true;
@@ -606,48 +609,6 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       const hit = raycaster.intersectObject(floor)[0];
       if (hit) walkTo(hit.point.x, hit.point.z);
     };
-    const updateLabels = () => {
-      const { width, height } = host.getBoundingClientRect();
-      labels
-        .querySelectorAll<HTMLElement>("[data-place],[data-zone],[data-station],[data-competition]")
-        .forEach((label) => {
-          const place = label.dataset.place
-            ? PLACES[label.dataset.place as Place]
-            : undefined;
-          const zone = EXPLORATION_ZONES.find(
-            (z) => z.id === label.dataset.zone,
-          );
-          if(zone&&['athletics','field-games','swimming'].includes(zone.id)){label.style.display='none';return;}
-          const station=DISTRICT_STATIONS.find(s=>s.id===label.dataset.station);
-          const contest=label.dataset.competition?SPORTS_VENUES[label.dataset.competition as SportsVenueId].desk:undefined;
-          if (!place && !zone && !station && !contest) return;
-          const destination=contest||zone||station;
-          vector
-            .set(
-              place ? place.position[0] : destination!.x,
-              place ? 2.5 : station?2.9:3.5,
-              place ? place.position[1] : destination!.z,
-            )
-            .project(camera);
-          const horizontalMargin = ((zone ? 65 : 46) * 2) / width;
-          label.style.display =
-            (station && Math.hypot(player.group.position.x-station.x,player.group.position.z-station.z)<1.3) ||
-            (contest && label.dataset.competition===nearbySportsVenue(player.group.position.x,player.group.position.z)) ||
-            (!overviewMode &&
-              destination &&
-              Math.hypot(
-                player.group.position.x - destination.x,
-                player.group.position.z - destination.z,
-              ) > 17) ||
-            Math.abs(vector.x) > 1 - horizontalMargin ||
-            Math.abs(vector.y) > 1.05 ||
-            vector.z > 1
-              ? "none"
-              : "flex";
-          label.style.left = `${((vector.x + 1) * width) / 2}px`;
-          label.style.top = `${((-vector.y + 1) * height) / 2}px`;
-        });
-    };
     const resize = () => {
       const { width, height } = host.getBoundingClientRect();
       if (!width || !height) return;
@@ -661,9 +622,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       camera.updateProjectionMatrix();
       if(overviewMode)frameCampus();
       renderer.setSize(width, height);
-      updateLabels();
+      worldLabels.resize(width, height);
+      worldLabels.paint(camera, player.group.position);
       renderer.render(overviewMode && !photoSession && campusOverview ? campusOverview.scene : scene, camera);
     };
+    const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+    scene.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if ('map' in material && material.map instanceof THREE.CanvasTexture) material.map.anisotropy = anisotropy;
+      }
+    });
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
@@ -687,9 +657,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         if((callbacks.current.enabled||callbacks.current.swimOpen)&&!photoSession){
           slowFrameWindows=measuredFps<38?slowFrameWindows+1:0;
           const resolution=renderer.getPixelRatio();
-          if(slowFrameWindows>=2&&resolution>.85){
-            renderer.setPixelRatio(resolution>1 ? 1 : .85);
+          if(slowFrameWindows>=2&&host.dataset.performance!=='balanced'){
+            if (resolution > 1) renderer.setPixelRatio(1);
             environment.grassDetail.visible=false;
+            environment.litter.visible=false;
             host.dataset.performance='balanced';
             slowFrameWindows=0;
           }
@@ -715,7 +686,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         renderer.shadowMap.autoUpdate=false;
         renderer.shadowMap.needsUpdate=true;
         controls.enabled=false;
-        labels.style.visibility='hidden';
+        worldLabels.show(false);
         storyMarker.visible=false;
         selection.visible=false;
         destination.visible=false;
@@ -1022,11 +993,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      labels.style.opacity = conversationPlace || photoSession || workKind || studying || overviewMode ? "0" : "1";
-      labels.style.visibility = conversationPlace || photoSession || workKind || studying || overviewMode ? "hidden" : "visible";
+      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode);
       selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
-      if (!photoSession && time-lastLabelTime >= 50) { updateLabels(); lastLabelTime=time; }
+      worldLabels.paint(camera, pos);
       // Shadow matrices and articulated poses are rendered in the same frame.
       host.dataset.interior = environment.updateRooms(pos, overviewMode);
       renderFrame(time);
@@ -1036,6 +1006,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderer.setAnimationLoop(null);
       window.removeEventListener('pointerup',releaseActions);window.removeEventListener('pointercancel',releaseActions);window.removeEventListener('blur',releaseActions);document.removeEventListener('visibilitychange',visibilityWork);
       observer.disconnect();
+      worldLabels.dispose();
       controls.dispose();
       workScene.dispose();
       competitionScene.dispose();
