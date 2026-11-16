@@ -16,3 +16,7 @@
 .campus-shell .academy-in-world{background:transparent;backdrop-filter:none;place-items:end}.academy-in-world .cadet-activities{width:min(455px,100%);max-height:64dvh;padding:18px;box-shadow:0 12px 35px #0b201c55}.academy-in-world .activities-heading h2{font-size:20px}.academy-in-world .activity-play{margin-top:15px}.academy-in-world .activity-instruction h3{font-size:17px;margin-bottom:10px}.academy-in-world .activity-choices label{padding:10px;min-height:43px;font-size:13px}.academy-in-world .activity-actions{margin-top:14px}.academy-in-world .activity-feedback{padding-bottom:0;font-size:12px}@media(max-width:600px){.academy-in-world .cadet-activities{max-height:55dvh}.academy-in-world .activities-heading h2{font-size:17px}.academy-in-world .activity-instruction h3{font-size:15px}}
 
 .work-view-controls{display:flex;gap:6px;align-items:flex-start}.work-top>div{min-width:0}.work-overview{display:flex;align-items:center;gap:6px;min-height:44px;padding:8px 10px;background:var(--deep);color:var(--ink);border:1px solid #617052;border-radius:7px;font-size:12px;white-space:nowrap}.work-overview[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}.work-overview:disabled{opacity:.6}@media(max-width:600px){.work-top{gap:6px}.work-overview{font-size:10px;padding:6px;min-height:40px}.work-top>div{padding:10px}.work-top h2{font-size:16px}}
+
+.level-missions { margin-top: 20px; }
+.level-missions > h3 { margin: 0 0 4px; }
+.level-missions > p { margin: 0 0 12px; color: var(--muted); font-size: .875rem; }

@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { logCampusDatabaseError } from '@/lib/mongodb';
-import { ACCOUNT_COOKIE, signedInAccount } from '@/lib/account-server';
+import { ACCOUNT_COOKIE, accountSession, signedInAccount } from '@/lib/account-server';
+import { TIER_LEVEL } from '@/lib/cadet-tiers';
+import { DIFFICULTIES, type RaceDifficulty } from '@/lib/competition-catalog';
+import { cadetLevel } from '@/lib/challenge-xp';
+import { earnedXP } from '@/lib/game';
 import { competitionBoard, RoomError } from '@/lib/competition-server';
 import { competitionFeed } from '@/lib/competition-feed';
 import { changeCompetitionRoom, loadCompetitionRoom } from '@/lib/competition-storage';
@@ -51,7 +55,18 @@ export async function POST(request: NextRequest) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid request.' }, 400);
     const authStart = performance.now();
     let authMs = 0;
-    const account = playerAccount(cookie).then(player => {
+    const account = playerAccount(cookie).then(async player => {
+      if ((body.action === 'create' || body.action === 'practice')
+        && typeof body.difficulty === 'string' && Object.hasOwn(DIFFICULTIES, body.difficulty)) {
+        const tier = DIFFICULTIES[body.difficulty as RaceDifficulty].level;
+        const required = TIER_LEVEL[tier];
+        if (required > 1) {
+          const { save } = await accountSession(player);
+          if (cadetLevel(earnedXP(save.progress)).level < required) {
+            throw new RoomError(`Reach Level ${required} to unlock ${tier} racing.`, 403);
+          }
+        }
+      }
       authMs = performance.now() - authStart;
       return player.id;
     });

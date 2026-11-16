@@ -1,4 +1,7 @@
 import type { Progress } from './game';
+import type { EnglishTier } from './cadet-tiers.ts';
+import { CAMPUS_ENGLISH, FIELD_BRIEFING_QUESTIONS, TEAM_LEADER_QUESTIONS } from './level-questions.ts';
+import { drawQuestions, shuffled } from './question-rotation.ts';
 
 export type ActivityId = 'garden' | 'duty' | 'academy';
 export type ActivityRecord = { best: number; attempts: number; passed: boolean };
@@ -54,15 +57,31 @@ export function normalizeActivities(raw:unknown):ActivityRecords {
 }
 export function activityUnlocked(id:ActivityId,records:ActivityRecords={}) {return id!=='academy'||!!(records.garden?.passed&&records.duty?.passed);}
 export function activityXP(records:ActivityRecords={}) {return ACTIVITY_IDS.reduce((sum,id)=>sum+(records[id]?.passed?ACTIVITIES[id].xp:0),0);}
-export function finishActivity(progress:Progress,id:ActivityId,answers:ActivityAnswer[]):Progress {
+export function finishActivity(progress:Progress,id:ActivityId,answers:ActivityAnswer[],tier:EnglishTier = 'A1'):Progress {
  const records=progress.activities||{};
  if(!activityUnlocked(id,records))return progress;
- const questions=QUESTIONS[id];const required=id==='academy'?10:questions.length;
+ const questions=activityBank(id,tier);const required=id==='academy'?10:questions.length;
  if(answers.length!==required||new Set(answers.map(a=>a.questionId)).size!==required)return progress;
  if(answers.some(a=>!questions.some(q=>q.id===a.questionId&&q.choices.includes(a.answer))))return progress;
  const score=Math.round(answers.filter(a=>questions.find(q=>q.id===a.questionId)?.answer===a.answer).length/required*100);
  const best=Math.max(records[id]?.best||0,score);
  return {...progress,activities:{...records,[id]:{best,attempts:(records[id]?.attempts||0)+1,passed:best>=ACTIVITIES[id].pass}}};
 }
-export function shuffled<T>(items:readonly T[],random= Math.random):T[]{const result=[...items];for(let i=result.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}return result;}
-export function activityRounds(id:ActivityId){const items=id==='academy'?shuffled(QUESTIONS[id]).slice(0,10):QUESTIONS[id];return items.map(q=>({...q,choices:shuffled(q.choices)}));}
+const higherAcademy = {
+  A2: [...CAMPUS_ENGLISH.A2, ...FIELD_BRIEFING_QUESTIONS],
+  B1: [...CAMPUS_ENGLISH.B1, ...TEAM_LEADER_QUESTIONS],
+};
+function activityBank(id: ActivityId, tier: EnglishTier) {
+  if (id !== 'academy') return QUESTIONS[id];
+  const extra = tier === 'A1' ? CAMPUS_ENGLISH.A1 : higherAcademy[tier];
+  const questions = extra.map((question, index) => ({
+    id: `academy-${tier}-${index}`, instruction: question.prompt, choices: question.options,
+    answer: question.answer, explanation: question.explanation, word: '',
+  }));
+  return tier === 'A1' ? [...QUESTIONS.academy, ...questions] : questions;
+}
+export function activityRounds(id: ActivityId, tier: EnglishTier = 'A1', previous: readonly string[] = []) {
+  const bank = activityBank(id, tier);
+  const items = id === 'academy' ? drawQuestions(bank, 10, q => q.id, previous) : bank;
+  return items.map(question => ({ ...question, choices: shuffled(question.choices) }));
+}

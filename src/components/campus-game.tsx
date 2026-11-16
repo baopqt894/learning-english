@@ -31,6 +31,9 @@ import type { AccountSession } from "@/lib/account";
 import type { WorldHandle } from "./campus-world";
 import { CampusPhotoMode } from "./campus-photo-mode";
 import {PlacePractice} from "./place-practice";
+import { levelMissionRound, placePracticeRound, practiceQuestionKey, type PlaceQuestion } from '@/lib/place-practice';
+import { LEVEL_MISSIONS, englishTier, TIER_LEVEL, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
+import { createQuizHistory } from '@/lib/browser-quiz-history';
 import {PETS,petForStation,petStatus,feedPet,type PetId} from "@/lib/pet-care";
 import {CompetitionArena,type CompetitionView} from "./competition-arena";
 import { SportsJournal } from './sports-journal';
@@ -99,6 +102,8 @@ function Cadet({
   );
 }
 
+type PracticeRequest = {area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring';mission?:LevelMissionId};
+
 const SYNC_LABELS = {
   saved: 'Tiến độ đã lưu vào tài khoản.',
   saving: 'Đang lưu tiến độ…',
@@ -130,7 +135,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [activityOpen,setActivityOpen] = useState(false);
   const [swimOpen,setSwimOpen]=useState(false);
   const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
-  const [placePractice,setPlacePractice]=useState<{area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring'}|null>(null);
+  const [placePractice,setPlacePractice]=useState<(PracticeRequest & {tier:EnglishTier;questions:PlaceQuestion[]})|null>(null);
+  const [levelMissionTravel, setLevelMissionTravel] = useState<LevelMissionId | null>(null);
+  const [quizHistory] = useState(() => createQuizHistory(account.id));
   const [stationPass,setStationPass]=useState<{station:string;expiresAt:number}|null>(null);
   const [competitionVenue,setCompetitionVenue]=useState<SportsVenueId>('pool');
   const [sportsJournal,setSportsJournal]=useState<'venues'|'daily'|null>(null);
@@ -175,7 +182,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const before = earnedXP(progress), after = earnedXP(updated);
     if (after <= before) return;
     const level = cadetLevel(after).level;
-    setNotice(level > cadetLevel(before).level ? `Level ${level} reached · +${after - before} XP` : `Mission complete · +${after - before} XP`);
+    const beforeLevel = cadetLevel(before).level;
+    const unlock = englishTier(level) !== englishTier(beforeLevel) ? ` · ${englishTier(level)} unlocked` : '';
+    setNotice(level > beforeLevel ? `Level ${level} reached${unlock} · +${after - before} XP` : `Mission complete · +${after - before} XP`);
   }, [progress, saveProgress]);
   const completeDaily = useCallback((event:DailyEvent, at=Date.now(), challenge?:string)=>{
     const today=campusDay(Date.now()), eventDay=campusDay(at);
@@ -215,6 +224,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const goal = nextGoal(progress);
   const xp = earnedXP(progress);
   const level = cadetLevel(xp);
+  const tier = englishTier(level.level);
+  const travelingMission = levelMissionTravel ? LEVEL_MISSIONS[levelMissionTravel] : null;
   const finished = quest.goals.every((g) => progress.goals.includes(g.id));
   const allDone = progress.completed.length === QUESTS.length;
   const currentPlace = talking || near || goal?.place || "courtyard";
@@ -267,9 +278,20 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const task=nextWorkTask(progress.fieldwork||freshFieldwork(),kind);
     requestAnimationFrame(()=>worldRef.current?.goToWork(task?.station||(kind==='garden'?'garden-board':'duty-board')));
   };
+  function openPlacePractice(request: PracticeRequest) {
+    const mission = request.mission ? LEVEL_MISSIONS[request.mission] : null;
+    if (mission && (level.level < TIER_LEVEL[mission.tier] || !nearStoryLocation(mission.area, playerPosition))) return;
+    const quizTier = mission?.tier ?? tier;
+    const key = request.mission ? `mission/${request.mission}` : `practice/${request.feeding ?? request.area}/${quizTier}`;
+    const previous = quizHistory.previous(key);
+    const questions = request.mission
+      ? levelMissionRound(request.mission, previous) : placePracticeRound(request.area, quizTier, previous, request.feeding);
+    quizHistory.record(key, questions.map(practiceQuestionKey));
+    setPlacePractice({ ...request, tier: quizTier, questions });
+  }
   const prepareFieldwork = (kind: WorkKind) => {
     closeActivities();
-    setPlacePractice({ area: kind === 'garden' ? 'vegetable-garden' : 'dormitory', work: kind });
+    openPlacePractice({ area: kind === 'garden' ? 'vegetable-garden' : 'dormitory', work: kind });
   };
   const closePlacePractice = useCallback(() => {
     setPlacePractice(null);
@@ -280,8 +302,10 @@ export function CampusGame({ account, onExpired, onLogout }: {
   }, [placePractice?.work]);
   function completePlacePractice() {
     if (!placePractice) return;
-    const { area, feeding, work, station } = placePractice;
-    completeDaily({type:'quiz'}, Date.now(), feeding || station ? undefined : `quiz/${area}`);
+    const { area, feeding, work, station, mission } = placePractice;
+    if (mission && level.level < TIER_LEVEL[LEVEL_MISSIONS[mission].tier]) { setPlacePractice(null); return; }
+    const achievement = mission ? `mission/${mission}` : feeding || station ? undefined : `quiz/${area}`;
+    completeDaily({type:'quiz'}, Date.now(), achievement);
     setPlacePractice(null);
     if (work) { beginFieldwork(work); return; }
     if (!feeding && !station) return;
@@ -295,13 +319,13 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setNotice(station ? 'Safety quiz passed. Hold E to throw the life ring.' : 'Food earned. At the feeding point, hold E to feed your animals.');
   }
   function openStationQuiz(id: DistrictStationId) {
-    if (id === 'rescue-ring') { setPlacePractice({area:'swimming',station:id}); return; }
+    if (id === 'rescue-ring') { openPlacePractice({area:'swimming',station:id}); return; }
     const pet = petForStation(id);
     if (!pet) return;
-    if (petStatus(progress.pets??{},pet).nextMealIn > 0) { setPlacePractice({area:'livestock'}); return; }
-    setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet});
+    if (petStatus(progress.pets??{},pet).nextMealIn > 0) { openPlacePractice({area:'livestock'}); return; }
+    openPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet});
   }
-  function completeStation(id: DistrictStationId) {
+  function completeStation(id: DistrictStationId, difficulty: EnglishTier = 'A1') {
     const pet = petForStation(id);
     let pets = progress.pets;
     if (pet) {
@@ -311,7 +335,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     }
     if (pet || id === 'rescue-ring') setStationPass(null);
     const next = recordStoryEvent(campaign,id);
-    const challenges = completeChallenge(progress.challenges,`station/${id}`);
+    if (id === 'balance' && level.level < TIER_LEVEL[difficulty]) return;
+    const challenge = id === 'balance' && difficulty !== 'A1' ? `station/${id}/${difficulty}` : `station/${id}`;
+    const challenges = completeChallenge(progress.challenges, challenge);
     const daily = id === 'balance' ? recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'}) : progress.daily;
     if (next !== campaign || pets !== progress.pets || challenges !== progress.challenges || daily !== progress.daily) {
       saveReward({...progress,campaign:next,pets,challenges,daily});
@@ -429,6 +455,21 @@ export function CampusGame({ account, onExpired, onLogout }: {
       `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
   };
+
+  function startLevelMission(id: LevelMissionId) {
+    const mission = LEVEL_MISSIONS[id];
+    if (level.level < TIER_LEVEL[mission.tier]) return;
+    closeActivities();
+    setStudyTravel(false);
+    if (nearStoryLocation(mission.area, playerPosition)) {
+      setLevelMissionTravel(null);
+      openPlacePractice({area:mission.area,mission:id});
+    } else {
+      setLevelMissionTravel(id);
+      goToZone(mission.area);
+      setNotice(`Go to the ${mission.place.toLowerCase()} to start ${mission.title}.`);
+    }
+  }
 
   const travelStory=(location:StoryLocation)=>{
     setMobileHudOpen(false);setStoryOpen(false);setAtlasOpen(false);setTalking(null);setTab('explore');stopSpeech();
@@ -682,6 +723,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
             competitionView={competitionView}
             onCompetition={venue=>{setCompetitionVenue(venue);setSwimOpen(true);}}
             avatar={progress.avatar}
+            cadetRank={level.level}
+            quizHistory={quizHistory}
             studying={classStudy}
             pets={progress.pets}
             stationPass={stationPass}
@@ -728,7 +771,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <small>{ACTIVITY_IDS.filter(id=>progress.activities?.[id]?.passed).length}/3</small><Icon name="arrow" size={16}/></button>
                 <button className="activities-launch swim-race-launch" lang="en" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={18}/>English competitions <small>Venues</small><Icon name="arrow" size={16}/></button>
                 <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small><Icon name="arrow" size={16}/></button>
-                <button className="activities-launch" lang="en" onClick={()=>setPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
+                <button className="activities-launch" lang="en" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={18}/>Practise English here<small>{areaName}</small></button>
                 {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" lang="en" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={18}/>{ACTIVITIES[id].title}</button>)}
               </div>
             </div>
@@ -839,8 +882,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
       )}
       {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??''}`}
         area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}
+        mission={placePractice.mission} tier={placePractice.tier} questions={placePractice.questions}
         purpose={placePractice.work?'work':placePractice.station?'rescue':undefined}
-        onExit={closePlacePractice} onFeed={pet=>setPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})}
+        onExit={closePlacePractice} onFeed={pet=>openPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})}
         onComplete={completePlacePractice}/>}
       {sportsJournal&&<SportsJournal kind={sportsJournal} day={day} progress={progress.daily} onClose={()=>setSportsJournal(null)} onWalk={walkToRegistration}/>}
       {friendsOpen&&<FriendsPanel username={account.username} onClose={()=>setFriendsOpen(false)} onRace={race=>{
@@ -848,7 +892,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         setFriendsOpen(false);
         walkToRegistration(COMPETITIONS[race.mode].station);
       }}/>}
-      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} venue={competitionVenue}
+      {swimOpen&&<CompetitionArena name={progress.name} avatar={progress.avatar} venue={competitionVenue} cadetRank={level.level} syncProgress={flush} quizHistory={quizHistory}
         invitation={invitedRace && COMPETITIONS[invitedRace.mode].station === competitionVenue ? invitedRace : null}
         onInvitationJoined={id=>{
           setInvitedRace(previous=>previous?.id===id?null:previous);
@@ -856,13 +900,20 @@ export function CampusGame({ account, onExpired, onLogout }: {
         }}
         onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
       {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveReward(updated);return true;}}/>}
+      {travelingMission && levelMissionTravel && !physicalWork && !modalOpen && !swimOpen && !talking && <div className="study-arrival level-mission-arrival" lang="en">
+        <p>{travelingMission.title} · {travelingMission.place}</p>
+        <button className="activity-button" disabled={!nearStoryLocation(travelingMission.area,playerPosition) || level.level < TIER_LEVEL[travelingMission.tier]}
+          onClick={()=>startLevelMission(levelMissionTravel)}>Start mission quiz</button>
+        <button className="activity-back" onClick={()=>setLevelMissionTravel(null)}>Cancel</button>
+      </div>}
       {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
       {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
         onAnswer={(chapter,word)=>{const result=answerStory(campaign,chapter,word,storyNearby);if(result.state!==campaign)saveProgress({...progress,campaign:result.state});return result.correct;}}
         onHint={chapter=>saveProgress({...progress,campaign:hintStory(campaign,chapter)})}
         onRetry={chapter=>saveProgress({...progress,campaign:retryStory(campaign,chapter)})}
         onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
-      {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setStudyTravel(true);goToZone('classrooms');}} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers)=>saveReward(finishActivity(progress,id,answers))}/>}
+      {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setLevelMissionTravel(null);setStudyTravel(true);goToZone('classrooms');}}
+        level={level.level} onLevelMission={startLevelMission} quizHistory={quizHistory} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers,quizTier)=>saveReward(finishActivity(progress,id,answers,quizTier))}/>}
 
       {tab === "menu" && (
         <div className="modal-backdrop">

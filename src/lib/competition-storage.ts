@@ -21,8 +21,8 @@ async function roomsCollection() {
 }
 
 function serialize(room: Room): StoredRoom {
-  const { view, profile, updated, retryAt, accountSeats, tokens, seen } = room;
-  return { view, profile, updated, retryAt, accountSeats: [...accountSeats], tokens: [...tokens], seen: [...seen] };
+  const { view, profile, updated, retryAt, previousQuestions, accountSeats, tokens, seen } = room;
+  return { view, profile, updated, retryAt, previousQuestions, accountSeats: [...accountSeats], tokens: [...tokens], seen: [...seen] };
 }
 
 function deserialize(state: StoredRoom): Room {

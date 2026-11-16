@@ -10,6 +10,8 @@ import { SPORTS_VENUES, SPORTS_VENUE_IDS, nearbySportsVenue, type SportsVenueId 
 import type {CompetitionView} from "./competition-arena";
 
 
+import { englishTier, TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
+import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { DistrictPrompt } from './district-prompt';
 import { createCampusDistricts } from '@/lib/campus-districts';
 import { advanceBalance, answerBalance, balancePosition, startBalance, type BalanceRun } from '@/lib/balance-challenge';
@@ -60,11 +62,13 @@ type Props = {
   pets?:PetCare;
   stationPass?:{station:string;expiresAt:number}|null;
   onStationQuiz?:(station:DistrictStationId)=>void;
+  cadetRank: number;
+  quizHistory: QuizHistory;
   swimOpen?:boolean;
   competitionView?:CompetitionView|null;
   onCompetition?:(venue:SportsVenueId)=>void;
   storyTarget?:{x:number;z:number};
-  onDistrictComplete?:(id:DistrictStationId)=>void;
+  onDistrictComplete?:(id:DistrictStationId,tier?:EnglishTier)=>void;
   studying?: boolean;
   fieldwork?: Fieldwork;
   workKind?: WorkKind | null;
@@ -103,6 +107,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
     pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
     avatar,
+    cadetRank, quizHistory,
     enabled,
     objective,
     conversation = null,
@@ -117,6 +122,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   ref,
 ) {
   const [districtFrame,setDistrictFrame]=useState<DistrictFrame|null>(null);
+  const [preferredBalanceTier, setPreferredBalanceTier] = useState<EnglishTier | null>(null);
+  const balanceTier = preferredBalanceTier && cadetRank >= TIER_LEVEL[preferredBalanceTier]
+    ? preferredBalanceTier : englishTier(cadetRank);
   const districtHoldRef=useRef<(hold:boolean)=>void>(()=>{});
   const balanceAnswerRef=useRef<(answer:string)=>void>(()=>{});
   const balanceCancelRef=useRef<()=>void>(()=>{});
@@ -127,7 +135,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   const actionRef = useRef<WorldHandle>(emptyActions());
   const fpsRef = useRef<HTMLSpanElement>(null);
   const callbacks = useRef({
-    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
     onNear,
     onInteract,
     enabled,
@@ -139,7 +147,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   });
   useEffect(() => {
     callbacks.current = {
-      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
       onNear,
       onInteract,
       enabled,
@@ -149,7 +157,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       onMove,
       onAreaChange,
     };
-  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, studying]);
+  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, studying]);
   useImperativeHandle(
     ref,
     () => ({
@@ -316,7 +324,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       balanceResult = null;
       if (districtActive.id === 'balance') {
         balanceReverse = Math.abs(districtStart.z - BALANCE_END.z) < Math.abs(districtStart.z - BALANCE_START.z);
-        balanceRun = startBalance(performance.now());
+        const { balanceTier, quizHistory } = callbacks.current;
+        const key = `balance/${balanceTier}`;
+        balanceRun = startBalance(performance.now(), Math.random, balanceTier, quizHistory.previous(key));
+        quizHistory.record(key, balanceRun.questions.map(question => question.prompt));
       }
     };
     balanceAnswerRef.current = answer => {
@@ -932,7 +943,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           const completed = stage.kind === 'done';
           if (completed) {
             districtComplete = 'balance';
-            callbacks.current.onDistrictComplete?.('balance');
+            callbacks.current.onDistrictComplete?.('balance', run.tier);
           }
           releaseDistrict(completed);
           districtProgress = completed ? 1 : 0;
@@ -1157,7 +1168,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           </button>
         ))}
       </div>
-      {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt key={districtFrame.id} frame={districtFrame} onHold={onDistrictHold} onAnswer={answer=>balanceAnswerRef.current(answer)} onCancel={()=>balanceCancelRef.current()}/>}
+      {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt key={districtFrame.id} frame={districtFrame} level={cadetRank} balanceTier={balanceTier} onBalanceTier={setPreferredBalanceTier} onHold={onDistrictHold} onAnswer={answer=>balanceAnswerRef.current(answer)} onCancel={()=>balanceCancelRef.current()}/>}
       <div className="campus-nameplate">
         <span>PHÂN HIỆU 1</span>
         <small>Trường Thiếu sinh quân miền Trung</small>

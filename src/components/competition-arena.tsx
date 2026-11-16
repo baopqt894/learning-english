@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
+import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { COMPETITIONS, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
 import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
 import type { FeedMessage } from '@/lib/competition-feed';
@@ -53,10 +55,15 @@ const recordMessages = {
   retrying: 'The server is retrying your record save. Stay here to see the result.',
 };
 
-export function CompetitionArena({ name, avatar, venue, invitation, onInvitationJoined, onView, onExit, onFinish }: {
+const raceHistoryKey = (mode: CompetitionId, tier: EnglishTier) => `race/${mode}/${tier}`;
+
+export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress, quizHistory, invitation, onInvitationJoined, onView, onExit, onFinish }: {
   name: string;
   avatar: number;
   venue: SportsVenueId;
+  cadetRank: number;
+  syncProgress: () => Promise<boolean>;
+  quizHistory: QuizHistory;
   invitation: InvitedRace | null;
   onInvitationJoined: (id: string) => void;
   onView: (view: CompetitionView | null) => void;
@@ -184,6 +191,8 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
 
   const mode = room?.mode ?? selected;
   const level = room?.difficulty ?? difficulty;
+  const tier = DIFFICULTIES[level].level;
+  const unlocked = cadetRank >= TIER_LEVEL[DIFFICULTIES[difficulty].level];
   const definition = COMPETITIONS[mode];
   const me = room?.members.find(m => m.id === session?.playerId);
   const isRacing = room?.phase === 'racing' && !!me && me.finishedAt === null;
@@ -209,8 +218,10 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   useEffect(() => {
     if (!roundId || roundStart === undefined || finishedAt == null || !wasHuman || creditedRound.current === creditKey) return;
     creditedRound.current = creditKey;
-    onFinish({ type: 'race', venue, streak: bestStreak, team: { together, threeEach } }, roundStart + 3000 + Math.round(finishedAt * 1000), correctCount >= 3 ? `race/${mode}` : undefined);
-  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak, creditKey, together, threeEach, correctCount, mode]);
+    const qualified = correctCount >= RECORD_MIN_CORRECT && cadetRank >= TIER_LEVEL[tier];
+    const challenge = qualified ? `race/${mode}${tier === 'A1' ? '' : `/${tier}`}` : undefined;
+    onFinish({ type: 'race', venue, streak: bestStreak, team: { together, threeEach } }, roundStart + 3000 + Math.round(finishedAt * 1000), challenge);
+  }, [roundId, roundStart, finishedAt, wasHuman, onFinish, venue, bestStreak, creditKey, together, threeEach, correctCount, mode, tier, cadetRank]);
 
   const perform = useCallback(async (task: () => Promise<void>) => {
     if (actionPending.current) return;
@@ -228,10 +239,13 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   }), [session, receive, perform]);
 
   const enter = (action: 'practice' | 'create' | 'join') => perform(async () => {
+    if (action !== 'join' && !unlocked) throw new Error(`Reach Level ${TIER_LEVEL[tier]} to unlock ${tier} racing.`);
+    if (action !== 'join' && tier !== 'A1' && !await syncProgress()) throw new Error('Save your cadet progress before opening this race.');
+    const previous = action === 'practice' ? quizHistory.previous(raceHistoryKey(selected, tier)) : undefined;
     const sent = Date.now();
     lastRevision.current = -1;
     calibrated.current = false;
-    const packet = await post<NewSeat>({ action, mode: selected, difficulty, venue, code, name: displayName, avatar });
+    const packet = await post<NewSeat>({ action, mode: selected, difficulty, venue, code, name: displayName, avatar, previous });
     const seat = { code: packet.room.code, token: packet.token, playerId: packet.playerId, venue };
     setSession(seat);
     setResume(null);
@@ -325,6 +339,11 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
   const inLobby = room?.phase === 'lobby';
   const finished = !!me && me.finishedAt !== null;
   const question = room && me && isRacing ? raceQuestion(room, me, me.answers.length - (feedback ? 1 : 0)) : null;
+  const practiceOrder = room?.format === 'practice' ? room.round?.order : undefined;
+  const practiceSeen = me ? me.answers.length + 1 : 0;
+  useEffect(() => {
+    if (practiceOrder && practiceSeen) quizHistory.record(raceHistoryKey(mode, tier), practiceOrder.slice(0, practiceSeen));
+  }, [practiceOrder, practiceSeen, quizHistory, mode, tier]);
   const remaining = room && me ? Math.max(0, questionSeconds(room) - (Math.max(0, time) - openedAt(me))) : 0;
   const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
   const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
@@ -374,7 +393,12 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
           </fieldset>
           <label className="race-level">Difficulty
             <select value={difficulty} onChange={event => setDifficulty(event.target.value as RaceDifficulty)} disabled={busy}>
-              {DIFFICULTY_IDS.map(id => <option value={id} key={id}>{DIFFICULTIES[id].label} ({DIFFICULTIES[id].level})</option>)}
+              {DIFFICULTY_IDS.map(id => {
+                const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
+                return <option value={id} key={id} disabled={cadetRank < required}>
+                  {item.label} ({item.level}){cadetRank < required ? ` · Level ${required} required` : ''}
+                </option>;
+              })}
             </select>
           </label>
           <p className="level-note">{DIFFICULTIES[difficulty].topic}. {DIFFICULTIES[difficulty].seconds} seconds per question.</p>
@@ -384,7 +408,7 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
           <p className="level-note">{format === 'practice' ? 'Your nickname appears on the campus record board when you qualify.' : 'Your nickname is visible to other players in your room.'}</p>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           <div className="swim-result-actions">
-            <button className="swim-primary" disabled={busy || !displayName.trim()} onClick={() => void enter(format === 'practice' ? 'practice' : 'create')}>
+            <button className="swim-primary" disabled={busy || !unlocked || !displayName.trim()} onClick={() => void enter(format === 'practice' ? 'practice' : 'create')}>
               {busy ? 'Connecting…' : format === 'practice' ? 'Start solo practice' : 'Create online room'} <Icon name="arrow" size={16}/>
             </button>
             <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
@@ -397,7 +421,7 @@ export function CompetitionArena({ name, avatar, venue, invitation, onInvitation
             </label>
             <button disabled={busy || code.length !== 6 || !displayName.trim()}>Join room</button>
           </form>
-          <p className="level-note" id="race-join-note">Joined rooms use the host’s level.</p>
+          <p className="level-note" id="race-join-note">Joined rooms use the host’s difficulty. Reach its required level to earn the first-clear XP.</p>
           </>}
           {resume && <button className="resume-race" disabled={busy} onClick={() => resumeSeat(resume)}>Resume previous race</button>}
         </div>

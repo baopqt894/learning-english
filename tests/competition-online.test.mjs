@@ -41,3 +41,26 @@ test('a new human can host an abandoned waiting room instead of leaving it perma
  roomAction({action:'ready',code:b.room.code,token:b.token,ready:true},now+3);
  assert.equal(roomAction({action:'start',code:b.room.code,token:b.token},now+4).room.phase,'racing');
 });
+
+test('a rematch and a new practice draw unseen race questions first when the bank has room', () => {
+ const start=1_800_001_000_000;
+ const {roomAction:act,roomSnapshot:snapshot}=createCompetitionEngine();
+ const seat=act({action:'create',mode:'sprint',difficulty:'intermediate',name:'Host'},start);
+ const auth={code:seat.room.code,token:seat.token};
+ const first=act({action:'start',...auth},start+1).room;
+ let race=first;
+ // Answer the first questions as a human so the server knows what was seen.
+ for(let index=0;index<5;index++){
+  const member=race.members[0], time=openedAt(member)+1;
+  race=act({action:'answer',...auth,roundId:first.round.id,questionIndex:index,choice:raceQuestion(race,member).answer},start+3001+Math.round(time*1000)).room;
+ }
+ const done=snapshot(auth.code,auth.token,start+63_000);
+ assert.equal(done.phase,'finished');
+ const seen=first.round.order.slice(0,done.members[0].answers.length+1);
+ assert.ok(seen.length<first.round.order.length);
+ act({action:'lobby',...auth},start+63_001);
+ const second=act({action:'start',...auth},start+63_002).room;
+ assert.ok(!seen.includes(second.round.order[0]));
+ const practice=act({action:'practice',mode:'sprint',difficulty:'intermediate',name:'Host',previous:seen},start+63_003,'a'.repeat(32));
+ assert.ok(!seen.includes(practice.room.round.order[0]));
+});
