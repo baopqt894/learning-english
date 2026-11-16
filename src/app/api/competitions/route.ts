@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { logCampusDatabaseError } from '@/lib/mongodb';
 import { ACCOUNT_COOKIE, signedInAccount } from '@/lib/account-server';
 import { competitionBoard, RoomError } from '@/lib/competition-server';
 import { changeCompetitionRoom, loadCompetitionRoom } from '@/lib/competition-storage';
@@ -36,5 +37,6 @@ export async function POST(request: NextRequest) {
 function failure(error: unknown) {
   if (error instanceof RoomError) return json({ error: error.message }, error.status);
   if (error instanceof SyntaxError) return json({ error: 'Invalid request.' }, 400);
+  logCampusDatabaseError('CampusQuest race request', error);
   return json({ error: 'The race service is temporarily unavailable. Please try again.' }, 503);
 }

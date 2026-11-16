@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logCampusDatabaseError } from '@/lib/mongodb';
 import {
   ACCOUNT_COOKIE, SESSION_LIFETIME, AccountError, accountSession, endSession,
   registerAccount, saveAccountProgress, signInAccount, signedInAccount,
@@ -9,6 +10,7 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 
 function failure(error: unknown) {
   if (error instanceof AccountError) return json({ error: error.message, current: error.current }, error.status);
+  logCampusDatabaseError('CampusQuest account request', error);
   return json({ error: 'Dữ liệu tạm thời chưa truy cập được. Hãy thử lại.' }, 503);
 }
 
