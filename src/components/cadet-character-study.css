@@ -6,3 +6,21 @@
 .character-study-panel fieldset { padding: 0; margin: 0 0 24px; border: 0; display: flex; flex-wrap: wrap; gap: 6px; }.character-study-panel legend { margin-bottom: 9px; font-size: 12px; font-weight: 600; }
 .character-study-panel button { min-height: 40px; padding: 8px 12px; background: #dde4cd; color: #294834; border: 0; border-radius: 5px; font-size: 12px; }.character-study-panel button[aria-pressed=true] { background: #35563f; color: #f3eed9; }.character-study-panel :is(button,a):focus-visible { outline: 3px solid #8b6539; outline-offset: 3px; }
 @media(max-width:700px) { .character-study-panel { width: 100%; min-height: 0; padding: 18px; position: absolute; bottom: 0; background: #edf0e2f5; }.character-study-panel h1 { font-size: 24px; margin: 12px 0 6px; }.character-study-panel p { font-size: 12px; margin-bottom: 10px; }.character-study-panel fieldset { display: inline-flex; margin: 4px 12px 10px 0; gap: 4px; }.character-study-panel legend { font-size: 10px; }.character-study-panel button { min-height: 36px; padding: 6px 9px; }.character-study-canvas { inset: 0 0 270px; }.character-study-panel > a:last-child { display: none; } }
+
+.character-study { display: grid; grid-template-columns: 300px minmax(0,1fr); }
+.character-study-canvas { position: sticky; top: 0; inset-inline: auto; bottom: auto; grid-column: 2; grid-row: 1; height: 100dvh; min-width: 0; }
+.character-study-panel { grid-column: 1; grid-row: 1; width: auto; }
+.character-study-select { display: grid; gap: 7px; margin: 0 0 24px; font-size: 12px; font-weight: 600; }
+.character-study-select select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; background: #dde4cd; color: #294834; border: 1px solid #9bad8c; border-radius: 5px; font: inherit; }
+.character-study canvas { touch-action: none; }
+.character-study-canvas[data-unavailable="true"]::after { content: 'Trình duyệt chưa mở được model 3D.'; display: block; text-align: center; margin: 20vh 24px 0; }
+.character-study-panel h1 { margin: 36px 0 12px; }
+.character-study-panel button { min-height: 44px; }
+@media(max-width:700px) {
+  .character-study { grid-template-columns: minmax(0,1fr); }
+  .character-study-canvas { position: relative; grid-column: 1; grid-row: 1; height: max(330px,55dvh); }
+  .character-study-panel { position: relative; grid-column: 1; grid-row: 2; padding: 18px 18px 24px; }
+  .character-study-panel h1 { margin: 12px 0 6px; }
+  .character-study-select { margin: 8px 0 12px; }
+  .character-study-panel > a:last-child { display: inline-block; margin-top: 8px; }
+}

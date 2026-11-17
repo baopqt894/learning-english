@@ -27,11 +27,11 @@ Cadet activities là bảng hoạt động bên cạnh mạch hội thoại. Ba 
 
 Ảnh chuẩn được lưu tại `docs/previews/farm-concept-reference.png`. Khu tăng gia dùng cổng gỗ mái ngói và biển nâu chữ kem, hàng rào tre sơn xanh trên chân gạch, nhà dụng cụ mở có mái tôn xanh, sáu luống chữ nhật, giàn đậu/cà chua phía sau, bồn nước kê bệ và bàn thu hoạch gần góc trước. Camera thao tác nhìn từ phía nam để thấy mặt nhân vật; nút View garden chuyển sang toàn cảnh. Ba luống tương tác có 12 cây/luống; cây, đất, nước và giỏ thay đổi theo thao tác thật. Hai học viên phụ chăm khu dự trữ, không thay đổi tiến độ của người chơi.
 
-## Expanded campus and approved character proportions
+## Dàn nhân vật chibi
 
-User approved keeping the proportions of concept 01 (`public/concepts/expanded-campus-v1/01-characters.png`): an approachable stylized adolescent with roughly five head heights, olive Vietnamese cadet clothing, red collar tabs and a small gold cap star. Preserve a natural body and leg length. The earlier oversized-head / compressed-body proportions are superseded. Faces and swept hair use continuous sculpted surfaces; hands, boots, cloth, equipment and articulated actions remain actual 3D geometry. Review the same model at `/character-study`.
+Concept đã duyệt ở `public/concepts/campus-chibi-lineup.webp` dùng đầu lớn, chân tay ngắn, nét mặt rõ và phụ kiện dễ nhận ra khi nhìn từ xa. An mang ba lô; Linh có tóc buộc và túi chéo; Minh có bản đồ và băng tay vàng. Cô Lan giữ kính tròn và sách; chú Hùng giữ ria, tạp dề và khay đồ ăn. Chân dung và avatar được render từ model 3D. Có thể xoay, xem gần và thử chuyển động tại `/character-study`.
 
-Four additional districts extend the existing school: animal care, confidence course, swimming pool and production fish pond. Each has a coherent purpose, a distinct ground treatment, appropriate working equipment, clear service paths and contextual English practice. Vegetation uses branching broadleaf, flowering, palm and bamboo forms. New geometry, atlas markers and collisions derive from `campus-districts-layout.ts`; the existing physical vegetable garden is preserved. English practice prompts are compact dark olive panels with a single hold action, an instruction and a contextual sentence. These free practices are repeatable without XP; the established graded activities retain their saved state and rewards.
+NPC mới mặc trang phục theo vai trò và có câu tiếng Anh tại từng khu. Khi đến gần, người chơi có thể trò chuyện, nghe và xem nghĩa. NPC đi lại theo các đoạn lối đi ngắn đã kiểm tra.
 
 ## Connected English learning campaign
 

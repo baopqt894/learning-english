@@ -19,6 +19,8 @@ import { DISTRICT_STATIONS, BALANCE_START, BALANCE_END, BALANCE_BEAM, DISTRICT_T
 import { FARM_LAYOUT } from "@/lib/campus-spaces";
 import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
+import { ResidentPrompt } from "./resident-prompt";
+import type { CampusResident } from "@/lib/campus-residents";
 import { animateCharacter } from "@/lib/campus-character";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
@@ -121,6 +123,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   },
   ref,
 ) {
+  const [nearResident, setNearResident] = useState<CampusResident | null>(null);
+  const [talkingResident, setTalkingResident] = useState<CampusResident | null>(null);
+  const residentAction = useRef<{ open: () => void; close: () => void; voice: (speaking: boolean) => void }>({
+    open: () => {}, close: () => {}, voice: () => {},
+  });
+  const onResidentVoice = useRef((speaking: boolean) => residentAction.current.voice(speaking)).current;
   const [districtFrame,setDistrictFrame]=useState<DistrictFrame|null>(null);
   const [preferredBalanceTier, setPreferredBalanceTier] = useState<EnglishTier | null>(null);
   const balanceTier = preferredBalanceTier && cadetRank >= TIER_LEVEL[preferredBalanceTier]
@@ -295,6 +303,26 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let localWork=callbacks.current.fieldwork||freshFieldwork();
     let lastWorkInput=callbacks.current.fieldwork;
     workScene.update(localWork,null,'hands',0,false,0,reducedMotion.matches);workScene.study(false);
+    let residentNear: CampusResident | null = null, residentSession: CampusResident | null = null;
+    let residentSpeaking = false;
+    residentAction.current = {
+      open() {
+        if (!residentNear || !callbacks.current.enabled) return;
+        residentSession = residentNear;
+        keys.clear();
+        route = [];
+        destination.visible = false;
+        setTalkingResident(residentSession);
+      },
+      close() {
+        if (!residentSession) return;
+        residentSession = null;
+        residentSpeaking = false;
+        setTalkingResident(null);
+        renderer.domElement.focus({ preventScroll: true });
+      },
+      voice(speaking) { residentSpeaking = speaking && !!residentSession; },
+    };
     let districtNear:typeof DISTRICT_STATIONS[number]|undefined, districtActive:typeof DISTRICT_STATIONS[number]|undefined;
     let districtElapsed=0,lastDistrictFrame=0,districtComplete:DistrictStationId|null=null,lastDistrictSignature='';
     const districtStart=new THREE.Vector3();
@@ -598,6 +626,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const keydown = (event: KeyboardEvent) => {
       if (photoSession || !callbacks.current.enabled) return;
       const key = event.key.toLowerCase();
+      if (residentSession) {
+        if (key === 'escape') { event.preventDefault(); residentAction.current.close(); }
+        return;
+      }
       if (districtActive?.id === 'balance') {
         if (key === 'escape') balanceCancelRef.current();
         const stage = balanceRun?.stage;
@@ -633,14 +665,17 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         resumeFollowing();
         route = [];
       }
-      if (key === "e" && !event.repeat && nearest)
-        callbacks.current.onInteract();
+      if (key === 'e' && !event.repeat) {
+        if (nearest) callbacks.current.onInteract();
+        else if (residentNear) { event.preventDefault(); residentAction.current.open(); }
+      }
     };
     const keyup = (event: KeyboardEvent) => {
       keys.delete(event.key.toLowerCase());if(event.key===' ')releaseWork();if(event.key.toLowerCase()==='e'&&districtActive?.id!=='balance')releaseDistrict();
     };
     const blur = () => keys.clear();
     const click = (event: PointerEvent) => {
+      if (residentSession) return;
       if (photoSession || !callbacks.current.enabled || event.button !== 0) return;
       renderer.domElement.focus({ preventScroll: true });
       const rect = renderer.domElement.getBoundingClientRect();
@@ -780,6 +815,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         if (callbacks.current.conversation || callbacks.current.workKind || callbacks.current.studying) {
           resumeFollowing();
         } else {
+          residentAction.current.close();
+          if (residentNear) { residentNear = null; setNearResident(null); }
           controls.update();
           campusOverview.mark(player.group.position.x, player.group.position.z);
           host.dataset.mapView = 'overview';
@@ -791,7 +828,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if(lastWorkInput!==callbacks.current.fieldwork){lastWorkInput=callbacks.current.fieldwork;localWork=lastWorkInput||freshFieldwork();}
       const workKind=callbacks.current.workKind||null;
       if(workKind!==lastWorkKind){releaseWork();lastWorkKind=workKind;keys.clear();if(!workKind){route=[];}if(!workKind)resetCamera(player.group.position.x,player.group.position.z);}
-      if(!callbacks.current.enabled){releaseWork();releaseDistrict();}
+      if(!callbacks.current.enabled){releaseWork();releaseDistrict();residentAction.current.close();}
       const activeConversation = callbacks.current.conversation ?? null;
       if (activeConversation !== conversationPlace) {
         if (activeConversation) {
@@ -817,7 +854,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         conversationPlace = activeConversation;
       }
       if (!callbacks.current.enabled) keys.clear();
-      controls.enabled = (callbacks.current.enabled || !!photoSession) && !returningFromConversation;
+      controls.enabled = (callbacks.current.enabled || !!photoSession) && !returningFromConversation && !residentSession;
       controls.enableDamping = !reducedMotion.matches;
       const cameraEase = reducedMotion.matches ? 1 : 1 - Math.exp(-dt * 5);
       if (conversationPlace || returningFromConversation) {
@@ -839,7 +876,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       } else controls.update();
       const pos = player.group.position;
       const lastX = pos.x, lastZ = pos.z;
-      if (callbacks.current.enabled && !photoSession && !holdingWork && !districtActive) {
+      if (callbacks.current.enabled && !photoSession && !holdingWork && !districtActive && !residentSession) {
         const horizontal = Number(keys.has("d") || keys.has("arrowright")) -
           Number(keys.has("a") || keys.has("arrowleft"));
         const vertical = Number(keys.has("w") || keys.has("arrowup")) -
@@ -1046,6 +1083,49 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         nearest = current;
         callbacks.current.onNear(current);
       }
+      let closestResident: CampusResident | null = null;
+      let closestDistance = 2.35 ** 2;
+      const canMeet = canPractise && !districtNear && !districtActive && !current && !nearbySportsVenue(pos.x, pos.z);
+      for (const person of environment.residents) {
+        const { rig, resident } = person;
+        const from = resident.route[0], to = resident.route[1];
+        const conversation = residentSession === resident;
+        let walking = false;
+        if (to && !reducedMotion.matches && !conversation) {
+          const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+          const leg = length / .72, loop = (person.time += dt) % (2 * leg + 4.2);
+          const reverse = loop >= leg + 2.1;
+          const step = reverse ? loop - leg - 2.1 : loop;
+          const fraction = Math.min(1, step / leg);
+          const progress = reverse ? 1 - fraction : fraction;
+          rig.group.position.x = THREE.MathUtils.lerp(from[0], to[0], progress);
+          rig.group.position.z = THREE.MathUtils.lerp(from[1], to[1], progress);
+          walking = step < leg;
+          if (walking) rig.group.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]) + (reverse ? Math.PI : 0);
+        }
+        const dx = pos.x - rig.group.position.x, dz = pos.z - rig.group.position.z;
+        const distance = dx * dx + dz * dz;
+        rig.group.visible = conversation || distance < 32 ** 2
+          || (!!photoSession && rig.group.position.distanceToSquared(controls.target) < 36 ** 2);
+        if (canMeet && distance < closestDistance) {
+          closestDistance = distance;
+          closestResident = resident;
+        }
+        if (!rig.group.visible) continue;
+        rig.group.position.y = campusFloorHeight(rig.group.position);
+        if (conversation || (!walking && distance < 4 ** 2)) rig.group.rotation.y = Math.atan2(dx, dz);
+        animateCharacter(rig, time / 1000 + person.time * .19, conversation && residentSpeaking, reducedMotion.matches);
+        const stride = walking ? Math.sin(person.time * 8) * .39 : 0;
+        rig.leftLeg.rotation.x = stride;
+        rig.rightLeg.rotation.x = -stride;
+        rig.knees[0].rotation.x = Math.max(0, -stride);
+        rig.knees[1].rotation.x = Math.max(0, stride);
+        if (walking) rig.body.position.y += Math.abs(stride) * .072;
+      }
+      if (residentNear !== closestResident) {
+        residentNear = closestResident;
+        setNearResident(closestResident);
+      }
       const elapsed = time / 1000;
       if (!reducedMotion.matches) {
         environment.windUniform.value = elapsed;
@@ -1084,7 +1164,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive);
+      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive && !residentSession);
       selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);
@@ -1169,6 +1249,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         ))}
       </div>
       {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt key={districtFrame.id} frame={districtFrame} level={cadetRank} balanceTier={balanceTier} onBalanceTier={setPreferredBalanceTier} onHold={onDistrictHold} onAnswer={answer=>balanceAnswerRef.current(answer)} onCancel={()=>balanceCancelRef.current()}/>}
+      {enabled && !workKind && !photoMode && !conversation && (talkingResident || nearResident) &&
+        <ResidentPrompt key={`${(talkingResident ?? nearResident)!.kind}-${!!talkingResident}`}
+          resident={(talkingResident ?? nearResident)!} open={!!talkingResident}
+          onOpen={() => residentAction.current.open()} onClose={() => residentAction.current.close()} onVoice={onResidentVoice}/>}
       <div className="campus-nameplate">
         <span>PHÂN HIỆU 1</span>
         <small>Trường Thiếu sinh quân miền Trung</small>

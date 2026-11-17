@@ -1,6 +1,5 @@
 .portrait-expression { position:absolute; top:0; left:50%; height:100%; width:auto; aspect-ratio:1; transform:translateX(-50%); background-size:200% 200%; background-repeat:no-repeat; animation:expression-change .18s ease-out; }
 .expression-0 { background-position:0 0; }.expression-1 { background-position:100% 0; }.expression-2 { background-position:0 100%; }.expression-3 { background-position:100% 100%; }
-.portrait-preload { position:absolute; opacity:0; pointer-events:none; }
 
 /* CampusQuest uses the 3D scene as its stage. The HUD occupies only its edges. */
 .campus-shell {
@@ -125,9 +124,9 @@
   width: 46px;
   height: 48px;
   border-radius: 5px;
-  background: #afbd8c url("/art/chibi-minh-hud.webp") 15% 0 / 350% auto no-repeat;
+  background: #afbd8c url("/art/model-an-hud.webp") center / cover no-repeat;
 }
-.cadet-portrait.avatar-1 { background-image: url("/art/chibi-linh-hud.webp"); background-position: center 8%; background-size: 145% auto; }
+.cadet-portrait.avatar-1 { background-image: url("/art/model-linh-hud.webp"); }
 .cadet-portrait.avatar-small { width: 36px; height: 36px; }
 .quest-tracker {
   margin-top: 10px;
@@ -671,3 +670,29 @@
 .hud-more-practice summary svg { rotate: 90deg; }
 .hud-more-practice[open] summary svg { rotate: -90deg; }
 .hud-more-practice .activities-launch { margin: 0; border-radius: 0; border: 0; border-top: 1px solid var(--line); }
+
+.campus-shell :is(.resident-open,.resident-card) {
+  position: absolute; z-index: 8; left: 50%; bottom: 88px; translate: -50% 0;
+  width: min(370px,calc(100% - 32px)); color: #f7ecd3; background: #18382d;
+  border-radius: 12px; box-shadow: 0 8px 26px #122b254f; pointer-events: auto;
+}
+.campus-shell .resident-open { display: flex; align-items: center; gap: 12px; padding: 10px 14px; text-align: left; }
+.resident-open > svg { color: #efc878; flex: none; }
+.resident-open > span { flex: 1; }
+.resident-open small,.resident-card small { display: block; color: #c8d9c0; font-size: 12px; }
+.resident-open kbd { color: #f3d291; padding: 3px 6px; border: 1px solid #8d9e7a; border-radius: 4px; }
+.resident-card { padding: 14px 16px; }
+.resident-card-heading { display: flex; justify-content: space-between; align-items: center; }
+.resident-card blockquote { margin: 10px 0; font-size: 16px; line-height: 1.45; }
+.resident-card p { color: #c8d9c0; margin: 0 0 10px; font-size: .875rem; }
+.resident-actions { display: flex; gap: 8px; }
+.resident-actions button,.resident-close { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 7px 10px; border-radius: 6px; border: 1px solid #819979; color: #faebc7; }
+.resident-actions button:hover,.resident-close:hover,.resident-open:hover { background: #27513e; }
+@media (max-width:620px) {
+  .campus-shell :is(.resident-open,.resident-card) { bottom: 140px; }
+  .resident-open kbd { display: none; }
+}
+
+.pause-list .character-study-link { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 8px 10px; color: var(--ink); border-bottom: 1px solid var(--line); text-decoration: none; }
+.pause-list .character-study-link svg { width: 20px; }
+.pause-list .character-study-link:hover { color: var(--accent); }

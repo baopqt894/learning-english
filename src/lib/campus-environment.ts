@@ -3,6 +3,7 @@ import { SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, 
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { CAMPUS_RESIDENTS } from "./campus-residents";
 import { PLACES, type Place } from "./game";
 import { createCampusSurfaces, createContactMaterial, seededRandom, worldAlignedUV } from "./campus-surfaces";
 import { createRoomShell, roomContainsPlayer } from "./campus-room-shell";
@@ -818,7 +819,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   const npcMarkers: Record<Place, THREE.Mesh> = {} as Record<Place, THREE.Mesh>;
   (Object.keys(PLACES) as Place[]).forEach((id) => {
     const [x, z] = PLACES[id].position;
-    const npc=character(x,z,id === "courtyard" ? "cadet" : id === "library" ? "library" : "canteen");
+    const npc=character(x,z,id === "courtyard" ? "minh" : id === "library" ? "library" : "canteen");
     npcs[id] = npc;
     const ring = mesh(
       new THREE.RingGeometry(0.48, 0.55, 40),
@@ -832,6 +833,13 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     );
     ring.rotation.x = -Math.PI / 2;
     npcMarkers[id] = ring;
+  });
+  const residents = CAMPUS_RESIDENTS.map((resident, index) => {
+    const [x, z] = resident.route[0];
+    const rig = character(x, z, resident.kind);
+    rig.group.rotation.y = resident.facing;
+    rig.group.visible = false;
+    return { resident, rig, time: index * .82 };
   });
   const selection = mesh(
     new THREE.RingGeometry(0.36, 0.41, 40),
@@ -1030,6 +1038,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     floor,
     player,
     npcs,
+    residents,
     selection,
     destination,
     flag,

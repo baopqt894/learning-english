@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   useCallback,
@@ -941,6 +942,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
               <button onClick={()=>openActivities()}><Icon name="leaf"/> Cadet activities · 3 hoạt động mới</button>
               <button onClick={() => navigate("teacher")}><Icon name="school" /> Góc giáo viên</button>
               <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> Hướng dẫn chơi</button>
+              <Link href="/character-study" className="character-study-link"><Icon name="users" /> Dàn nhân vật 3D</Link>
               <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> Bộ sưu tập hình ảnh</button>
               <button onClick={() => { navigate("explore"); setMobileHudOpen(false); worldRef.current?.overview(); }}><Icon name="compass" /> Xem toàn cảnh 3D</button>
               <button className="minimap-setting" onClick={() => setMapVisible(!mapVisible)} aria-pressed={mapVisible}><Icon name="map" /> Bản đồ nhỏ <span>{mapVisible ? "Bật" : "Tắt"}</span></button>
