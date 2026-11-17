@@ -42,6 +42,9 @@ import { FriendsButton, FriendsPanel, sendFriendsAction } from './friends-panel'
 import type { InvitedRace } from '@/lib/friends';
 import { COMPETITIONS } from '@/lib/competition-catalog';
 import { cadetLevel, completeChallenge } from '@/lib/challenge-xp';
+import { CHARACTER_PROFILES } from '@/lib/campus-character-profiles';
+import { RESIDENT_MISSIONS, matchResidentProof, startResidentMission, type ResidentKind, type ResidentProof } from '@/lib/resident-missions';
+import { shuffled } from '@/lib/question-rotation';
 import type { DistrictStationId } from '@/lib/campus-districts-layout';
 import { campusDay, currentDaily, dailyMissions, recordDaily, type DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
@@ -103,7 +106,7 @@ function Cadet({
   );
 }
 
-type PracticeRequest = {area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring';mission?:LevelMissionId};
+type PracticeRequest = {area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring';mission?:LevelMissionId;resident?:ResidentKind};
 
 const SYNC_LABELS = {
   saved: 'Tiến độ đã lưu vào tài khoản.',
@@ -281,6 +284,53 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const task=nextWorkTask(progress.fieldwork||freshFieldwork(),kind);
     requestAnimationFrame(()=>worldRef.current?.goToWork(task?.station||(kind==='garden'?'garden-board':'duty-board')));
   };
+  function acceptResidentMission(id: ResidentKind) {
+    if (progress.challenges?.includes(`resident/${id}`)) return;
+    const task = RESIDENT_MISSIONS[id].task;
+    const alreadyReported = task.type === 'work' && !!progress.fieldwork?.[task.work].reported;
+    const residentMissions = startResidentMission(progress.residentMissions, id, alreadyReported);
+    if (residentMissions !== progress.residentMissions) saveProgress({ ...progress, residentMissions });
+  }
+
+  function launchResidentMission(id: ResidentKind) {
+    if (progress.residentMissions?.[id] !== 'active') return;
+    const mission = RESIDENT_MISSIONS[id], task = mission.task;
+    setMobileHudOpen(false);
+    setLevelMissionTravel(null);
+    setStudyTravel(false);
+    switch (task.type) {
+      case 'work':
+        beginFieldwork(task.work);
+        break;
+      case 'station':
+        requestAnimationFrame(() => worldRef.current?.goToPractice(task.station));
+        setNotice(mission.summary);
+        break;
+      case 'visit':
+        goToZone(task.zone);
+        setNotice(mission.summary);
+        break;
+      case 'quiz':
+        setPlacePractice({ area: 'courtyard', resident: id, tier: 'A1',
+          questions: task.questions.map(question => ({ ...question, options: shuffled(question.options) })) });
+        break;
+    }
+  }
+
+  function claimResidentMission(id: ResidentKind) {
+    if (progress.residentMissions?.[id] !== 'ready') return;
+    const residentMissions = { ...progress.residentMissions };
+    delete residentMissions[id];
+    saveReward({ ...progress, residentMissions, challenges: completeChallenge(progress.challenges, `resident/${id}`) });
+  }
+
+  const recordResidentTask = useCallback((base: Progress, proof: ResidentProof) => {
+    const id = matchResidentProof(base.residentMissions, proof);
+    const updated = id ? { ...base, residentMissions: { ...base.residentMissions, [id]: 'ready' as const } } : base;
+    saveReward(updated);
+    if (id) setNotice(`Quay lại gặp ${CHARACTER_PROFILES[id].name} để báo cáo.`);
+  }, [saveReward]);
+
   function openPlacePractice(request: PracticeRequest) {
     const mission = request.mission ? LEVEL_MISSIONS[request.mission] : null;
     if (mission && (level.level < mission.level || !nearStoryLocation(mission.area, playerPosition))) return;
@@ -305,7 +355,13 @@ export function CampusGame({ account, onExpired, onLogout }: {
   }, [placePractice?.work]);
   function completePlacePractice() {
     if (!placePractice) return;
-    const { area, feeding, work, station, mission } = placePractice;
+    const { area, feeding, work, station, mission, resident } = placePractice;
+    if (resident) {
+      const daily = recordDaily(progress.daily, campusDay(Date.now()), { type: 'quiz' });
+      recordResidentTask({ ...progress, daily }, { type: 'quiz', resident });
+      setPlacePractice(null);
+      return;
+    }
     if (mission && level.level < LEVEL_MISSIONS[mission].level) { setPlacePractice(null); return; }
     const achievement = mission ? `mission/${mission}` : feeding || station ? undefined : `quiz/${area}`;
     completeDaily({type:'quiz'}, Date.now(), achievement);
@@ -342,9 +398,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const challenge = id === 'balance' && difficulty !== 'A1' ? `station/${id}/${difficulty}` : `station/${id}`;
     const challenges = completeChallenge(progress.challenges, challenge);
     const daily = id === 'balance' ? recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'}) : progress.daily;
-    if (next !== campaign || pets !== progress.pets || challenges !== progress.challenges || daily !== progress.daily) {
-      saveReward({...progress,campaign:next,pets,challenges,daily});
-    }
+    const updated = next !== campaign || pets !== progress.pets || challenges !== progress.challenges || daily !== progress.daily
+      ? { ...progress, campaign: next, pets, challenges, daily } : progress;
+    recordResidentTask(updated, { type: 'station', station: id });
   }
   useEffect(()=>{if(!physicalWork)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape'){worldRef.current?.holdWork(false);window.speechSynthesis?.cancel();setPhysicalWork(null);if(storyReturn.current){storyReturn.current=false;setStoryOpen(true);}}};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[physicalWork]);
 
@@ -428,6 +484,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const updateMapPlayer = useCallback((x: number, z: number) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
     setPlayerPosition(old=>old.x===x&&old.z===z?old:{x,z});
+    if (progress.residentMissions?.nam === 'active' && Math.hypot(x - classroom.x, z - classroom.z) < .85) {
+      recordResidentTask(progress, { type: 'visit', zone: 'classrooms' });
+    }
     const position = mapPosition(x, z);
     document
       .querySelectorAll<HTMLElement>(".campus-map-player")
@@ -435,7 +494,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         marker.style.left = position.left;
         marker.style.top = position.top;
       });
-  }, []);
+  }, [progress, recordResidentTask]);
   const walkToRegistration = (venue:SportsVenueId) => {
     setSportsJournal(null);
     setMobileHudOpen(false);
@@ -734,6 +793,11 @@ export function CampusGame({ account, onExpired, onLogout }: {
             studying={classStudy}
             pets={progress.pets}
             stationPass={stationPass}
+            residentMissions={progress.residentMissions}
+            completedChallenges={progress.challenges}
+            onResidentAccept={acceptResidentMission}
+            onResidentStart={launchResidentMission}
+            onResidentClaim={claimResidentMission}
             onStationQuiz={openStationQuiz}
             fieldwork={progress.fieldwork}
             workKind={physicalWork}
@@ -889,9 +953,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
           onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
         />
       )}
-      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??''}`}
+      {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??placePractice.resident??''}`}
         area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}
-        mission={placePractice.mission} tier={placePractice.tier} questions={placePractice.questions}
+        mission={placePractice.mission} resident={placePractice.resident} tier={placePractice.tier} questions={placePractice.questions}
         purpose={placePractice.work?'work':placePractice.station?'rescue':undefined}
         onExit={closePlacePractice} onFeed={pet=>openPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})}
         onComplete={completePlacePractice}/>}
@@ -908,7 +972,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
           void sendFriendsAction({action:'dismiss-invite',id}).catch(()=>{});
         }}
         onView={setCompetitionView} onExit={closeSwim} onFinish={completeDaily}/>}
-      {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;saveReward(updated);return true;}}/>}
+      {physicalWork&&<FieldworkHud key={physicalWork} kind={physicalWork} value={progress.fieldwork||freshFieldwork()} tool={workTool} frame={workFrame} saveAvailable={saveAvailable} onTool={tool=>{worldRef.current?.holdWork(false);setWorkTool(tool);}} onGo={id=>worldRef.current?.goToWork(id)} onHold={hold=>worldRef.current?.holdWork(hold)} onOverview={wide=>worldRef.current?.viewWork(wide)} onExit={leaveWork} onReplay={()=>{worldRef.current?.holdWork(false);const f={...(progress.fieldwork||freshFieldwork()),[physicalWork]:freshFieldwork()[physicalWork]};saveProgress({...progress,fieldwork:f});setWorkTool('hands');const t=nextWorkTask(f,physicalWork);if(t)worldRef.current?.goToWork(t.station);}} onReport={text=>{if(!workFrame.near)return false;const updated=reportWork(progress,physicalWork,text);if(updated===progress)return false;recordResidentTask(updated,{type:'work',work:physicalWork});return true;}}/>}
       {travelingMission && levelMissionTravel && !physicalWork && !modalOpen && !swimOpen && !talking && <div className="study-arrival level-mission-arrival" lang="en">
         <p>{travelingMission.title} · {travelingMission.place}</p>
         <button className="activity-button" disabled={!nearStoryLocation(travelingMission.area,playerPosition) || level.level < travelingMission.level}
@@ -923,6 +987,13 @@ export function CampusGame({ account, onExpired, onLogout }: {
         onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
       {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setLevelMissionTravel(null);setStudyTravel(true);goToZone('classrooms');}}
         level={level.level} onLevelMission={startLevelMission} quizHistory={quizHistory}
+        onWalkToResident={id=>{
+          closeActivities();
+          setMobileHudOpen(false);
+          setStudyTravel(false);
+          setLevelMissionTravel(null);
+          requestAnimationFrame(()=>worldRef.current?.goToResident(id));
+        }}
         onWalkToBeam={()=>{
           closeActivities();
           setMobileHudOpen(false);

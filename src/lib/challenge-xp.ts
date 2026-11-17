@@ -1,6 +1,7 @@
 import { DISTRICT_STATIONS } from './campus-districts-layout.ts';
 import { COMPETITIONS } from './competition-catalog.ts';
 import { LEVEL_MISSIONS } from './cadet-tiers.ts';
+import { RESIDENT_MISSIONS } from './resident-missions.ts';
 import { PLACE_PRACTICE } from './place-practice.ts';
 
 const awards = new Map<string, number>([
@@ -11,6 +12,7 @@ const awards = new Map<string, number>([
   ]),
   ['station/balance/A2', 80],
   ['station/balance/B1', 110],
+  ...Object.entries(RESIDENT_MISSIONS).map(([id, mission]): [string, number] => [`resident/${id}`, mission.xp]),
   ...Object.entries(LEVEL_MISSIONS).map(([id, mission]): [string, number] => [`mission/${id}`, mission.xp]),
 ]);
 

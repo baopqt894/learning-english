@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PLACE_PRACTICE, type PlaceQuestion } from '@/lib/place-practice';
 import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
+import { RESIDENT_MISSIONS, type ResidentKind } from '@/lib/resident-missions';
 import { isTypedAnswerCorrect, missionAudioPath } from '@/lib/mission-exercises';
 import { PETS, petStatus, type PetCare, type PetId } from '@/lib/pet-care';
 import { Icon } from './icon';
@@ -16,6 +17,7 @@ type Props = {
   care: PetCare;
   purpose?: 'work' | 'rescue';
   mission?: LevelMissionId;
+  resident?: ResidentKind;
   tier: EnglishTier;
   questions: PlaceQuestion[];
   onFeed: (id: PetId) => void;
@@ -23,21 +25,22 @@ type Props = {
   onExit: () => void;
 };
 
-export function PlacePractice({ area, feeding, care, purpose, mission, tier, questions, onFeed, onComplete, onExit }: Props) {
+export function PlacePractice({ area, feeding, care, purpose, mission, resident, tier, questions, onFeed, onComplete, onExit }: Props) {
   const [index, setIndex] = useState(0);
   const [showQuiz, setShowQuiz] = useState(!!feeding || !!mission || area !== 'livestock');
   const panel = useRef<HTMLElement>(null);
   const question = questions[index];
   const lesson = PLACE_PRACTICE[area] ?? PLACE_PRACTICE.courtyard;
   const assignment = mission ? LEVEL_MISSIONS[mission] : null;
-  const title = feeding ? `Earn food for your ${PETS[feeding].name.toLowerCase()}` : assignment?.title ?? lesson.title;
-  const brief = assignment?.brief ?? (feeding ? 'Answer all three questions, then feed directly in 3D.'
+  const residentMission = resident ? RESIDENT_MISSIONS[resident] : null;
+  const title = feeding ? `Earn food for your ${PETS[feeding].name.toLowerCase()}` : residentMission?.title ?? assignment?.title ?? lesson.title;
+  const brief = residentMission?.summary ?? assignment?.brief ?? (feeding ? 'Answer all three questions, then feed directly in 3D.'
     : purpose === 'work' ? 'Pass the English quiz to start the 3D assignment.'
     : purpose === 'rescue' ? 'Pass the safety quiz to unlock the rescue throw.'
     : 'Practise English for this part of the school.');
-  const nextAction = assignment ? 'Finish mission' : feeding ? 'Collect food and go to pen'
+  const nextAction = residentMission ? 'Finish assignment' : assignment ? 'Finish mission' : feeding ? 'Collect food and go to pen'
     : purpose === 'work' ? 'Start 3D assignment' : purpose === 'rescue' ? 'Unlock rescue throw' : 'Continue exploring';
-  const result = assignment ? 'You completed the English exercises for this assignment.'
+  const result = residentMission ? 'Return to the person who gave you this assignment to report in English.' : assignment ? 'You completed the English exercises for this assignment.'
     : feeding ? 'Your food portion is ready. Walk to the highlighted feeding point and hold E to feed your animals.'
     : purpose === 'work' ? 'Your assignment is ready. Follow the instructions at the work site.'
     : purpose === 'rescue' ? 'Walk to the marked point on the dry deck to throw the ring.'
@@ -59,7 +62,7 @@ export function PlacePractice({ area, feeding, care, purpose, mission, tier, que
       {!showQuiz ? <AnimalCare care={care} onFeed={onFeed} onPractice={() => setShowQuiz(true)}/>
         : question ? <PracticeStep key={index} question={question} index={index} tier={tier} onNext={() => setIndex(index + 1)}/>
         : <div className="practice-complete">
-          <Icon name="check" size={32}/><h3>{assignment ? 'Mission complete' : 'All three solved!'}</h3>
+          <Icon name="check" size={32}/><h3>{residentMission ? 'Ready to report' : assignment ? 'Mission complete' : 'All three solved!'}</h3>
           <p>{result}</p>
           <button type="button" className="practice-primary" onClick={onComplete}>{nextAction}</button>
         </div>}

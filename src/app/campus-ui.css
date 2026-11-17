@@ -696,3 +696,17 @@
 .pause-list .character-study-link { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 8px 10px; color: var(--ink); border-bottom: 1px solid var(--line); text-decoration: none; }
 .pause-list .character-study-link svg { width: 20px; }
 .pause-list .character-study-link:hover { color: var(--accent); }
+
+.campus-shell .resident-card { max-height: calc(100dvh - 130px); overflow-y: auto; overscroll-behavior: contain; }
+.resident-mission-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 12px; margin-top: 9px; padding-top: 9px; border-top: 1px solid #536e5d; }
+.resident-mission-heading h3 { margin: 0; font-size: 1rem; }
+.resident-mission-heading > span { color: #f4d290; flex: none; font-size: .75rem; }
+.resident-replies { display: grid; gap: 6px; margin-top: 12px; }
+.resident-replies button { min-height: 44px; padding: 8px 10px; border-radius: 6px; border: 1px solid #859b79; font-size: .88rem; text-align: left; }
+.resident-replies button:hover, .resident-replies button[aria-pressed="true"] { background: #29513d; }
+.resident-replies button:disabled { opacity: .72; }
+.resident-replies button:disabled[aria-pressed="true"] { opacity: 1; }
+.resident-card .resident-feedback,.resident-card .resident-task { margin: 10px 0 8px; }
+.resident-card .resident-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border-radius: 6px; background: #f1ca77; color: #293723; font-weight: 700; }
+.resident-card button:focus-visible { outline: 2px solid #fae4ab; outline-offset: 2px; }
+@media (max-width:620px) { .campus-shell .resident-card { max-height: calc(100dvh - 172px); } }

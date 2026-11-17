@@ -5,10 +5,12 @@ import { LEVEL_MISSIONS, LEVEL_MISSION_IDS, englishTier, type EnglishTier, type 
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import type { Progress } from '@/lib/game';
 import { Icon } from './icon';
+import { ResidentMissionIndex } from './resident-mission-index';
+import type { ResidentKind } from '@/lib/resident-missions';
 import type { ZoneId } from '@/lib/campus-map';
 
-type Props={level:number;quizHistory:QuizHistory;onLevelMission:(id:LevelMissionId)=>void;onWalkToBeam:()=>void;onStudy:(active:boolean)=>void;onFieldwork:(kind:'garden'|'duty')=>void;inClassroom:boolean;onStudyTravel:()=>void;progress:Progress;saveAvailable:boolean;onClose:()=>void;onTravel:(zone:ZoneId)=>void;onComplete:(id:ActivityId,answers:ActivityAnswer[],tier:EnglishTier)=>void;initial?:ActivityId};
-export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComplete,initial,onFieldwork,inClassroom,onStudyTravel,onStudy,level,quizHistory,onLevelMission,onWalkToBeam}:Props){
+type Props={level:number;quizHistory:QuizHistory;onLevelMission:(id:LevelMissionId)=>void;onWalkToBeam:()=>void;onWalkToResident:(id:ResidentKind)=>void;onStudy:(active:boolean)=>void;onFieldwork:(kind:'garden'|'duty')=>void;inClassroom:boolean;onStudyTravel:()=>void;progress:Progress;saveAvailable:boolean;onClose:()=>void;onTravel:(zone:ZoneId)=>void;onComplete:(id:ActivityId,answers:ActivityAnswer[],tier:EnglishTier)=>void;initial?:ActivityId};
+export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComplete,initial,onFieldwork,inClassroom,onStudyTravel,onStudy,level,quizHistory,onLevelMission,onWalkToBeam,onWalkToResident}:Props){
  const panelRef=useRef<HTMLElement>(null);
  const [selected,setSelected]=useState<ActivityId|null>(initial||null);
  const [runTier,setRunTier]=useState<EnglishTier>(()=>englishTier(level));
@@ -50,6 +52,7 @@ export function CampusActivities({progress,saveAvailable,onClose,onTravel,onComp
   {!saveAvailable&&<p className="activity-warning" role="status">Progress cannot be saved on this browser. Keep this page open.</p>}
   {!selected ? <>
     <LevelMissionIndex level={level} challenges={progress.challenges} onChoose={onLevelMission}/>
+    <ResidentMissionIndex progress={progress} onWalk={onWalkToResident}/>
     <details className="mission-disclosure campus-practice-disclosure">
       <summary><span>Campus practice</span><Icon name="chevron" size={18}/></summary>
       <p>Finish garden and dormitory duty to unlock the classroom challenge.</p>

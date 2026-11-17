@@ -21,6 +21,7 @@ import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
 import { ResidentPrompt } from "./resident-prompt";
 import type { CampusResident } from "@/lib/campus-residents";
+import type { ResidentKind, ResidentMissionProgress } from '@/lib/resident-missions';
 import { animateCharacter } from "@/lib/campus-character";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
@@ -45,6 +46,7 @@ export type WorldHandle = {
   fieldworkAvailable: () => boolean;
   goToWork: (station: string) => void;
   goToPractice:(id:DistrictStationId)=>void;
+  goToResident: (id: ResidentKind) => void;
   holdWork: (holding: boolean) => void;
   viewWork: (wide: boolean) => void;
   goTo: (place: Place) => void;
@@ -62,6 +64,11 @@ export type WorldHandle = {
 };
 type Props = {
   pets?:PetCare;
+  residentMissions?: ResidentMissionProgress;
+  completedChallenges?: readonly string[];
+  onResidentAccept: (id: ResidentKind) => void;
+  onResidentStart: (id: ResidentKind) => void;
+  onResidentClaim: (id: ResidentKind) => void;
   stationPass?:{station:string;expiresAt:number}|null;
   onStationQuiz?:(station:DistrictStationId)=>void;
   cadetRank: number;
@@ -90,7 +97,7 @@ type Props = {
   onAreaChange?: (name: string) => void;
 };
 const emptyActions = (): WorldHandle => ({
-  goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
+  goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{},goToResident:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
   goTo: () => {},
   recenter: () => {},
   zoom: () => {},
@@ -109,7 +116,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
     pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
     avatar,
-    cadetRank, quizHistory,
+    cadetRank, quizHistory, residentMissions, completedChallenges, onResidentAccept, onResidentStart, onResidentClaim,
     enabled,
     objective,
     conversation = null,
@@ -172,6 +179,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       goToRegistration:venue=>actionRef.current.goToRegistration(venue),
       openRegistration:()=>actionRef.current.openRegistration(),
       goToPractice:id=>actionRef.current.goToPractice(id),
+      goToResident:id=>actionRef.current.goToResident(id),
       fieldworkAvailable: () => actionRef.current.fieldworkAvailable(),
       goToWork: (station) => actionRef.current.goToWork(station),
       holdWork: (holding) => actionRef.current.holdWork(holding),
@@ -558,6 +566,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return true;
       },
       goToPractice:id=>districtTravelRef.current(id),
+      goToResident(id) {
+        const person = environment.residents.find(({ resident }) => resident.kind === id);
+        if (!person) return;
+        const [start, end = start] = person.resident.route;
+        renderer.domElement.focus({ preventScroll: true });
+        walkTo((start[0] + end[0]) / 2, (start[1] + end[1]) / 2);
+      },
       fieldworkAvailable: () => !renderer.getContext().isContextLost(),
       viewWork: (wide) => { workWide=wide; },
       goToWork: (id) => { const station=WORK_STATIONS.find(s=>s.id===id); if(station){renderer.domElement.focus({preventScroll:true});releaseWork();workMessage='';walkTo(station.approach.x,station.approach.z);} },
@@ -1218,6 +1233,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     actionRef.current.setQuality(highQuality);
   }, [highQuality, avatar]);
 
+  const presentResident = talkingResident ?? nearResident;
+  const residentStatus = presentResident ? completedChallenges?.includes(`resident/${presentResident.kind}`)
+    ? 'complete' : residentMissions?.[presentResident.kind] : undefined;
   return (
     <div className="campus-world">
       <div className="world-canvas" ref={hostRef} />
@@ -1249,10 +1267,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         ))}
       </div>
       {enabled&&!workKind&&!photoMode&&!conversation&&districtFrame&&<DistrictPrompt key={districtFrame.id} frame={districtFrame} level={cadetRank} balanceTier={balanceTier} onBalanceTier={setPreferredBalanceTier} onHold={onDistrictHold} onAnswer={answer=>balanceAnswerRef.current(answer)} onCancel={()=>balanceCancelRef.current()}/>}
-      {enabled && !workKind && !photoMode && !conversation && (talkingResident || nearResident) &&
-        <ResidentPrompt key={`${(talkingResident ?? nearResident)!.kind}-${!!talkingResident}`}
-          resident={(talkingResident ?? nearResident)!} open={!!talkingResident}
-          onOpen={() => residentAction.current.open()} onClose={() => residentAction.current.close()} onVoice={onResidentVoice}/>}
+      {enabled && !workKind && !photoMode && !conversation && presentResident &&
+        <ResidentPrompt key={`${presentResident.kind}-${!!talkingResident}`} resident={presentResident}
+          open={!!talkingResident} status={residentStatus}
+          onOpen={() => residentAction.current.open()} onClose={() => residentAction.current.close()} onVoice={onResidentVoice}
+          onAccept={() => onResidentAccept(presentResident.kind)}
+          onStart={() => { residentAction.current.close(); onResidentStart(presentResident.kind); }}
+          onClaim={() => onResidentClaim(presentResident.kind)}/>}
       <div className="campus-nameplate">
         <span>PHÂN HIỆU 1</span>
         <small>Trường Thiếu sinh quân miền Trung</small>
