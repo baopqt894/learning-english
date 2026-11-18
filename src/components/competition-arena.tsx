@@ -376,7 +376,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
         </div>
       ) : boardOpen ? (
-        <CompetitionRecordBoard key={`${mode}-${level}`} mode={mode} difficulty={level} onBack={() => setBoardOpen(false)}/>
+        <CompetitionRecordBoard key={`${mode}-${level}`} mode={mode} difficulty={level} avatar={avatar} nickname={name} onBack={() => setBoardOpen(false)}/>
       ) : !room ? (
         <div className="swim-panel competition-desk">
           <fieldset className="race-event-picker">
@@ -436,7 +436,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           <div className="competition-seats">
             {slots.map((member, index) => member ? (
               <div key={member.id} className="competition-seat">
-                <span style={{ background: member.colour }}>{member.name.slice(0, 1)}</span>
+                <span aria-hidden="true" className={`cadet-portrait avatar-${member.avatar===1?1:0}`} style={{boxShadow:`0 0 0 2px ${member.colour}`}}/>
                 <strong>{member.name}{member.id === session?.playerId ? ' (you)' : ''}</strong>
                 <small>{member.kind === 'bot' ? 'Bot · Ready' : member.ready ? 'Ready' : 'Not ready'}</small>
                 {isHost && member.kind === 'bot' && <button aria-label={`Remove ${member.name}`} disabled={busy} onClick={() => void act('remove', { playerId: member.id })}><Icon name="close" size={14}/></button>}

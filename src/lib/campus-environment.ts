@@ -1,3 +1,4 @@
+import { createDiningRoom } from './dining-room';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
@@ -28,7 +29,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   const random = seededRandom(49257);
   const roofs: Parameters<typeof addCampusRoofs>[1] = [];
   const characterGroups: THREE.Group[] = [];
-  const roomShells: {building:(typeof EXPANSION_BUILDINGS)[number];shell:THREE.Group}[]=[];
+  const roomShells: {building:(typeof EXPANSION_BUILDINGS)[number];shell:THREE.Group; interior?:THREE.Group}[]=[];
   const mat = (color: number, roughness = 0.8, metalness = 0) => {
     const key = `${color}/${roughness}/${metalness}`;
     if (!palette.has(key))
@@ -432,7 +433,10 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
-      const shell=createRoomShell(b);scene.add(shell);roomShells.push({building:b,shell});
+      const shell=createRoomShell(b);scene.add(shell);
+      const interior=b.kind==="dining" ? createDiningRoom(b) : undefined;
+      if(interior)scene.add(interior);
+      roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
       box(
         b.w,
@@ -510,19 +514,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
             b.z + 0.6,
           );
       }
-      if (b.kind === "dining") {
-        box(b.w - 1.4, 0.85, 0.7, 0x9eaf9b, b.x, 0.7, b.z - b.d / 2 + 0.8);
-        for (let i = 0; i < 6; i++)
-          cylinder(
-            0.22,
-            0.22,
-            0.06,
-            0xf0e5c7,
-            b.x - 3.5 + i * 1.4,
-            1.16,
-            b.z - b.d / 2 + 0.8,
-          );
-      }
       return;
     }
     surfaceBox(b.w, b.h, b.d, finish("stucco", 0xe7d1a9), b.x, b.h / 2 + 0.23, b.z, 2.6);
@@ -559,7 +550,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   addCampusRoofs(scene, roofs, finish("clay", 0xffffff));
 
   ROOM_FURNITURE.forEach((f) => {
-    if (f.kind === "stage") return;
+    if (f.kind === "stage" || f.kind === "dining") return;
     box(f.w, 0.12, f.d, 0xc59c66, f.x, 0.97, f.z);
     for (const side of [-1, 1]) {
       box(0.08, 0.65, 0.08, 0x686f5a, f.x + side * (f.w / 2 - 0.2), 0.59, f.z);
@@ -588,9 +579,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
             1.1,
             f.z + 0.12,
           );
-      } else if (f.kind === "dining") {
-        cylinder(0.22, 0.22, 0.035, 0xf3ebce, f.x + side * 0.65, 1.055, f.z);
-        sphere(0.09, 0xd38a50, f.x + side * 0.65, 1.12, f.z, scene, 6);
       } else box(0.45, 0.045, 0.32, 0x638997, f.x + side * 0.65, 1.05, f.z);
     }
   });
@@ -957,7 +945,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   // avoiding a separate GPU draw for every tile, frame, branch and flowerpot.
   const protectedObjects = new Set<THREE.Object3D>([
     ...characterGroups,
-    ...roomShells.map(r=>r.shell),
+    ...roomShells.flatMap(r=>r.interior?[r.shell,r.interior]:[r.shell]),
     ...butterflies,
     ...ripples,
     ...Object.values(npcMarkers),
@@ -1009,9 +997,9 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   return {
     updateRooms(point:{x:number;z:number},overview=false){
       let interior="outside";
-      for(const {building:b,shell} of roomShells){
+      for(const {building:b,shell,interior:details} of roomShells){
         const inside=!overview&&roomContainsPlayer(b,point,!shell.visible);
-        shell.visible=!inside;if(inside)interior=b.name;
+        shell.visible=!inside;if(details)details.visible=inside;if(inside)interior=b.name;
       }
       return interior;
     },

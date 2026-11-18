@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import type { LearningBoard } from '@/lib/learning-standings';
 import { CompetitionRecordBoard } from './competition-record-board';
+import type { SportsVenueId } from '@/lib/sports-layout';
+import { PersonalStanding, RankingAvatar } from './ranking-identity';
 import { Icon } from './icon';
 import './campus-rankings.css';
 
-function ChallengeStandings({ flush }: { flush: () => Promise<boolean> }) {
+function ChallengeStandings({ flush, avatar, nickname }: { flush: () => Promise<boolean>; avatar:number; nickname:string }) {
   const [board, setBoard] = useState<LearningBoard | 'loading' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   const [synced, setSynced] = useState(true);
@@ -27,27 +29,28 @@ function ChallengeStandings({ flush }: { flush: () => Promise<boolean> }) {
     return () => controller.abort();
   }, [attempt, flush]);
   return <>
-    <p>Earn one point for each different area quiz, level mission or NPC assignment you complete.</p>
+
     {!synced && <p role="status">Showing saved results. Your latest progress is still syncing.</p>}
     {board === 'loading' ? <p role="status">Loading standings…</p>
       : board === 'error' ? <div role="status">Couldn’t load standings. <button onClick={() => { setBoard('loading'); setAttempt(n => n + 1); }}>Retry</button></div>
       : <>
-        <div className="rank-personal"><span>Your standing</span><strong>{board.personal ? '#' + board.personal.rank + ' · ' + board.personal.points + ' pts' : 'Complete your first challenge'}</strong></div>
+        <PersonalStanding avatar={avatar} name={nickname} title="Your standing" value={board.personal ? `#${board.personal.rank} · ${board.personal.points} pts` : '0 pts'}/>
         {board.entries.length ? <table className="records-table"><caption>Top 10 cadets</caption>
           <thead><tr><th scope="col">Rank</th><th scope="col">Cadet</th><th scope="col">Points</th></tr></thead>
           <tbody>{board.entries.map((entry, i) => <tr key={i} data-me={entry.isMe}>
-            <td>#{entry.rank}</td><td>{entry.name}{entry.isMe && ' (you)'}</td><td>{entry.points}</td>
-          </tr>)}</tbody></table> : <p>No completed challenges yet. Finish an area quiz to set the first score.</p>}
+            <td>#{entry.rank}</td><td><div className="rank-cadet"><RankingAvatar avatar={entry.avatar}/><span>{entry.name}{entry.isMe && ' (you)'}</span></div></td><td>{entry.points}</td>
+          </tr>)}</tbody></table> : <div className="rank-empty"><Icon name="book" size={24}/><h3>No scores yet</h3><p>Finish an area quiz to post the first score.</p></div>}
       </>}
+    <p className="rank-rule">Each new area quiz, level mission or NPC assignment earns one point.</p>
   </>;
 }
 
-export function CampusLeaderboards({ flush, onClose }: { flush: () => Promise<boolean>; onClose: () => void }) {
+export function CampusLeaderboards({ flush, avatar, nickname, onVenue, onClose }: { flush: () => Promise<boolean>; avatar: number; nickname: string; onVenue:(id: SportsVenueId)=>void; onClose: () => void }) {
   const [tab, setTab] = useState<'learning' | 'race'>('learning');
   return <div className="modal-backdrop"><section className="campus-rankings" role="dialog" aria-modal="true" aria-labelledby="rank-title" lang="en">
-    <header><h2 id="rank-title">Leaderboards</h2><button aria-label="Close leaderboards" onClick={onClose}><Icon name="close"/></button></header>
-    <div className="rank-tabs"><button aria-pressed={tab === 'learning'} onClick={() => setTab('learning')}>English challenges</button>
-      <button aria-pressed={tab === 'race'} onClick={() => setTab('race')}>Race times</button></div>
-    {tab === 'learning' ? <ChallengeStandings flush={flush}/> : <CompetitionRecordBoard mode="swimming" difficulty="beginner"/>}
+    <header><span className="rank-crest"><Icon name="trophy" size={25}/></span><h2 id="rank-title">Leaderboards</h2><button aria-label="Close leaderboards" onClick={onClose}><Icon name="close"/></button></header>
+    <div className="rank-tabs"><button aria-pressed={tab === 'learning'} onClick={() => setTab('learning')}><Icon name="book" size={16}/> English challenges</button>
+      <button aria-pressed={tab === 'race'} onClick={() => setTab('race')}><Icon name="clock" size={16}/> Race times</button></div>
+    <div className="rank-content">{tab === 'learning' ? <ChallengeStandings flush={flush} avatar={avatar} nickname={nickname}/> : <CompetitionRecordBoard mode="swimming" difficulty="beginner" avatar={avatar} nickname={nickname} onVenue={onVenue}/>}</div>
   </section></div>;
 }

@@ -1,3 +1,4 @@
+import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
 import { FARM_LAYOUT, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
@@ -234,11 +235,12 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
         kind: "stage" as const,
       },
     ];
-  const rows = b.kind === "dining" ? 5 : b.d>=10?4:3;
+  if (b.kind === "dining") return diningLayout(b).tables.map(t=>({...t,kind:"dining" as const}));
+  const rows = b.d>=10?4:3;
   return Array.from({ length: rows * 2 }, (_, i) => ({
     x: b.x + (i % 2 ? 1 : -1) * b.w * 0.28,
     z: b.z - b.d / 2 + 1.8 + Math.floor(i / 2) * 1.8,
-    w: b.kind === "dining" ? 2.6 : 2.4,
+    w: 2.4,
     d: 0.8,
     kind: b.kind,
   }));
@@ -246,7 +248,7 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
 export const DORM_EXTRA_BEDS=[{x:-32,z:-2.6,w:1.35,d:2.45},{x:-32,z:1.6,w:1.35,d:2.45},{x:-26,z:2.1,w:1.35,d:2.45}];
 export const STUDY_DESK=ROOM_FURNITURE.filter(f=>f.kind==='classroom'&&f.x<0).at(-2)!;
 export const STUDY_POSITION={x:STUDY_DESK.x+.65,z:STUDY_DESK.z+.7};
-export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.kind==='dining'?[{x:b.x,z:b.z-b.d/2+.8,w:b.w-1.4,d:.7}]:(b.kind==='classroom'||b.kind==='language')?[{x:b.x,z:b.z-b.d/2+.9,w:1.5,d:.7}]:[]);
+export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.kind==='dining'?Object.values(diningLayout(b).stations):(b.kind==='classroom'||b.kind==='language')?[{x:b.x,z:b.z-b.d/2+.9,w:1.5,d:.7}]:[]);
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [

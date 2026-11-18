@@ -5,6 +5,7 @@ import type { CompetitionId, RaceDifficulty } from './competition-catalog.ts';
 
 export type RaceRecord = {
   name: string;
+  avatar?: number;
   milliseconds: number;
   correct: number;
   achievedAt: number;
@@ -37,8 +38,8 @@ export function raceProfile(value: unknown) {
     : null;
 }
 
-function publicRecord({ name, milliseconds, correct, achievedAt }: RecordRow): RaceRecord {
-  return { name, milliseconds, correct, achievedAt };
+function publicRecord({ name, avatar, milliseconds, correct, achievedAt }: RecordRow): RaceRecord {
+  return { name, avatar, milliseconds, correct, achievedAt };
 }
 
 export const raceRecords: RecordStore = {

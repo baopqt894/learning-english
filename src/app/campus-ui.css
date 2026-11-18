@@ -1,6 +1,3 @@
-.portrait-expression { position:absolute; top:0; left:50%; height:100%; width:auto; aspect-ratio:1; transform:translateX(-50%); background-size:200% 200%; background-repeat:no-repeat; animation:expression-change .18s ease-out; }
-.expression-0 { background-position:0 0; }.expression-1 { background-position:100% 0; }.expression-2 { background-position:0 100%; }.expression-3 { background-position:100% 100%; }
-
 /* CampusQuest uses the 3D scene as its stage. The HUD occupies only its edges. */
 .campus-shell {
   --ink: #f9f4df;
@@ -123,10 +120,11 @@
   flex: none;
   width: 46px;
   height: 48px;
-  border-radius: 5px;
-  background: #afbd8c url("/art/model-an-hud.webp") center / cover no-repeat;
+  border-radius: 50%;
+  box-shadow:0 0 0 1px #889c7e;
+  background: #f8f5eb url("/art/portraits/an-avatar.webp") center / cover no-repeat;
 }
-.cadet-portrait.avatar-1 { background-image: url("/art/model-linh-hud.webp"); }
+.cadet-portrait.avatar-1 { background-image: url("/art/portraits/linh-avatar.webp"); }
 .cadet-portrait.avatar-small { width: 36px; height: 36px; }
 .quest-tracker {
   margin-top: 10px;
@@ -423,7 +421,8 @@
   pointer-events: none;
   mask-image: linear-gradient(#000 0 85%, transparent 100%);
 }
-.npc-stage-portrait > img { object-fit: contain; object-position: bottom; }
+.npc-stage-portrait picture,.npc-stage-portrait img {display:block;width:100%;height:100%}
+.npc-stage-portrait img {object-fit:contain;object-position:center bottom}
 .encounter-caption {
   position: absolute;
   z-index: 2;
@@ -440,7 +439,6 @@
   animation: dialogue-arrive .24s cubic-bezier(.16,1,.3,1);
 }
 @keyframes dialogue-arrive { from { opacity: .72; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
-@keyframes expression-change { from { opacity: .78; } to { opacity: 1; } }
 .learning-objective { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .learning-objective strong { flex: 1; font-weight: 650; }
 .learning-objective > span:first-child { color: var(--accent); font-weight: 750; }

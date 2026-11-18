@@ -95,8 +95,9 @@
   font-weight: 650;
   font-size: .82rem;
 }
+.cadet-entry-avatars label:focus-within {outline:2px solid #386749;outline-offset:2px}
 .cadet-entry-avatars label:has(input:checked) { background: #e0e8cf; border-color: #527350; }
-.cadet-entry-avatars .cadet-portrait { width: 32px; height: 32px; flex: 0 0 auto; }
+.cadet-entry-avatars .cadet-portrait { width: clamp(36px,7vw,48px); height: clamp(36px,7vw,48px); flex: 0 0 auto; }
 .cadet-entry input[type=checkbox], .cadet-entry input[type=radio] { accent-color: #285840; flex-shrink: 0; }
 .cadet-entry-import { display: flex; gap: 9px; align-items: center; min-height: 44px; font-size: .84rem; cursor: pointer; }
 .cadet-submit {

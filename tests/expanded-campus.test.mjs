@@ -28,6 +28,6 @@ test('rooms and districts gain usable floor area without enlarging ordinary desk
  const {FARM_LAYOUT}=await import('../src/lib/campus-spaces.ts');
  for(const b of EXPANSION_BUILDINGS.filter(b=>b.kind==='classroom'))assert.ok(b.w*b.d>=150);
  const dorm=EXPANSION_BUILDINGS.find(b=>b.kind==='housing'&&b.z===0);assert.ok(dorm.w*dorm.d>=120);assert.ok(DORM_EXTRA_BEDS.length>=3);
- assert.ok(ROOM_FURNITURE.filter(f=>f.kind==='classroom').length>=16);assert.ok(ROOM_FURNITURE.every(f=>f.kind==='stage'||f.w<=2.6));
+ assert.ok(ROOM_FURNITURE.filter(f=>f.kind==='classroom').length>=16);assert.ok(ROOM_FURNITURE.every(f=>f.kind==='stage'||f.w<=(f.kind==='dining'?3.5:2.6)));
  assert.ok(SWIMMING_POOL.w*SWIMMING_POOL.d>=480);assert.ok((FARM_LAYOUT.bounds.maxX-FARM_LAYOUT.bounds.minX)*(FARM_LAYOUT.bounds.maxZ-FARM_LAYOUT.bounds.minZ)>470);
 });

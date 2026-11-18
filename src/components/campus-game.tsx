@@ -898,7 +898,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         )}
                 {talking && (
                   <section className="encounter" lang="en" aria-label={`Talk to ${dialogueName}`} data-speaking={speaking === talking} inert={modalOpen}>
-                    <NpcPortrait key={talking} place={talking} speaking={speaking === talking} turn={conversationMessages.length} mood={turnFeedback === "success" ? "encouraging" : turnFeedback === "retry" ? "thoughtful":"welcoming"} />
+                    <NpcPortrait place={talking}/>
                     <div className="encounter-topline">
                       <span><Icon name="target" size={16} /> {person.english}</span>
                       <button className="encounter-exit" onClick={closeConversation}>
@@ -1390,7 +1390,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
       {reviewOpen && <div className="modal-backdrop"><section className="learning-review" role="dialog" aria-modal="true" aria-labelledby="review-title" lang="en"><button className="modal-close icon-button" aria-label="Close review" onClick={()=>setReviewOpen(false)}><Icon name="close" /></button><span className="review-book"><Icon name="book" size={28}/></span><h2 id="review-title">Before your next adventure</h2><p>{lesson.question}</p><div className="review-choices">{lesson.choices.map((choice,i)=><button key={choice} aria-pressed={reviewChoice===i} onClick={()=>setReviewChoice(i)} className={reviewChoice===i ? i===lesson.answer ? "review-correct":"review-retry":""}>{choice}</button>)}</div>{reviewChoice!==null && <p className="review-explanation" role="status">{reviewChoice===lesson.answer ? `That’s right. ${lesson.tip}` : "Not quite. Think about the details you heard in the conversation, then try again."}</p>}<div className="review-takeaway"><strong>Keep this phrase</strong><p>{lesson.pattern}</p></div><button className="primary-button full-width" disabled={reviewChoice!==lesson.answer} onClick={completeMission}>Collect {quest.xp} XP & continue <Icon name="arrow" size={18}/></button></section></div>}
 
-      {rankingsOpen && <CampusLeaderboards flush={flush} onClose={()=>setRankingsOpen(false)}/>}
+      {rankingsOpen && <CampusLeaderboards avatar={progress.avatar} nickname={progress.name} onVenue={venue=>{setRankingsOpen(false);walkToRegistration(venue);}} flush={flush} onClose={()=>setRankingsOpen(false)}/>}
       {atlasOpen && <CampusMap player={playerPosition} progress={progress} onSelect={setAtlasDestination}
         storyLocation={storyChapter?.location ?? goal?.place} onPlace={goTo} onZone={goToZone}
         onResident={id=>{

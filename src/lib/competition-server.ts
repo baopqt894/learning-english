@@ -35,7 +35,7 @@ async function savePractice(r: Room, now: number, store: RecordStore) {
  }
  const milliseconds = Math.round(member.finishedAt * 1000);
  try {
-  const best = await store.save({ profile: r.profile, mode: v.mode, difficulty: v.difficulty, name: member.name, milliseconds, correct, achievedAt: v.round.startedAt + 3000 + milliseconds });
+  const best = await store.save({ profile: r.profile, mode: v.mode, difficulty: v.difficulty, name: member.name, avatar: member.avatar, milliseconds, correct, achievedAt: v.round.startedAt + 3000 + milliseconds });
   v.record = best ? 'personal-best' : 'kept-best';
  } catch {
   r.retryAt = now + 3000;

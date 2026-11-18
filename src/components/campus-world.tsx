@@ -28,11 +28,12 @@ import { preloadCampusCharacters } from "@/lib/campus-character-assets";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
+import { campusSunFitter } from "@/lib/campus-sun";
 import { createCampusWorldLabels } from "@/lib/campus-world-labels";
 import { PLACES, type Place } from "@/lib/game";
 import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
 import {
-  MAP_BOUNDS, STUDY_POSITION,
+  EXPANSION_BUILDINGS, MAP_BOUNDS, STUDY_POSITION,
   EXPLORATION_ZONES,
   canWalkCampus,
   campusAreaName,
@@ -316,23 +317,28 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const sunOffset = new THREE.Vector3(...daylight.direction);
     sun.position.copy(sunOffset);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.radius = 2.1;
-    Object.assign(sun.shadow.camera, {
-      left: -18,
-      right: 18,
-      top: 18,
-      bottom: -18,
-      far: 60,
-    });
+    const shadowResolution = Math.min(renderer.capabilities.maxTextureSize, host.clientWidth > 900 ? 2048 : 1024);
+    sun.shadow.mapSize.set(shadowResolution, shadowResolution);
+    sun.shadow.radius = 1.5;
     sun.shadow.normalBias = 0.037;
     sun.shadow.bias = -0.00022;
     scene.add(sun);
     scene.add(sun.target);
+    const fitSun = campusSunFitter(sun);
+    const residentView = new THREE.Frustum();
+    const viewProjection = new THREE.Matrix4();
+    const residentBounds = new THREE.Sphere(new THREE.Vector3(), 2.5);
+    const renderScene = (activeScene = scene) => {
+      if (activeScene === scene && renderer.shadowMap.enabled && fitSun(camera, sunOffset))
+        renderer.shadowMap.needsUpdate = true;
+      renderer.render(activeScene, camera);
+    };
 
     const worldLabels = createCampusWorldLabels(labels);
     const environment = createCampusEnvironment(scene, avatar);
     const { floor, player, selection, destination } = environment;
+    const diningHall = EXPANSION_BUILDINGS.find(building => building.kind === 'dining')!;
+    const followTarget = new THREE.Vector3();
     const districts=createCampusDistricts(scene);
     const competitionScene=createCompetitionScene(scene);
     let wasSwimming=false, lastRaceFrame="";
@@ -513,7 +519,6 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       sun.intensity = look.power;
       const [x, y, z] = look.direction;
       sunOffset.set(x, y, z);
-      sun.position.copy(sun.target.position).add(sunOffset);
       renderer.toneMappingExposure = look.exposure;
       renderer.shadowMap.needsUpdate = true;
     };
@@ -581,14 +586,14 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         camera.setViewOffset(size.x, size.y, crop.x, crop.y, crop.width, crop.height);
         renderer.setPixelRatio(1);
         renderer.setSize(width, height, false);
-        renderer.render(scene, camera);
+        renderScene();
         // Copy this frame before WebGL clears its default drawing buffer.
         ctx.drawImage(renderer.domElement, 0, 0);
       } finally {
         camera.clearViewOffset();
         renderer.setPixelRatio(ratio);
         renderer.setSize(size.x, size.y, false);
-        renderer.render(scene, camera);
+        renderScene();
       }
       return new Promise((resolve) => {
         pixels.toBlob((blob) => resolve(blob ? { blob, width, height } : null), "image/png");
@@ -772,7 +777,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderer.setSize(width, height);
       worldLabels.resize(width, height);
       worldLabels.paint(camera, player.group.position);
-      renderer.render(overviewMode && !photoSession && campusOverview ? campusOverview.scene : scene, camera);
+      renderScene(overviewMode && !photoSession && campusOverview ? campusOverview.scene : scene);
     };
     const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
     scene.traverse(object => {
@@ -793,7 +798,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     window.addEventListener("blur", blur);
     renderer.domElement.addEventListener("pointerdown", click);
     const renderFrame=(time:number, activeScene = scene)=>{
-      renderer.render(activeScene, camera);
+      renderScene(activeScene);
       frames++;
       if (time - lastFpsTime > 1000) {
         if (fpsRef.current)
@@ -869,7 +874,6 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           swimRight.setFromMatrixColumn(camera.matrixWorld,0);swimUp.setFromMatrixColumn(camera.matrixWorld,1);
           swimShift.copy(swimRight).multiplyScalar(-( (l+r)/2-swimProjection.x)*(camera.right-camera.left)/(2*camera.zoom)).addScaledVector(swimUp,-((viewTop+viewBottom)/2-swimProjection.y)*(camera.top-camera.bottom)/(2*camera.zoom));
           camera.position.add(swimShift);controls.target.add(swimShift);camera.lookAt(controls.target);
-          sun.target.position.set(frame.x,0,frame.z);sun.position.copy(sun.target.position).add(sunOffset);
           host.dataset.competition=view?.mode??'none';
         }
         renderFrame(time);
@@ -1139,24 +1143,24 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       if (!route.length) destination.visible = false;
       selection.position.set(pos.x, pos.y+.02, pos.z);
+      const interior = environment.updateRooms(pos, overviewMode);
       if (
         !districtActive && !studying && !workKind && !photoSession && !conversationPlace && !returningFromConversation && !overviewMode &&
         (followPlayer || Math.abs(pos.x) > 10 || Math.abs(pos.z) > 9)
       ) {
         followPlayer = true;
-        const target = new THREE.Vector3(pos.x, 0, pos.z);
-        const delta = target
+        followTarget.set(pos.x, 0, pos.z);
+        if (interior === diningHall.name) {
+          followTarget.x = THREE.MathUtils.lerp(pos.x, diningHall.x, .6);
+          followTarget.z = THREE.MathUtils.lerp(pos.z, diningHall.z, .75);
+          followTarget.y = .8;
+        }
+        const delta = followTarget
           .sub(controls.target)
           .multiplyScalar(1 - Math.exp(-dt * 5));
         controls.target.add(delta);
         camera.position.add(delta);
       }
-      sun.target.position.set(
-        photoSession ? controls.target.x : overviewMode ? 0 : pos.x,
-        0,
-        photoSession ? controls.target.z : overviewMode ? 0 : pos.z,
-      );
-      sun.position.copy(sun.target.position).add(sunOffset);
       const fogShift = Math.max(0, camera.position.distanceTo(controls.target) - 55);
       fog.near = overviewMode ? camera.position.distanceTo(controls.target)+100 : 56 + fogShift;
       fog.far = overviewMode ? camera.position.distanceTo(controls.target)+300 : 155 + fogShift;
@@ -1186,6 +1190,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       let closestResident: CampusResident | null = null;
       let closestDistance = 2.35 ** 2;
       const canMeet = canPractise && !districtNear && !districtActive && !current && !nearbySportsVenue(pos.x, pos.z);
+      camera.updateWorldMatrix(true, false);
+      residentView.setFromProjectionMatrix(viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
       for (const person of environment.residents) {
         const { rig, resident } = person;
         const from = resident.route[0], to = resident.route[1];
@@ -1205,7 +1211,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         }
         const dx = pos.x - rig.group.position.x, dz = pos.z - rig.group.position.z;
         const distance = dx * dx + dz * dz;
-        rig.group.visible = conversation || distance < 32 ** 2
+        residentBounds.center.copy(rig.group.position);
+        residentBounds.center.y += 1;
+        rig.group.visible = conversation || distance < 32 ** 2 || residentView.intersectsSphere(residentBounds)
           || (!!photoSession && rig.group.position.distanceToSquared(controls.target) < 36 ** 2);
         const eligible = requestedResident
           ? resident.kind === requestedResident && canPractise && !districtActive && !route.length
@@ -1279,7 +1287,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);
       // Shadow matrices and articulated poses are rendered in the same frame.
-      host.dataset.interior = environment.updateRooms(pos, overviewMode);
+      host.dataset.interior = interior;
       renderFrame(time);
     });
 

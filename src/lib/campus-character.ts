@@ -767,7 +767,7 @@ export function updateCharacterDetail(rig: CampusCharacter, distanceSquared: num
   rig.group.traverse(object => {
     if (!(object instanceof THREE.Mesh) || !object.userData.detail) return;
     object.visible = object.userData.detail === next;
-    object.castShadow = !far;
+    object.castShadow = object.visible;
   });
 }
 
