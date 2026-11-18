@@ -2,7 +2,7 @@
 
 import {ATHLETICS_TRACK, SPORTS_VENUES, STADIUM, TRACK_OUTER_RADIUS, TRACK_STANDS} from "@/lib/sports-layout";
 import { DISTRICT_PATHS,LIVESTOCK_PENS,FISH_POND,SWIMMING_POOL,TRAINING_GROUND,DISTRICT_STRUCTURES,TRAINING_EQUIPMENT } from '@/lib/campus-districts-layout';
-import { CORE_BUILDINGS, EXPANSION_BUILDINGS, EXPLORATION_ZONES, MAP_BOUNDS, type ZoneId } from "@/lib/campus-map";
+import { CORE_BUILDINGS, EXPANSION_BUILDINGS, EXPLORATION_ZONES, MAP_BOUNDS, type MapPoint, type ZoneId } from "@/lib/campus-map";
 import { FARM_LAYOUT, SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_TREES } from "@/lib/campus-spaces";
 import { PLACES, type Place } from "@/lib/game";
 import { Icon } from "./icon";
@@ -11,45 +11,43 @@ const atlasWidth = (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) * 10;
 const atlasHeight = (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ) * 10;
 const worldToAtlas = `translate(${-MAP_BOUNDS.minX * 10} ${-MAP_BOUNDS.minZ * 10}) scale(10)`;
 
-export function mapPosition(x: number, z: number) {
+function mapPosition(x: number, z: number) {
   return {
     left: `${((x - MAP_BOUNDS.minX) / (MAP_BOUNDS.maxX - MAP_BOUNDS.minX)) * 100}%`,
     top: `${((z - MAP_BOUNDS.minZ) / (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ)) * 100}%`,
   };
 }
 export function CampusMap({
-  large = false,
+  player,
   near,
   objective,
   onPlace,
   onZone,
-  onOpen,
   storyTarget,
 }: {
-  large?: boolean;
+  player: MapPoint;
   near: Place | null;
   objective?: Place;
   onPlace: (place: Place) => void;
   onZone: (zone: ZoneId) => void;
-  onOpen?: () => void;
   storyTarget?:{x:number;z:number};
 }) {
   return (
     <div
-      className={`campus-map-art ${large ? "campus-map-large" : ""}`}
+      className="campus-map-art campus-map-large"
       aria-label="Bản đồ toàn trường"
       style={{
         aspectRatio: `${atlasWidth}/${atlasHeight}`,
-        maxWidth: large ? `calc(max(300px, 100dvh - 172px) * ${atlasWidth / atlasHeight})` : undefined,
+        maxWidth: `calc(max(300px, 100dvh - 172px) * ${atlasWidth / atlasHeight})`,
       }}
     >
       <svg className="campus-cartography" viewBox={`0 0 ${atlasWidth} ${atlasHeight}`} preserveAspectRatio="none" role="img" aria-label="Campus atlas: classrooms, dormitories, garden, animal care, training ground, swimming pool and fish pond">
         <defs>
-          <pattern id={large ? "atlas-grid-large" : "atlas-grid-mini"} width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#698677" strokeOpacity=".12" strokeWidth="1" /></pattern>
+          <pattern id="atlas-grid-large" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#698677" strokeOpacity=".12" strokeWidth="1" /></pattern>
         </defs>
         <rect width={atlasWidth} height={atlasHeight} fill="#dbe3cc" />
         <rect x="12" y="12" width={atlasWidth - 24} height={atlasHeight - 24} rx="20" fill="none" stroke="#96ae90" strokeWidth="2" strokeDasharray="5 6" />
-        <rect width={atlasWidth} height={atlasHeight} fill={`url(#${large ? "atlas-grid-large" : "atlas-grid-mini"})`} />
+        <rect width={atlasWidth} height={atlasHeight} fill="url(#atlas-grid-large)" />
         <g transform={worldToAtlas}>
           {DISTRICT_PATHS.map((p,i)=><rect key={`new-path-${i}`} x={p.x-p.w/2} y={p.z-p.d/2} width={p.w} height={p.d} fill="#f6efd8"/>)}
           <g aria-label="Campus stadium">
@@ -102,13 +100,11 @@ export function CampusMap({
             {Array.from({length: Math.floor(building.w / 1.7)}, (_, i) => <rect key={i} x={building.x - building.w / 2 + .7 + i * 1.7} y={building.z + building.d / 2 - .6} width=".7" height=".35" fill="#f8edcc" />)}
           </g>)}
           {CAMPUS_TREES.map((t,i)=><g key={i}><circle cx={t.x+.3} cy={t.z+.3} r={t.scale} fill="#688773" opacity=".22"/><circle cx={t.x} cy={t.z} r={t.scale*.85} fill="#739d7c"/></g>)}
-          {!large && EXPLORATION_ZONES.map(z=><circle key={z.id} cx={z.x} cy={z.z} r="1.2" fill="#476e50"/>)}
-          {!large && Object.values(PLACES).map(p=><circle key={p.npc} cx={p.position[0]} cy={p.position[1]} r="1.3" fill="#d9b964"/>)}
           <circle cx="2.7" cy="-1.9" r=".6" fill="#bd775e" /><path d="M2.7-1.9V-3.9" stroke="#416d60" strokeWidth=".15" />
         </g>
-        {large && <g transform={worldToAtlas} className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x={STADIUM.x} y={STADIUM.z - TRACK_OUTER_RADIUS - 1.2}>CAMPUS STADIUM</text><text x="0" y="-62">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>}
+        <g transform={worldToAtlas} className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x={STADIUM.x} y={STADIUM.z - TRACK_OUTER_RADIUS - 1.2}>CAMPUS STADIUM</text><text x="0" y="-62">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>
       </svg>
-      {large && EXPLORATION_ZONES.map((zone) => (
+      {EXPLORATION_ZONES.map((zone) => (
         <button
           key={zone.id}
           data-zone={zone.id}
@@ -118,16 +114,14 @@ export function CampusMap({
           title={zone.english}
           onClick={() => onZone(zone.id)}
         >
-          <Icon name={zone.icon} size={large ? 18 : 11} />
-          {large && (
-            <span>
-              {zone.english}
-              <small>{zone.name}</small>
-            </span>
-          )}
+          <Icon name={zone.icon} size={18} />
+          <span>
+            {zone.english}
+            <small>{zone.name}</small>
+          </span>
         </button>
       ))}
-      {large && (Object.keys(PLACES) as Place[]).map((id) => (
+      {(Object.keys(PLACES) as Place[]).map((id) => (
         <button
           key={id}
           data-place={id}
@@ -141,29 +135,24 @@ export function CampusMap({
             name={
               id === "library" ? "book" : id === "canteen" ? "food" : "user"
             }
-            size={large ? 16 : 10}
+            size={16}
           />
-          {large && (
-            <span>
-              {PLACES[id].name}
-              <small>{PLACES[id].npc}</small>
-            </span>
-          )}
+          <span>
+            {PLACES[id].name}
+            <small>{PLACES[id].npc}</small>
+          </span>
         </button>
       ))}
       <span
         className="campus-map-player"
-        style={mapPosition(0, 6)}
+        style={mapPosition(player.x, player.z)}
         title="Vị trí của em"
         aria-label="Vị trí của em"
       />
-      {!large && onOpen && <button type="button" className="minimap-open" onClick={onOpen} aria-label="Open campus atlas" title="Open campus atlas"/>}
       {storyTarget&&<span className="campus-map-story-target" style={mapPosition(storyTarget.x,storyTarget.z)} title="Current English mission" aria-label="Current English mission"/>}
-      {large && (
-        <span className="atlas-compass" aria-hidden="true">
-          N<Icon name="compass" size={32} />
-        </span>
-      )}
+      <span className="atlas-compass" aria-hidden="true">
+        N<Icon name="compass" size={32} />
+      </span>
     </div>
   );
 }

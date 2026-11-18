@@ -97,7 +97,7 @@ type Props = {
   photoMode?: boolean;
   onNear: (place: Place | null) => void;
   onInteract: () => void;
-  onMove?: (x: number, z: number) => void;
+  onMove?: (x: number, z: number, heading: number, route: readonly MapPoint[]) => void;
   onAreaChange?: (name: string) => void;
 };
 const emptyActions = (): WorldHandle => ({
@@ -1128,7 +1128,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       fog.near = overviewMode ? camera.position.distanceTo(controls.target)+100 : 56 + fogShift;
       fog.far = overviewMode ? camera.position.distanceTo(controls.target)+300 : 155 + fogShift;
       if (time - lastMapUpdate > 180) {
-        callbacks.current.onMove?.(pos.x, pos.z);
+        callbacks.current.onMove?.(pos.x, pos.z, player.group.rotation.y, route);
         host.dataset.playerX = pos.x.toFixed(2);
         host.dataset.playerZ = pos.z.toFixed(2);
         host.dataset.mapView = photoSession ? "photo" : conversationPlace ? "conversation" : overviewMode ? "overview" : "follow";

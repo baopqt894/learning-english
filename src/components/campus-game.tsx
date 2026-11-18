@@ -55,8 +55,9 @@ import { CampusActivities } from './campus-activities';
 import { ACTIVITIES, ACTIVITY_IDS, finishActivity, type ActivityId } from '@/lib/activities';
 import { Icon } from "./icon";
 import { NpcPortrait } from "./npc-portrait";
-import { CampusMap, mapPosition } from "./campus-map";
-import { EXPLORATION_ZONES, ZONE_ART, type ZoneId } from "@/lib/campus-map";
+import { CampusMinimap } from "./campus-minimap";
+import { CampusMap } from "./campus-map";
+import { EXPLORATION_ZONES, ZONE_ART, type MapPoint, type ZoneId } from "@/lib/campus-map";
 
 const World = dynamic(
   () => import("./campus-world").then((module) => module.CampusWorld),
@@ -130,7 +131,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [retryCount,setRetryCount] = useState(0);
   const [reviewOpen,setReviewOpen] = useState(false);
   const [storyOpen,setStoryOpen]=useState(false);
-  const [playerPosition,setPlayerPosition]=useState({x:0,z:6});
+  const [playerPosition,setPlayerPosition]=useState({x:0,z:6,heading:0,route:[] as MapPoint[]});
   const storyReturn=useRef(false);
   const campaign=progress.campaign||freshCampaign();
   const storyIndex=storyChapterIndex(campaign);
@@ -481,19 +482,15 @@ export function CampusGame({ account, onExpired, onLogout }: {
     };
   }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,closePlacePractice,sportsJournal,friendsOpen]);
 
-  const updateMapPlayer = useCallback((x: number, z: number) => {
+  const updateMapPlayer = useCallback((x: number, z: number, heading: number, route: readonly MapPoint[]) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
-    setPlayerPosition(old=>old.x===x&&old.z===z?old:{x,z});
+    const waypoints = [...route]; // The world consumes its route in place.
+    setPlayerPosition(old => old.x === x && old.z === z && old.heading === heading &&
+      old.route.length === waypoints.length && old.route[0] === waypoints[0] && old.route.at(-1) === waypoints.at(-1)
+      ? old : {x, z, heading, route: waypoints});
     if (progress.residentMissions?.nam === 'active' && Math.hypot(x - classroom.x, z - classroom.z) < .85) {
       recordResidentTask(progress, { type: 'visit', zone: 'classrooms' });
     }
-    const position = mapPosition(x, z);
-    document
-      .querySelectorAll<HTMLElement>(".campus-map-player")
-      .forEach((marker) => {
-        marker.style.left = position.left;
-        marker.style.top = position.top;
-      });
   }, [progress, recordResidentTask]);
   const walkToRegistration = (venue:SportsVenueId) => {
     setSportsJournal(null);
@@ -857,11 +854,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <button className="hud-button" onClick={() => navigate("menu")} aria-label="Mở menu" title="Menu"><Icon name="menu" size={20} /></button>
               </div>
               {mapVisible && (
-                <div className="hud-minimap">
-                  <CampusMap storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} onOpen={()=>setAtlasOpen(true)} />
-                  <span className="minimap-north" aria-hidden="true">N</span>
-                  <p className="minimap-area"><Icon name="target" size={14} />{areaName}</p>
-                </div>
+                <CampusMinimap player={playerPosition} area={areaName} missionName={storyChapter?.place ?? (goal && PLACES[goal.place].english)} onOpen={()=>setAtlasOpen(true)}
+                  target={playerPosition.route.at(-1) ?? (storyChapter ? storyPosition(storyChapter.location) : goal ? storyPosition(goal.place) : undefined)}/>
               )}
             </div>
 
@@ -1403,7 +1397,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
               <p>Chọn điểm đến để bắt đầu khám phá.</p>
             </div>
             <div className="atlas-content">
-              <CampusMap large storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} />
+              <CampusMap player={playerPosition} storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} />
               <nav
                 className="atlas-destinations"
                 aria-label="Các khu vực trong trường"

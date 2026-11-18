@@ -168,19 +168,41 @@
   box-shadow: var(--lift);
 }
 .player-badge:hover, .quest-tracker button:hover, .hud-button:hover { background: #314941; }
-.hud-minimap {
-  position: relative;
-  width: clamp(122px, 13vw, 184px);
+.campus-shell .hud-minimap {
+  display: grid;
+  width: clamp(176px, 15vw, 216px);
+  gap: 0;
   padding: 4px;
-  border-radius: 10px;
-  background: var(--deep);
-  box-shadow: var(--lift);
+  color: var(--ink);
+  background: #192f27;
+  border: 1px solid #6b7f65;
+  border-radius: 11px;
+  box-shadow: 0 4px 14px #10282040;
+  text-align: left;
+  cursor: pointer;
 }
-.campus-shell .hud-minimap .campus-map-art { margin: 0; border: 0; border-radius: 6px; }
-.campus-shell .hud-minimap .campus-map-pin { width: 18px; height: 18px; }
-.minimap-north { position: absolute; top: 8px; left: 10px; color: #234638; font-size: 10px; font-weight: 800; }
-.minimap-area { display: flex; gap: 6px; align-items: center; margin: 0; padding: 6px 5px 3px; color: var(--muted); font-size: 11px; }
-.minimap-area > svg { color: var(--accent); flex: none; }
+.campus-shell .hud-minimap:hover { border-color: var(--accent); }
+.mini-window { position: relative; display: block; aspect-ratio: 70/42; width: 100%; overflow: hidden; border-radius: 7px; background: #abbc9c; isolation: isolate; }
+.mini-terrain { display: block; width: 100%; height: 100%; }
+.mini-pan { transition: transform 180ms linear; }
+.mini-player, .mini-destination { position: absolute; display: grid; place-items: center; translate: -50% -50%; pointer-events: none; }
+.mini-player { left: 50%; top: 50%; width: 20px; height: 20px; border-radius: 50%; background: #204e57; box-shadow: 0 0 0 1.5px #fff9e7, 0 1px 5px #243c3b85; }
+.mini-player svg { width: 100%; height: 100%; }
+.mini-destination { width: 18px; height: 18px; transition: left 180ms linear, top 180ms linear; }
+.mini-destination svg { width: 100%; height: 100%; fill: #ffca62; stroke: #513d21; stroke-width: 2; stroke-linejoin: round; }
+.mini-destination.at-player { width: 28px; height: 28px; border: 3px solid #ffca62; border-radius: 50%; box-shadow: 0 0 0 1px #67512a; }
+.mini-caption, .mini-key { display: flex; align-items: center; gap: 8px; padding-inline: 6px; min-width: 0; }
+.mini-caption { justify-content: space-between; padding-top: 5px; }
+.mini-caption strong { font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-caption svg { flex: none; color: #ccdacb; }
+.mini-key { gap: 10px; padding-block: 2px 3px; font-size: 11px; line-height: 1.4; color: #d0dbca; font-variant-numeric: tabular-nums; }
+.mini-key > span { display: inline-flex; align-items: center; gap: 4px; }
+.mini-north { font-weight: 700; color: #f6eedb; }
+.mini-you::before { content: ""; width: 7px; height: 7px; background: #92dbf0; clip-path: polygon(50% 0,100% 100%,50% 75%,0 100%); }
+.mini-goal { min-width: 0; flex: 1; }
+.mini-goal > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-goal b { color: #ffda8a; font-weight: 600; white-space: nowrap; margin-left: auto; }
+.mini-goal::before { flex: none; content: ""; width: 6px; height: 6px; rotate: 45deg; background: #ffca62; }
 .hud-area {
   position: absolute;
   bottom: var(--bottom);
@@ -553,12 +575,19 @@
 .campus-shell .campus-map-pin:active:not(:disabled) { translate: 0; transform: translate(-50%,-50%) scale(.96); }
 
 @media (max-width: 900px) {
-  .desktop-controls { display: none; }
+  .desktop-controls, .hud-has-map .hud-area { display: none; }
   .campus-shell .welcome-modal { padding: 28px; gap: 24px; }
 }
 @media (max-width: 620px) {
   .hud-left { width: calc(100% - var(--left) - var(--right) - 112px); }
-  .hud-minimap, .pause-list .minimap-setting { display: none; }
+  .campus-shell .hud-minimap { width: clamp(108px, 32vw, 144px); padding: 3px; }
+  .mini-caption { padding: 4px 3px 2px; gap: 3px; }
+  .mini-caption strong { font-size: 11px; }
+  .mini-key { padding: 0 3px 2px; gap: 6px; font-size: 10px; }
+  .mini-key .mini-you, .mini-place-labels { display: none; }
+  .mini-player { width: 15px; height: 15px; }
+  .mini-destination { width: 14px; height: 14px; }
+  .mini-destination.at-player { width: 22px; height: 22px; border-width: 2px; }
   .hud-area { font-size: 12px; max-width: calc(100% - 168px); }
   .interact-button kbd { display: none; }
   .camera-tools { gap: 4px; }
@@ -585,7 +614,8 @@
   .campus-shell .welcome-modal { align-content: start; }
 }
 @media (max-height: 500px) and (min-width: 621px) {
-  .hud-minimap { display: none; }
+  .campus-shell .hud-minimap { width: 136px; }
+  .mini-key .mini-you { display: none; }
   .npc-stage-portrait { height: 91dvh; bottom: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -602,7 +632,6 @@
 .campus-shell .district-prompt > small { display: block; margin-top: 9px; color: #b8ccb3; font-size: 10px; line-height: 1.5; }
 .campus-shell .district-world-label { border-color: #d5bc7d; background: #2b4938ef; color: #f3e6c2; }
 @media(max-width:620px) { .campus-shell .district-prompt { bottom: 146px; padding: 12px; }.campus-shell .district-prompt blockquote { margin: 8px 0; }.campus-shell .district-prompt > small { font-size: 10px; } }
-.campus-shell .minimap-open { position: absolute; inset: 0; z-index: 7; width: 100%; height: 100%; border: 0; border-radius: 5px; background: transparent; cursor: pointer; }.campus-shell .minimap-open:focus-visible { outline: 3px solid #efce81; outline-offset: -3px; }
 @media(max-width:620px) { .campus-shell .campus-map-large .campus-map-pin { width: 20px; height: 20px; border-width: 1px; }.campus-shell .campus-map-large .campus-map-pin svg { width: 12px; height: 12px; } }
 .campus-shell .district-listen { display: inline-flex; align-items: center; gap: 5px; margin-left: 9px; padding: 5px 7px; min-height: 32px; border: 1px solid #7c926d; border-radius: 4px; color: #ead398; background: #294837; font-size: 11px; vertical-align: middle; }.district-listen:focus-visible { outline: 3px solid #efce81; outline-offset: 2px; }
 
