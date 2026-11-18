@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useId } from "react";
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, MAP_BOUNDS, type MapPoint } from "@/lib/campus-map";
 import { DISTRICT_PATHS, FISH_POND, LIVESTOCK_PENS, SWIMMING_POOL, TRAINING_GROUND } from "@/lib/campus-districts-layout";
 import { CAMPUS_TREES, FARM_LAYOUT, READING_PLANTERS, SPORTS_FIELD } from "@/lib/campus-spaces";
@@ -17,17 +17,18 @@ function footprint({ x, z, w, d }: Footprint) {
   return { x: x - w / 2, y: z - d / 2, width: w, height: d };
 }
 
-const Terrain = memo(function Terrain() {
+export const CampusTerrain = memo(function CampusTerrain() {
+  const grid = useId();
   const farm = FARM_LAYOUT.bounds;
   return (
     <>
       <defs>
-        <pattern id="mini-grid" width="10" height="10" patternUnits="userSpaceOnUse">
+        <pattern id={grid} width="10" height="10" patternUnits="userSpaceOnUse">
           <path d="M10 0H0V10" stroke="#506b57" opacity=".13" strokeWidth=".22" fill="none"/>
         </pattern>
       </defs>
       <rect {...campusGround} fill="#c8d6b5" stroke="#819579" strokeDasharray="1 1"/>
-      <rect {...campusGround} fill="url(#mini-grid)"/>
+      <rect {...campusGround} fill={`url(#${grid})`}/>
       <g fill="#f7eed5" stroke="#b4ae91" strokeWidth=".24">
         {DISTRICT_PATHS.map((road,i)=><rect key={i} {...footprint(road)}/>)}
         <rect x="-12" y="-5" width="24" height="15" rx="1.8"/>
@@ -77,9 +78,10 @@ const Terrain = memo(function Terrain() {
   );
 });
 
-export function CampusMinimap({player, target, missionName, area, onOpen}: {
+export function CampusMinimap({player, target, missionName, area, onOpen, waypoint}: {
   player: MapPoint & {heading:number;route: readonly MapPoint[]};
   target?: MapPoint;
+  waypoint?: (MapPoint & {name:string}) | null;
   missionName?: string;
   area: string;
   onOpen: () => void;
@@ -90,13 +92,14 @@ export function CampusMinimap({player, target, missionName, area, onOpen}: {
   // Intersect the actual bearing with the inset edge of the local map.
   const fit = Math.max(1,Math.abs(dx)/(width/2-5),Math.abs(dz)/(height/2-4));
   const nearTarget = distance < 3.5;
-  const destinationName = player.route.length ? "Waypoint" : missionName || "Mission";
+  const namedWaypoint = waypoint && target && Math.hypot(waypoint.x-target.x, waypoint.z-target.z)<3;
+  const destinationName = player.route.length ? (namedWaypoint ? waypoint.name : "Waypoint") : missionName || "Mission";
   const angle = Math.atan2(dx,-dz)*180/Math.PI;
   return (
     <button type="button" className="hud-minimap" onClick={onOpen} aria-label={`Open campus atlas · ${area}${target ? ` · ${destinationName}, ${Math.round(distance)} m` : ""}`}>
       <span className="mini-window" aria-hidden="true">
         <svg viewBox={`${-width/2} ${-height/2} ${width} ${height}`} className="mini-terrain">
-          <g className="mini-pan" style={{transform:`translate(${-player.x}px, ${-player.z}px)`}}><Terrain/>
+          <g className="mini-pan" style={{transform:`translate(${-player.x}px, ${-player.z}px)`}}><CampusTerrain/>
             {player.route.length > 0 && <polyline points={[player,...player.route].map(p=>p.x+","+p.z).join(" ")} fill="none" stroke="#346f6a" strokeWidth=".76" strokeDasharray="1 1.4" strokeLinecap="round"/>}
           </g>
         </svg>

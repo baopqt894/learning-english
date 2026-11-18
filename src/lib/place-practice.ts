@@ -1,3 +1,4 @@
+import {areaQuestions} from './campus-question-bank.ts';
 import {PETS,type PetId} from './pet-care.ts';
 import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from './cadet-tiers.ts';
 import { CAMPUS_ENGLISH, FIELD_BRIEFING_QUESTIONS, TEAM_LEADER_QUESTIONS, gap, type EnglishQuestion } from './level-questions.ts';
@@ -111,7 +112,9 @@ export function placePracticeRound(area: string, tier: EnglishTier, previous: re
   const contextual: readonly PlaceQuestion[] = tier === 'A1' ? local
     : area === 'livestock' || area === 'fish-pond' ? animalQuestions[tier]
     : (zoneQuestions[area as keyof typeof zoneQuestions]?.[tier] ?? CAMPUS_ENGLISH[tier].slice(0, 4));
-  const contextQuestion = drawQuestions(contextual, 1, practiceQuestionKey, previous);
+  const extra = areaQuestions[area]?.[tier];
+  const pool = extra ? [...contextual, extra] : [...contextual];
+  const contextQuestion = drawQuestions(pool, 1, practiceQuestionKey, previous);
   const rest = CAMPUS_ENGLISH[tier].filter(question => question !== contextQuestion[0]);
   return shuffled([...contextQuestion, ...drawQuestions(rest, 2, practiceQuestionKey, previous)]).map(mix);
 }

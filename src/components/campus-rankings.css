@@ -1,0 +1,17 @@
+.campus-rankings { width:min(500px,calc(100% - 16px)); max-height:calc(100dvh - 24px); overflow:auto; padding:clamp(16px,3vw,24px); border-radius:14px; background:#faf8ed; color:#223f32; overscroll-behavior:contain; }
+.campus-rankings header {display:flex;align-items:center;justify-content:space-between}
+.campus-rankings h2 {margin:0;font-size:1.55rem}
+.campus-rankings button {cursor:pointer;min-height:44px}
+.campus-rankings header button {width:44px;display:grid;place-items:center;border-radius:50%;background:#e6ecdf;color:#244131}
+.rank-tabs {display:flex;padding:3px;gap:2px;background:#e3e8da;border-radius:8px;margin:12px 0}
+.rank-tabs button {flex:1;border-radius:6px;color:#2c4d39;background:transparent;font-weight:650}
+.rank-tabs [aria-pressed=true] {background:#2c523d;color:white}
+.campus-rankings p {line-height:1.5;font-size:.9rem;margin:12px 0}
+.rank-personal {display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:12px;background:#e2ecdd;border-radius:6px}
+.campus-rankings .records-table {width:100%;border-collapse:collapse;color:inherit;margin:14px 0}
+.campus-rankings caption {text-align:left;font-weight:700;padding:6px 0}
+.campus-rankings .records-table :is(th,td) {text-align:left;padding:9px 5px;border-bottom:1px solid #ced7c8;overflow-wrap:anywhere}
+.campus-rankings .records-table tr[data-me=true] {background:#e2ecdd}
+.campus-rankings .swim-panel.competition-records {position:static;inset:auto;transform:none;width:100%;max-width:none;max-height:none;overflow:visible;padding:0;margin:0;box-shadow:none;background:transparent;color:inherit;border:none}
+.campus-rankings .competition-records :is(p,h3,th,td,label,strong,span) {color:inherit}
+.campus-rankings .competition-records .record-personal {background:#e2ecdd;color:inherit}

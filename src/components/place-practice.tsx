@@ -118,7 +118,7 @@ function PracticeStep({ question, index, tier, onNext }: {
   const correct = checked && (isRepeat ? matchesSpokenAnswer(question.answer, answer)
     : isTyped ? isTypedAnswerCorrect(question, answer) : answer === question.answer);
   const mode = isRepeat ? 'Listen and repeat' : question.kind === 'dictation' ? 'Listen and fill in the blank'
-    : question.kind === 'listen' ? 'Listening' : question.kind === 'fill' ? 'Fill in the blank' : 'Practice';
+    : question.kind === 'listen' ? 'Listening' : question.kind === 'fill' ? 'Fill in the blank' : question.kind === 'order' ? 'Build a sentence' : 'Choose one answer';
 
   useEffect(() => {
     const player = audio.current;
@@ -176,16 +176,23 @@ function PracticeStep({ question, index, tier, onNext }: {
       <div className="practice-sentence" aria-live="polite">{words.length ? answer : 'Tap the words in the correct order.'}</div>
       <div className="practice-word-bank">{question.options.map((word, i) => <button key={i} type="button"
         disabled={words.includes(i) || correct} onClick={() => { setChecked(false); setWords([...words, i]); }}>{word}</button>)}</div>
-      <button type="button" onClick={() => { setWords([]); setChecked(false); }}>Reset words</button>
-      <button type="button" className="practice-primary" disabled={words.length !== question.options.length} onClick={() => setChecked(true)}>Check sentence</button>
-    </> : 'options' in question && <div className="practice-choices">{question.options.map(option => <button key={option} type="button"
-      aria-pressed={value === option} className={(isSpoken ? correct : checked) && option === question.answer ? 'correct' : ''}
-      disabled={!ready || correct} onClick={() => { setValue(option); setChecked(true); }}>{option}</button>)}</div>}
-    {checked && <div className="practice-feedback" role="status">
+      <button type="button" disabled={correct} onClick={() => { setWords([]); setChecked(false); }}>Reset words</button>
+      <button type="button" className="practice-primary" disabled={correct || words.length !== question.options.length} onClick={() => setChecked(true)}>Check sentence</button>
+    </> : 'options' in question && <>
+      <div className="practice-choices">{question.options.map((option, i) =>
+        <button key={option} type="button" aria-pressed={value === option}
+          data-result={checked && value === option ? (correct ? 'correct' : 'retry') : undefined}
+          disabled={!ready || correct} onClick={() => { setValue(option); setChecked(false); }}>
+          <span className="answer-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>{option}
+        </button>)}</div>
+      {!correct && <button type="button" className="practice-primary" disabled={!ready || !value || checked}
+        onClick={() => setChecked(true)}>Check answer</button>}
+    </>}
+    {checked && <div className="practice-feedback" data-correct={correct} role="status">
       <strong>{correct ? 'Correct!' : 'Try again'}</strong>
-      <p>{correct || (!isSpoken && !isTyped) ? question.explanation
-        : isRepeat ? 'Listen again and repeat the whole message in order.'
-        : isSpoken ? 'Listen again and check the detail in the question.' : 'Check your spelling and the words around the blank.'}</p>
+      <p>{correct ? question.explanation : isRepeat ? 'Listen again and repeat the whole message in order.'
+        : isSpoken ? 'Listen again for the detail in the question.' : isTyped ? 'Check your spelling and the words around the blank.'
+        : question.kind === 'order' ? 'Reset the words and try a different order.' : 'Read the question again and choose another answer.'}</p>
     </div>}
     {correct && <button type="button" className="practice-primary" onClick={onNext}>Next <Icon name="arrow" size={16}/></button>}
   </>;

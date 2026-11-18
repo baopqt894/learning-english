@@ -44,7 +44,7 @@ import { COMPETITIONS } from '@/lib/competition-catalog';
 import { cadetLevel, completeChallenge } from '@/lib/challenge-xp';
 import { CHARACTER_PROFILES } from '@/lib/campus-character-profiles';
 import { RESIDENT_MISSIONS, matchResidentProof, startResidentMission, type ResidentKind, type ResidentProof } from '@/lib/resident-missions';
-import { shuffled } from '@/lib/question-rotation';
+import { drawQuestions, shuffled } from '@/lib/question-rotation';
 import type { DistrictStationId } from '@/lib/campus-districts-layout';
 import { campusDay, currentDaily, dailyMissions, recordDaily, type DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, nearbySportsVenue, type SportsVenueId } from '@/lib/sports-layout';
@@ -56,8 +56,9 @@ import { ACTIVITIES, ACTIVITY_IDS, finishActivity, type ActivityId } from '@/lib
 import { Icon } from "./icon";
 import { NpcPortrait } from "./npc-portrait";
 import { CampusMinimap } from "./campus-minimap";
-import { CampusMap } from "./campus-map";
-import { EXPLORATION_ZONES, ZONE_ART, type MapPoint, type ZoneId } from "@/lib/campus-map";
+import { CampusLeaderboards } from "./campus-leaderboards";
+import { CampusMap, type AtlasDestination } from "./campus-map";
+import { EXPLORATION_ZONES, type MapPoint, type ZoneId } from "@/lib/campus-map";
 
 const World = dynamic(
   () => import("./campus-world").then((module) => module.CampusWorld),
@@ -209,6 +210,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [artGallery, setArtGallery] = useState(false);
   const [highQuality, setHighQuality] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [rankingsOpen, setRankingsOpen] = useState(false);
+  const [atlasDestination, setAtlasDestination] = useState<AtlasDestination | null>(null);
   const [atlasOpen, setAtlasOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [areaName, setAreaName] = useState("Khu trung tâm");
@@ -311,10 +314,14 @@ export function CampusGame({ account, onExpired, onLogout }: {
         goToZone(task.zone);
         setNotice(mission.summary);
         break;
-      case 'quiz':
+      case 'quiz': {
+        const key = 'resident/'+id;
+        const round = drawQuestions(task.questions, 2, q=>q.prompt, quizHistory.previous(key));
+        quizHistory.record(key, round.map(q=>q.prompt));
         setPlacePractice({ area: 'courtyard', resident: id, tier: 'A1',
-          questions: task.questions.map(question => ({ ...question, options: shuffled(question.options) })) });
+          questions: round.map(question => ({ ...question, options: shuffled(question.options) })) });
         break;
+      }
     }
   }
 
@@ -411,7 +418,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     reward !== null ||
     retryReset ||
     artGallery ||
-    atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice || !!sportsJournal || friendsOpen;
+    rankingsOpen || atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!placePractice || !!sportsJournal || friendsOpen;
   useEffect(() => {
     if (!notice || talking || modalOpen || swimOpen) return;
     const timer = window.setTimeout(() => setNotice(""), 4200);
@@ -446,7 +453,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if(friendsOpen){setFriendsOpen(false);}
+        if(rankingsOpen){setRankingsOpen(false);}
+        else if(friendsOpen){setFriendsOpen(false);}
         else if(sportsJournal){setSportsJournal(null);}
         else if(placePractice){closePlacePractice();}
         else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
@@ -480,7 +488,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       if (previousFocus?.getClientRects().length) previousFocus.focus();
       else mobileHudButton?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,closePlacePractice,sportsJournal,friendsOpen]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,closePlacePractice,sportsJournal,friendsOpen,rankingsOpen]);
 
   const updateMapPlayer = useCallback((x: number, z: number, heading: number, route: readonly MapPoint[]) => {
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
@@ -608,6 +616,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
   const goTo = (place: Place) => {
     setTab("explore");
+    setMobileHudOpen(false);
     setAtlasOpen(false);
     setTalking(null);
     setHint(false);
@@ -836,6 +845,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
                 <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <Icon name="arrow" size={16}/></button>
                 <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small></button>
+                <button className="activities-launch" lang="en" onClick={()=>setRankingsOpen(true)}><Icon name="trophy" size={18}/>Leaderboards</button>
                 <details className="hud-more-practice" lang="en">
                   <summary><Icon name="chevron" size={15}/>More practice</summary>
                   <button className="activities-launch" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={16}/>Practise English here</button>
@@ -854,7 +864,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <button className="hud-button" onClick={() => navigate("menu")} aria-label="Mở menu" title="Menu"><Icon name="menu" size={20} /></button>
               </div>
               {mapVisible && (
-                <CampusMinimap player={playerPosition} area={areaName} missionName={storyChapter?.place ?? (goal && PLACES[goal.place].english)} onOpen={()=>setAtlasOpen(true)}
+                <CampusMinimap player={playerPosition} waypoint={atlasDestination} area={areaName} missionName={storyChapter?.place ?? (goal && PLACES[goal.place].english)} onOpen={()=>setAtlasOpen(true)}
                   target={playerPosition.route.at(-1) ?? (storyChapter ? storyPosition(storyChapter.location) : goal ? storyPosition(goal.place) : undefined)}/>
               )}
             </div>
@@ -1376,85 +1386,16 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
       {reviewOpen && <div className="modal-backdrop"><section className="learning-review" role="dialog" aria-modal="true" aria-labelledby="review-title" lang="en"><button className="modal-close icon-button" aria-label="Close review" onClick={()=>setReviewOpen(false)}><Icon name="close" /></button><span className="review-book"><Icon name="book" size={28}/></span><h2 id="review-title">Before your next adventure</h2><p>{lesson.question}</p><div className="review-choices">{lesson.choices.map((choice,i)=><button key={choice} aria-pressed={reviewChoice===i} onClick={()=>setReviewChoice(i)} className={reviewChoice===i ? i===lesson.answer ? "review-correct":"review-retry":""}>{choice}</button>)}</div>{reviewChoice!==null && <p className="review-explanation" role="status">{reviewChoice===lesson.answer ? `That’s right. ${lesson.tip}` : "Not quite. Think about the details you heard in the conversation, then try again."}</p>}<div className="review-takeaway"><strong>Keep this phrase</strong><p>{lesson.pattern}</p></div><button className="primary-button full-width" disabled={reviewChoice!==lesson.answer} onClick={completeMission}>Collect {quest.xp} XP & continue <Icon name="arrow" size={18}/></button></section></div>}
 
-      {atlasOpen && (
-        <div className="modal-backdrop atlas-backdrop">
-          <section
-            className="campus-atlas"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="atlas-title"
-          >
-            <button
-              className="modal-close icon-button"
-              autoFocus
-              onClick={() => setAtlasOpen(false)}
-              aria-label="Đóng bản đồ toàn trường"
-            >
-              <Icon name="close" />
-            </button>
-            <div className="atlas-heading">
-              <h2 id="atlas-title">Bản đồ khuôn viên</h2>
-              <p>Chọn điểm đến để bắt đầu khám phá.</p>
-            </div>
-            <div className="atlas-content">
-              <CampusMap player={playerPosition} storyTarget={storyChapter?storyPosition(storyChapter.location):undefined} objective={storyIndex<0?goal?.place:undefined} near={near} onPlace={goTo} onZone={goToZone} />
-              <nav
-                className="atlas-destinations"
-                aria-label="Các khu vực trong trường"
-              >
-                {(Object.keys(PLACES) as Place[]).map((place) => (
-                  <button key={place} onClick={() => goTo(place)}>
-                    <Icon name={place === "library" ? "book" : place === "canteen" ? "food" : "school"} size={19} />
-                    <span>{PLACES[place].name}<small>{PLACES[place].npc}</small></span>
-                    <Icon name="arrow" size={15} />
-                  </button>
-                ))}
-                {EXPLORATION_ZONES.map((zone) => (
-                  <button key={zone.id} onClick={() => goToZone(zone.id)}>
-                    {ZONE_ART[zone.id] !== undefined ? (
-                      <i
-                        className="destination-art"
-                        aria-hidden="true"
-                        style={{
-                          backgroundPosition: `${(ZONE_ART[zone.id]! % 3) * 50}% ${Math.floor(ZONE_ART[zone.id]! / 3) * 100}%`,
-                        }}
-                      />
-                    ) : (
-                      <Icon name={zone.icon} size={19} />
-                    )}
-                    <span>
-                      {zone.name}
-                      <small>{zone.english}</small>
-                    </span>
-                    <Icon name="arrow" size={15} />
-                  </button>
-                ))}
-                <small className="atlas-caption">
-                  Bản đồ mô phỏng sáng tạo, không phải sơ đồ thực địa của
-                  trường.
-                </small>
-              </nav>
-            </div>
-            <div className="atlas-footer">
-              <span>
-                <i /> Vị trí của em
-              </span>
-              <span>
-                WASD · Di chuyển &nbsp; Shift · Chạy &nbsp; E · Trò chuyện
-              </span>
-              <button
-                onClick={() => {
-                  setAtlasOpen(false);
-                  setMobileHudOpen(false);
-                  worldRef.current?.overview();
-                }}
-              >
-                Xem toàn cảnh 3D <Icon name="compass" size={16} />
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      {rankingsOpen && <CampusLeaderboards flush={flush} onClose={()=>setRankingsOpen(false)}/>}
+      {atlasOpen && <CampusMap player={playerPosition} progress={progress} onSelect={setAtlasDestination}
+        storyLocation={storyChapter?.location ?? goal?.place} onPlace={goTo} onZone={goToZone}
+        onResident={id=>{
+          setAtlasOpen(false);setMobileHudOpen(false);setStudyTravel(false);setLevelMissionTravel(null);
+          requestAnimationFrame(()=>worldRef.current?.goToResident(id));
+        }}
+        onClose={()=>setAtlasOpen(false)} onOverview={()=>{
+          setAtlasOpen(false);setMobileHudOpen(false);worldRef.current?.overview();
+        }}/>}
 
       {artGallery && (
         <div className="modal-backdrop gallery-backdrop">

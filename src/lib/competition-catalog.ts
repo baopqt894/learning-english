@@ -95,9 +95,30 @@ const trackB1 = [
 ];
 
 const questionBanks = {
-  pool: { beginner: SWIM_QUESTIONS, intermediate: [...swimA2, ...intermediate], advanced: [...swimB1, ...advanced] },
-  track: { beginner: [...common, ...sport.slice(0, 8)], intermediate: [...trackA2, ...intermediate], advanced: [...trackB1, ...advanced] },
-  field: { beginner: [...common, ...sport.slice(8)], intermediate, advanced },
+  pool: {
+    beginner: [...SWIM_QUESTIONS,
+      q('pool-towel', 'After a swim, dry your face with a ___.', ['ticket', 'towel', 'ladder', 'whistle'], 'towel', 'A towel absorbs water from your skin.')],
+    intermediate: [...swimA2, ...intermediate,
+      q('pool-length', 'Linh swam from one end to the other and back. How many lengths was that?', ['One', 'Two', 'Three', 'Four'], 'Two', 'Each trip from one end to the other counts as one length.')],
+    advanced: [...swimB1, ...advanced,
+      q('pool-notice', 'A notice reads “Lanes 1–3 reserved until noon.” At 11 am, which lane is available?', ['Lane 1', 'Lane 2', 'Lane 3', 'Lane 4'], 'Lane 4', 'The reservation covers only the first three lanes and is still in effect at eleven.')],
+  },
+  track: {
+    beginner: [...common, ...sport.slice(0, 8),
+      q('track-shoes', 'Tie your ___ before you run.', ['shoelaces', 'water bottles', 'stopwatches', 'scoreboards'], 'shoelaces', 'Tying your shoelaces keeps your shoes secure.')],
+    intermediate: [...trackA2, ...intermediate,
+      q('track-laps', 'Our coach asked us to run twice around the track. That means ___ laps.', ['half a', 'one', 'two', 'four'], 'two', 'One lap is one complete circuit. Twice around means two laps.')],
+    advanced: [...trackB1, ...advanced,
+      q('track-deadline', 'Entries close at 8:45 sharp. Which runner registered in time?', ['An at 8:44', 'Mai at 8:46', 'Bao at 8:50', 'Linh at 9:00'], 'An at 8:44', 'In time means before the deadline. Only An registered before 8:45.')],
+  },
+  field: {
+    beginner: [...common, ...sport.slice(8),
+      q('field-next', '“It is your turn.” Who goes next?', ['The coach', 'You', 'The whole team', 'The referee'], 'You', 'Your turn means you are the next person to take part.')],
+    intermediate: [...intermediate,
+      q('field-team', 'There are eight players. Make two equal teams. Each team has ___ players.', ['two', 'three', 'four', 'six'], 'four', 'Equal teams have the same number of players. Half of eight is four.')],
+    advanced: [...advanced,
+      q('field-spare', 'We brought a spare baton in case the first one ___.', ['breaks', 'breaking', 'to break', 'has breaking'], 'breaks', 'Use the present simple after in case for a possible future event.')],
+  },
 };
 
 export function competitionQuestions(id: CompetitionId, difficulty: RaceDifficulty = 'beginner') {

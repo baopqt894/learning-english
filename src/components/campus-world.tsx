@@ -20,7 +20,7 @@ import { FARM_LAYOUT } from "@/lib/campus-spaces";
 import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
 import { ResidentPrompt } from "./resident-prompt";
-import type { CampusResident } from "@/lib/campus-residents";
+import { CAMPUS_RESIDENTS, residentMeetingPoint, type CampusResident } from "@/lib/campus-residents";
 import type { ResidentKind, ResidentMissionProgress } from '@/lib/resident-missions';
 import { animateCharacter, setRunningGrip, updateCharacterDetail } from "@/lib/campus-character";
 import {fieldworkMotion, loadAnMotion, playAnMotion} from '@/lib/an-game-motion';
@@ -226,12 +226,38 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       fallback.textContent =
         "Thiết bị chưa hỗ trợ WebGL. Em vẫn có thể dùng nút Bản đồ toàn trường để khám phá và luyện hội thoại ở chế độ 2D.";
       host.appendChild(fallback);
-      actionRef.current.goTo = (place) => callbacks.current.onNear(place);
-      actionRef.current.goToZone = (zone) =>
-        callbacks.current.onAreaChange?.(
-          EXPLORATION_ZONES.find((z) => z.id === zone)!.name,
-        );
+      let visitor: CampusResident | null = null;
+      let desk: SportsVenueId | undefined;
+      const arrive = (point: MapPoint, place: Place | null = null, resident: CampusResident | null = null) => {
+        visitor = resident;
+        desk = nearbySportsVenue(point.x, point.z);
+        setTalkingResident(null);
+        setNearResident(resident);
+        callbacks.current.onNear(place);
+        callbacks.current.onMove?.(point.x, point.z, 0, []);
+        callbacks.current.onAreaChange?.(campusAreaName(point));
+      };
+      actionRef.current.goTo = place => {
+        const [x, z] = PLACES[place].position;
+        arrive({ x, z: z + 1 }, place);
+      };
+      actionRef.current.goToZone = id => {
+        const zone = EXPLORATION_ZONES.find(zone => zone.id === id);
+        if (zone) arrive(zone);
+      };
+      actionRef.current.goToResident = id => {
+        const resident = CAMPUS_RESIDENTS.find(person => person.kind === id);
+        if (resident) arrive(residentMeetingPoint(resident), null, resident);
+      };
+      actionRef.current.goToRegistration = id => arrive(SPORTS_VENUES[id].approach);
+      actionRef.current.openRegistration = () => {
+        if (!desk) return false;
+        callbacks.current.onCompetition?.(desk);
+        return true;
+      };
+      residentAction.current = { open: () => setTalkingResident(visitor), close: () => setTalkingResident(null), voice: () => {} };
       return () => {
+        residentAction.current = { open: () => {}, close: () => {}, voice: () => {} };
         fallback.remove();
         actionRef.current = emptyActions();
       };
@@ -584,9 +610,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       goToResident(id) {
         const person = environment.residents.find(({ resident }) => resident.kind === id);
         if (!person) return;
-        const [start, end = start] = person.resident.route;
+        const meeting = residentMeetingPoint(person.resident);
         renderer.domElement.focus({ preventScroll: true });
-        walkTo((start[0] + end[0]) / 2, (start[1] + end[1]) / 2);
+        walkTo(meeting.x, meeting.z);
       },
       fieldworkAvailable: () => !renderer.getContext().isContextLost(),
       viewWork: (wide) => { workWide=wide; },

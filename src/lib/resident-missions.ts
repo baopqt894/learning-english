@@ -37,6 +37,9 @@ export const RESIDENT_MISSIONS: Record<ResidentKind, ResidentMission> = {
       turn('They need a badge before they join the tour.', 'Khách cần thẻ trước khi tham gia chuyến tham quan.', 'I’ll give them a badge first.', 'I’ll collect their badges after the tour.'),
     ],
     task: { type: 'quiz', questions: [
+      question("A visitor has lost their badge. What do you offer?", "Let me help you get a replacement.", "Let me cancel the exhibition.", "A replacement takes the place of something lost."),
+      question("Your group meets at a quarter past two. Which time is correct?", "2:15", "2:45", "A quarter past means fifteen minutes after the hour."),
+      question("Someone asks where to sign in. What do they need?", "The registration desk.", "The finish line.", "Visitors sign in at a registration desk."),
       question('Your visitor wants to join a tour. Which question helps you find their group?', 'Which group are you with?', 'Where did you buy your lunch?', 'Ask which group the visitor belongs to.'),
       question('The welcome desk is beside the gate. Give a clear direction.', 'Go to the desk next to the gate.', 'Go upstairs to the library.', 'Beside and next to mean in the same area, close by.'),
     ] },
@@ -58,6 +61,9 @@ export const RESIDENT_MISSIONS: Record<ResidentKind, ResidentMission> = {
       turn('Put borrowed books on the trolley. Reference books stay in the reading room.', 'Đặt sách mượn lên xe đẩy. Sách tham khảo để lại phòng đọc.', 'The reference books stay here.', 'I can take the reference books home.'),
     ],
     task: { type: 'quiz', questions: [
+      question("What should you do to renew a library book?", "Ask to keep it for longer.", "Give it to another visitor.", "Renewing a loan extends the return date."),
+      question("Which instruction protects a borrowed book?", "Keep the pages dry.", "Fold every page corner.", "Moisture damages paper."),
+      question("A reader asks for the author. What information do they want?", "The name of the writer.", "The number of shelves.", "An author writes a book."),
       question('The return date is Friday. What does “due on Friday” mean?', 'The book must be returned by Friday.', 'The book is available after Friday.', 'A due date is the deadline to return something.'),
       question('One book has a reference label. Where does it go?', 'It stays in the reading room.', 'It goes in a visitor’s bag.', 'Reference books stay in the library.'),
     ] },
@@ -115,6 +121,9 @@ export const RESIDENT_MISSIONS: Record<ResidentKind, ResidentMission> = {
       turn('Can you help me give the team clear instructions before the game?', 'Bạn giúp mình dặn đội thật rõ trước trận nhé?', 'Yes. I’ll tell them where to wait and when to start.', 'Yes. I’ll tell everyone to leave the field.'),
     ],
     task: { type: 'quiz', questions: [
+      question("A teammate calls “Behind you!” Where are they?", "At your back.", "Directly ahead of you.", "Behind is the opposite of in front of."),
+      question("Which message asks for a substitution?", "Could another player take my place?", "Could we change the colour of the ball?", "A substitute takes the place of another player."),
+      question("The game ends three goals each. What is the result?", "A draw.", "A one-goal win.", "A draw means the teams have equal scores."),
       question('A teammate is open near the touchline. Which instruction fits?', 'Pass to the teammate on the side.', 'Pass backwards to the goalkeeper.', 'The touchline is the boundary at the side of the pitch.'),
       question('Players should warm up before the whistle. What should they do first?', 'Warm up.', 'Start the match.', 'Before tells you which action happens first.'),
     ] },
@@ -127,6 +136,9 @@ export const RESIDENT_MISSIONS: Record<ResidentKind, ResidentMission> = {
       turn('Can you check these notices before I read them to the class?', 'Bạn kiểm tra các thông báo trước khi mình đọc cho lớp nhé?', 'Sure. I’ll check the room and time.', 'Sure. I’ll change every room number.'),
     ],
     task: { type: 'quiz', questions: [
+      question("The teacher says to stress the first syllable. What do you change?", "Make the first syllable more prominent.", "Remove the first syllable.", "Stress is the emphasis given to part of a word."),
+      question("You missed the last word. Which request is clearest?", "Could you repeat the final word?", "Could you finish my homework?", "Final means last."),
+      question("Which item lets you hear the recording privately?", "Headphones.", "A classroom notice.", "Headphones send sound directly to your ears."),
       question('The lesson moved from 9:15 to 9:45. Confirm the new time.', 'The lesson starts at 9:45 now.', 'The lesson still starts at 9:15.', 'Moved from one time to another means the latter time is new.'),
       question('The recording is too loud. Complete the request: Please turn ___ the volume.', 'down', 'up', 'Turn down means reduce the volume.'),
     ] },
@@ -139,6 +151,9 @@ export const RESIDENT_MISSIONS: Record<ResidentKind, ResidentMission> = {
       turn('One group arrives at noon. Please confirm the time with them.', 'Một nhóm đến vào buổi trưa. Em xác nhận lại giờ với họ nhé.', 'I’ll confirm that lunch is at twelve.', 'I’ll tell the group to come tomorrow morning.'),
     ],
     task: { type: 'quiz', questions: [
+      question("Which meal request asks for a smaller serving?", "Just half a portion, please.", "Could I have seconds?", "Half a portion asks for less food."),
+      question("A visitor asks whether the soup contains milk. What should you check?", "The list of ingredients.", "The price of the bowls.", "Ingredients are the foods used to make a dish."),
+      question("Which sentence offers a refill?", "Would you like some more water?", "Have you lost your plate?", "A refill adds more drink to a container."),
       question('The vegetable rice is dairy-free, but the soup contains milk. Which dish should you suggest to someone who avoids milk?', 'The vegetable rice.', 'The soup.', 'Dairy-free means that the dish does not contain dairy.'),
       question('A visitor asks, “When is lunch served?” Reply politely.', 'Lunch is served at noon.', 'Ask how deep the pool is.', 'At noon means at twelve in the middle of the day.'),
     ] },

@@ -38,3 +38,8 @@ export const CAMPUS_RESIDENTS = [
 ] as const satisfies readonly Resident[];
 
 export type CampusResident = typeof CAMPUS_RESIDENTS[number];
+
+export function residentMeetingPoint(resident: CampusResident) {
+  const [start, end = start] = resident.route;
+  return { x: (start[0] + end[0]) / 2, z: (start[1] + end[1]) / 2 };
+}

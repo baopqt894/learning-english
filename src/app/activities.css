@@ -50,3 +50,6 @@
 }
 
 .cadet-mission-index > .activities-heading { position: sticky; top: 0; padding-bottom: 10px; background: var(--deep); z-index: 1; }
+
+.activity-play .activity-instruction h3,.balance-prompt .balance-question {line-height:1.38;text-wrap:pretty}
+.activity-play .activity-choices label,.balance-prompt .balance-choices button {min-height:44px;text-align:left}

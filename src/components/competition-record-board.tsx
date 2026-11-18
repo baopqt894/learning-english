@@ -9,7 +9,7 @@ type BoardState = 'loading' | 'error' | RaceBoard;
 export function CompetitionRecordBoard({ mode, difficulty, onBack }: {
   mode: CompetitionId;
   difficulty: RaceDifficulty;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
   const [event, setEvent] = useState(mode);
   const [level, setLevel] = useState(difficulty);
@@ -29,7 +29,7 @@ export function CompetitionRecordBoard({ mode, difficulty, onBack }: {
       </div>
     </div>
     <RecordedTimes key={`${event}-${level}`} mode={event} difficulty={level}/>
-    <button onClick={onBack}>Back</button>
+    {onBack && <button onClick={onBack}>Back</button>}
   </div>;
 }
 
