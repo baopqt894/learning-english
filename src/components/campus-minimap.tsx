@@ -111,8 +111,8 @@ export function CampusMinimap({player, target, missionName, area, onOpen}: {
           </svg>
         </span>
       </span>
-      <span className="mini-caption"><strong>{area}</strong><Icon name="fullscreen" size={13}/></span>
-      <span className="mini-key" aria-hidden="true"><span className="mini-north">▴ N</span><span className="mini-you">You</span>{target && <span className="mini-goal"><span>{destinationName}</span><b>{Math.round(distance)} m</b></span>}</span>
+      <span className="mini-caption"><strong>{area}</strong><span className="mini-north" aria-hidden="true">▴ N</span><Icon name="fullscreen" size={13}/></span>
+      <span className="mini-key" aria-hidden="true"><span className="mini-you">You</span>{target && <span className="mini-goal"><span>{destinationName}</span><b>{Math.round(distance)} m</b></span>}</span>
     </button>
   );
 }
