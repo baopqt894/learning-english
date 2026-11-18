@@ -351,6 +351,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let lastWorkInput=callbacks.current.fieldwork;
     workScene.update(localWork,null,'hands',0,false,0,reducedMotion.matches);workScene.study(false);
     let residentNear: CampusResident | null = null, residentSession: CampusResident | null = null;
+    let requestedResident: ResidentKind | null = null;
     let residentSpeaking = false;
     let greetRemaining=0,photoPose='Idle';
     residentAction.current = {
@@ -449,9 +450,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         resetCamera(player.group.position.x, player.group.position.z);
       }
     };
-    const walkTo = (x: number, z: number) => {
+    const walkTo = (x: number, z: number, resident: ResidentKind | null = null) => {
       const path = findCampusPath(player.group.position, { x, z });
       if (!path.length) return;
+      requestedResident = resident;
       resumeFollowing();
       route = path;
       destination.position.set(x, campusFloorHeight({x,z})+.02, z);
@@ -612,7 +614,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         if (!person) return;
         const meeting = residentMeetingPoint(person.resident);
         renderer.domElement.focus({ preventScroll: true });
-        walkTo(meeting.x, meeting.z);
+        walkTo(meeting.x, meeting.z, id);
       },
       fieldworkAvailable: () => !renderer.getContext().isContextLost(),
       viewWork: (wide) => { workWide=wide; },
@@ -635,6 +637,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       },
       overview: () => {
         prepareOverview();
+        requestedResident = null;
         overviewMode = true;
         followPlayer = false;
         route = [];
@@ -698,6 +701,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       if (typing(event.target)) return;
       if(callbacks.current.workKind && key===' '){event.preventDefault();if(!event.repeat)actionRef.current.holdWork(true);return;}
+      if(key==='e' && !event.repeat && requestedResident && residentNear?.kind===requestedResident){
+        event.preventDefault(); residentAction.current.open(); return;
+      }
       if(key==='e'&&!event.repeat&&actionRef.current.openRegistration()){event.preventDefault();return;}
       if(key==='e'&&districtNear&&!callbacks.current.workKind){event.preventDefault();if(!event.repeat)districtHoldRef.current(true);return;}
       if(holdingWork||districtActive)return;
@@ -718,6 +724,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         ].includes(key)
       ) {
         event.preventDefault();
+        requestedResident = null;
         keys.add(key);
         resumeFollowing();
         route = [];
@@ -1200,7 +1207,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         const distance = dx * dx + dz * dz;
         rig.group.visible = conversation || distance < 32 ** 2
           || (!!photoSession && rig.group.position.distanceToSquared(controls.target) < 36 ** 2);
-        if (canMeet && distance < closestDistance) {
+        const eligible = requestedResident
+          ? resident.kind === requestedResident && canPractise && !districtActive && !route.length
+          : canMeet;
+        if (eligible && distance < closestDistance) {
           closestDistance = distance;
           closestResident = resident;
         }

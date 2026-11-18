@@ -740,3 +740,8 @@
 .resident-card .resident-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border-radius: 6px; background: #f1ca77; color: #293723; font-weight: 700; }
 .resident-card button:focus-visible { outline: 2px solid #fae4ab; outline-offset: 2px; }
 @media (max-width:620px) { .campus-shell .resident-card { max-height: calc(100dvh - 172px); } }
+
+.resident-quest-sign {display:grid;place-items:center;width:27px;height:27px;flex:none;border-radius:50%;background:#f4ca73;color:#25362b;font:800 19px/1 system-ui}
+.resident-open[data-mission-state="ready"] .resident-quest-sign {background:#246454;color:white;border:2px solid #bfe8cc}
+.campus-shell:has(.resident-open,.resident-card) .interact-button,
+.campus-shell:has(.resident-open,.resident-card) .district-prompt {visibility:hidden}

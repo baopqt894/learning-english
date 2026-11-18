@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { CAMPUS_RESIDENTS, residentMeetingPoint } from "@/lib/campus-residents";
 import { MAP_BOUNDS, EXPLORATION_ZONES, type MapPoint, type ZoneId } from "@/lib/campus-map";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { RESIDENT_MISSIONS, type ResidentKind } from "@/lib/resident-missions";
-import { nextGoal, PLACES, type Place, type Progress } from "@/lib/game";
+import { nextGoal, PLACES, QUESTS, type Place, type Progress } from "@/lib/game";
 import { CampusTerrain } from "./campus-minimap";
+import { layoutAtlasPins, placeSymbols } from "@/lib/atlas-pins";
 import { Icon } from "./icon";
 import "./campus-atlas.css";
 
@@ -15,8 +16,14 @@ const height = MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ;
 const position = (x:number,z:number) => ({left:`${(x-MAP_BOUNDS.minX)/width*100}%`,top:`${(z-MAP_BOUNDS.minZ)/height*100}%`});
 const searchable = (s:string) => s.normalize("NFD").replace(/\p{M}/gu,"").replace(/đ/gi,"d").toLowerCase();
 export type AtlasDestination = MapPoint & {name:string};
-type Entry = MapPoint & {id:string;name:string;detail:string;status:string;walk:()=>void;keywords?:string};
+type Entry = MapPoint & {id:string;person?:boolean;symbol:string;name:string;detail:string;status:string;walk:()=>void;keywords?:string};
 const statusOrder = ["Report back","Story mission","In progress","New mission","Conversation","Completed"];
+
+function PinSymbol({entry}: {entry:Entry}) {
+  if (entry.person && ["New mission","Story mission","Report back","In progress"].includes(entry.status))
+    return <span aria-hidden="true" className="atlas-exclamation">!</span>;
+  return <Icon name={entry.symbol} size={17}/>;
+}
 
 export function CampusMap({player, progress, storyLocation, onPlace, onZone, onResident, onClose, onOverview, onSelect}:{
   player:MapPoint & {heading:number;route:MapPoint[]}; progress:Progress;storyLocation?:string;
@@ -26,25 +33,46 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
   const [zoomed,setZoomed] = useState(false);
   const [query,setQuery] = useState("");
   const [showCompleted,setShowCompleted] = useState(false);
+  const [questPins,setQuestPins] = useState(true);
+  const sheet = useRef<HTMLDivElement>(null);
+  const [size,setSize] = useState({width:370,height:450,diameter:24});
+  useLayoutEffect(() => {
+    const el=sheet.current;
+    if (!el) return;
+    const measure=()=> {
+      const {width,height}=el.getBoundingClientRect();
+      const diameter=parseFloat(getComputedStyle(el).getPropertyValue("--pin-size"));
+      if (width && height) setSize(old=>old.width===width && old.height===height && old.diameter===diameter ? old : {width,height,diameter});
+    };
+    measure();
+    const observer=new ResizeObserver(measure);
+    observer.observe(el);
+    return ()=>observer.disconnect();
+  },[]);
   const places:Entry[] = [
-    ...EXPLORATION_ZONES.map(z=>({...z,name:z.english,detail:z.name,status:z.id===storyLocation?"Story mission":"",walk:()=>onZone(z.id)})),
+    ...EXPLORATION_ZONES.map(z=>({...z,symbol:placeSymbols[z.id],name:z.english,detail:z.name,status:z.id===storyLocation?"Story mission":"",walk:()=>onZone(z.id)})),
     ...(Object.keys(PLACES) as Place[]).map(id=>{
       const p=PLACES[id];
-      return {id,x:p.position[0],z:p.position[1],name:p.english,detail:p.name+" · "+p.npc,status:id===storyLocation?"Story mission":"",walk:()=>onPlace(id)};
+      return {id,symbol:placeSymbols[id],x:p.position[0],z:p.position[1],name:p.english,detail:p.name+" · "+p.npc,status:id===storyLocation?"Story mission":"",walk:()=>onPlace(id)};
     }),
   ].sort((a,b)=>Number(!!b.status)-Number(!!a.status)||a.name.localeCompare(b.name));
-  const goal=nextGoal(progress);
+  const quest=QUESTS[progress.active];
+  const goal=progress.completed.includes(progress.active) ? undefined : nextGoal(progress);
+  const reportPlace=!goal && !progress.completed.includes(progress.active) ? quest.goals.at(-1)?.place : undefined;
   const people:Entry[] = [...CAMPUS_RESIDENTS.map(r=>{
     const state=progress.residentMissions?.[r.kind];
     const done=progress.challenges?.includes("resident/"+r.kind);
-    return {id:r.kind,name:CHARACTER_PROFILES[r.kind].name,detail:RESIDENT_MISSIONS[r.kind].title,keywords:r.role,...residentMeetingPoint(r),
+    return {id:r.kind,person:true,symbol:done?"check":state==="active"?"clock":"user",name:CHARACTER_PROFILES[r.kind].name,detail:RESIDENT_MISSIONS[r.kind].title,keywords:r.role,...residentMeetingPoint(r),
       status:done?"Completed":state==="ready"?"Report back":state==="active"?"In progress":"New mission",
       walk:()=>onResident(r.kind)};
   }), ...(Object.keys(PLACES) as Place[]).map(id=>{
     const p=PLACES[id], current=goal?.place===id;
-    return {id,name:p.npc,detail:current?goal.label:p.english,keywords:p.role,x:p.position[0],z:p.position[1],status:current?"Story mission":"Conversation",walk:()=>onPlace(id)};
+    return {id,person:true,symbol:"chat",name:p.npc,detail:current?goal.label:id===reportPlace?quest.title:p.english,keywords:p.role,x:p.position[0],z:p.position[1],status:id===reportPlace?"Report back":current?"Story mission":"Conversation",walk:()=>onPlace(id)};
   })].sort((a,b)=>statusOrder.indexOf(a.status)-statusOrder.indexOf(b.status)||a.name.localeCompare(b.name));
-  const visible=(tab==="places"?places:people).map((e,i)=>({...e,number:i+1})).filter(e=>(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords].join(" ")).includes(searchable(query.trim())));
+  const visible=(tab==="places"?places:people).filter(e=>(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords].join(" ")).includes(searchable(query.trim())));
+  const overlay=tab==="places" && questPins && !query.trim()
+    ? people.filter(e=>["Report back","Story mission","New mission","In progress"].includes(e.status)) : [];
+  const pins=layoutAtlasPins([...visible,...overlay],size.width,size.height,size.diameter);
   function travel(entry:Entry) {
     onSelect({name:entry.name, x:entry.x, z:entry.z});
     entry.walk();
@@ -56,19 +84,26 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
       <div className="field-atlas-body">
         <div className="field-atlas-sheet" data-zoomed={zoomed}>
           <div className="atlas-map-scroll">
-          <div className="campus-map-large field-atlas-map" style={{aspectRatio:`${width}/${height}`}}>
+          <div ref={sheet} className="campus-map-large field-atlas-map" style={{aspectRatio:`${width}/${height}`}}>
             <svg viewBox={`${MAP_BOUNDS.minX} ${MAP_BOUNDS.minZ} ${width} ${height}`} aria-label="Campus terrain">
               <CampusTerrain/>
               {player.route.length>0&&<polyline points={[player,...player.route].map(p=>p.x+","+p.z).join(" ")} fill="none" stroke="#346f6a" strokeWidth="1" strokeDasharray="1.2 1.5"/>}
             </svg>
-            {visible.map(e=><button key={e.id} className="field-atlas-pin" data-status={e.status} data-zone={tab==="places"?e.id:undefined} data-npc={tab==="people"?e.id:undefined}
-              style={position(e.x,e.z)} onClick={()=>travel(e)} aria-label={`Walk to ${e.name}`} title={e.name+" · "+(e.status||e.detail)}>{e.number}</button>)}
+            <svg className="atlas-leaders" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true">
+              {pins.filter(p=>Math.hypot(p.x-p.anchorX,p.y-p.anchorY)>size.diameter/2).map(p=>
+                <g key={(p.entry.person?"npc-":"zone-")+p.entry.id}><line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y}/><circle cx={p.anchorX} cy={p.anchorY} r="1.7"/></g>)}
+            </svg>
+            {pins.map(({entry:e,x,y})=><button key={(e.person?"npc-":"zone-")+e.id} className="field-atlas-pin" data-status={e.status}
+              data-zone={e.person?undefined:e.id} data-npc={e.person?e.id:undefined}
+              style={{left:x/size.width*100+"%",top:y/size.height*100+"%"}} onClick={()=>travel(e)} aria-label={`Walk to ${e.name}${e.status?" · "+e.status:""}`}
+              title={[e.name,e.status||e.detail].join(" · ")}><PinSymbol entry={e}/></button>)}
             <span className="field-atlas-player campus-map-player" style={position(player.x,player.z)} title="You">
               <svg viewBox="0 0 20 20" style={{transform:`rotate(${180-player.heading*180/Math.PI}deg)`}}><path d="m10 2 7 15-7-3-7 3z" fill="#17698a" stroke="#fffaf0" strokeWidth="2"/></svg>
             </span>
           </div>
           </div>
-          <div className="field-atlas-mapkey"><span>▲ You</span><span><i/> Mission</span><b>↑ N</b>
+          <div className="field-atlas-mapkey"><span>▲ You</span>{tab==="places" ? <label><input type="checkbox" checked={questPins} onChange={e=>setQuestPins(e.target.checked)}/> ! Quest NPCs</label>
+            : <span><b className="atlas-legend-new">!</b> New <b className="atlas-legend-active">!</b> Active <i/> Turn in</span>}<b>↑ N</b>
             <button type="button" aria-label={zoomed?"Zoom out":"Zoom in"} aria-pressed={zoomed} onClick={()=>setZoomed(!zoomed)}>{zoomed?"−":"+"}</button></div>
         </div>
         <div className="field-atlas-directory">
@@ -76,7 +111,7 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
           <input aria-label="Search destinations" type="search" placeholder={tab==="places"?"Find a place…":"Find a person or mission…"} value={query} onChange={e=>setQuery(e.target.value)}/>
           {tab==="people"&&<label className="atlas-show-done"><input type="checkbox" checked={showCompleted} onChange={e=>setShowCompleted(e.target.checked)}/> Show completed missions</label>}
           <nav aria-label="Destinations">{visible.map(e=><button key={e.id} onClick={()=>travel(e)}>
-            <span className="field-atlas-number" data-status={e.status}>{e.number}</span><span><strong>{e.name}</strong><small>{e.detail}</small>{e.status&&<em>{e.status}</em>}</span><Icon name="arrow" size={15}/></button>)}
+            <span className="field-atlas-symbol" data-status={e.status}><PinSymbol entry={e}/></span><span><strong>{e.name}</strong><small>{e.detail}</small>{e.status&&<em>{e.status}</em>}</span><Icon name="arrow" size={15}/></button>)}
             {!visible.length&&<p role="status">{query?"No matching destinations.":"No unfinished missions."}</p>}
           </nav>
         </div>

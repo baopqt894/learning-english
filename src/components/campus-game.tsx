@@ -238,6 +238,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const travelingMission = levelMissionTravel ? LEVEL_MISSIONS[levelMissionTravel] : null;
   const finished = quest.goals.every((g) => progress.goals.includes(g.id));
   const allDone = progress.completed.length === QUESTS.length;
+  const storyTurnIn = !!near && finished && !progress.completed.includes(progress.active) && near === quest.goals.at(-1)?.place;
+  const storyAction = storyTurnIn ? "Turn in mission" : near && goal?.place === near && !allDone
+    ? (progress.goals.length ? "Continue mission" : "Start mission") : "Talk";
   const currentPlace = talking || near || goal?.place || "courtyard";
   const person = PLACES[currentPlace];
   const dialogueName = currentPlace === "courtyard" ? "Minh" : currentPlace === "library" ? "Ms. Lan" : "Mr. Hung";
@@ -693,6 +696,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   };
 
   const claim = () => {setReviewChoice(null);setReviewOpen(true);};
+  const interactWithStoryNpc = () => { if (storyTurnIn) claim(); else openConversation(); };
   const completeMission = () => {
     setReviewOpen(false);
     const index = progress.active;
@@ -819,7 +823,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             photoMode={photoOpen}
             enabled={!!progress.name && !modalOpen && !talking && !swimOpen}
             onNear={setNear}
-            onInteract={()=>{if(!physicalWork)openConversation();}}
+            onInteract={()=>{if(!physicalWork)interactWithStoryNpc();}}
             onMove={updateMapPlayer}
             onAreaChange={setAreaName}
           />
@@ -880,8 +884,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
               </button>
             )}
             {near && !registration && (
-              <button className="interact-button" onClick={openConversation}>
-                <kbd>E</kbd><Icon name="chat" size={19} /> Trò chuyện với {PLACES[near].npc}
+              <button className="interact-button" onClick={interactWithStoryNpc}>
+                <kbd>E</kbd><Icon name="chat" size={19} /> {storyAction} · {PLACES[near].npc}
               </button>
             )}
             <div className="camera-tools" aria-label="Camera">

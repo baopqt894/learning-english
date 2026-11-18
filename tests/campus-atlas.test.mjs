@@ -35,3 +35,21 @@ test('all practice places have original tiered questions and every NPC quiz has 
     for (const q of task.questions) assert.ok(q.options.includes(q.answer));
   }
 });
+
+test('area icons and nearby NPC quest pins stay individually tappable on a phone', async () => {
+  const { layoutAtlasPins, placeSymbols } = await import('../src/lib/atlas-pins.ts');
+  const places = Object.entries(PLACES).map(([id,p]) => ({ id, x: p.position[0], z: p.position[1] }));
+  const destinations = [...EXPLORATION_ZONES, ...places];
+  assert.equal(new Set(destinations.map(p => placeSymbols[p.id])).size, destinations.length);
+  const entries = [...destinations, ...CAMPUS_RESIDENTS.map(residentMeetingPoint), places[0]];
+  for (const [width,height,diameter] of [[151,183,21],[240,292,21],[370,450,24],[494,600,28]]) {
+    const pins = layoutAtlasPins(entries,width,height,diameter);
+    for (const [i,pin] of pins.entries()) {
+      assert.equal(pin.entry,entries[i]);
+      assert.ok(pin.x >= diameter/2 && pin.x <= width-diameter/2);
+      assert.ok(pin.y >= diameter/2 && pin.y <= height-diameter/2);
+      for (const other of pins.slice(0,i))
+        assert.ok(Math.hypot(pin.x-other.x,pin.y-other.y) >= diameter);
+    }
+  }
+});

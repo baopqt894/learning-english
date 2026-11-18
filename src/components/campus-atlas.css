@@ -13,10 +13,10 @@
 .field-atlas-map>svg {display:block;width:100%;height:100%}
 .field-atlas-mapkey {position:absolute;display:flex;align-items:center;gap:14px;inset:auto 0 0;padding:4px 10px;background:#dfe7d1;color:#253e33;font-size:11px;font-weight:700}
 .field-atlas-mapkey b {margin-left:auto}
-.field-atlas .field-atlas-pin,.field-atlas-number {display:grid;place-items:center;border:1.5px solid #fff6dd;border-radius:50%;background:#365948;color:#fff9e4;font:700 11px/1 system-ui}
+.field-atlas .field-atlas-pin,.field-atlas-symbol {display:grid;place-items:center;border:1.5px solid #fff6dd;border-radius:50%;background:#365948;color:#fff9e4;font:700 11px/1 system-ui}
 .field-atlas .field-atlas-pin {position:absolute;z-index:3;width:22px;height:22px;padding:0;transform:translate(-50%,-50%);box-shadow:0 1px 3px #15291f88}
 .field-atlas-pin:focus-visible,.field-atlas-pin:hover {z-index:7}
-.field-atlas :is(.field-atlas-pin,.field-atlas-number):is([data-status="New mission"],[data-status="Story mission"],[data-status="Report back"]) {background:#f4ca73;color:#332c1d;border-color:#705631}
+.field-atlas :is(.field-atlas-pin,.field-atlas-symbol):is([data-status="New mission"],[data-status="Story mission"],[data-status="Report back"]) {background:#f4ca73;color:#332c1d;border-color:#705631}
 .field-atlas [data-status="Report back"] {outline:2px solid #fff6dd}
 .field-atlas .field-atlas-player {background:#204e57;border:1px solid white;width:17px;height:17px;box-shadow:none;z-index:4}
 .field-atlas-directory {padding:12px;min-height:0;min-width:0;display:flex;flex-direction:column;gap:8px}
@@ -29,7 +29,7 @@
 .field-atlas-directory nav {overflow:auto;min-height:0;overscroll-behavior:contain}
 .field-atlas-directory nav button {width:100%;display:grid;grid-template-columns:24px minmax(0,1fr) 16px;align-items:center;gap:9px;text-align:left;padding:9px 5px;border-bottom:1px solid #466052;background:transparent;color:inherit;min-height:46px}
 .field-atlas-directory nav button:hover {background:#2b4537}
-.field-atlas-number {width:23px;height:23px}
+.field-atlas-symbol {width:23px;height:23px}
 .field-atlas-directory nav :is(strong,small,em) {display:block}
 .field-atlas-directory small {font-size:12px;color:#d2decc}
 .field-atlas-directory em {font-size:11px;font-style:normal;color:#f4cf84}
@@ -54,3 +54,24 @@
 .modal-backdrop.field-atlas-backdrop {grid-template-columns:minmax(0,1fr)}
 .field-atlas {width:min(810px,calc(100vw - 24px))}
 .field-atlas-mapkey button:focus-visible {outline:3px solid #244a3c}
+
+.field-atlas-map {--pin-size:24px}
+.field-atlas .field-atlas-pin,.field-atlas-sheet[data-zoomed=true] .field-atlas-pin {width:var(--pin-size);height:var(--pin-size)}
+.field-atlas-pin svg {width:70%;height:70%;stroke-width:2}
+.field-atlas .field-atlas-pin[data-zone],.field-atlas-symbol {border-radius:6px}
+.field-atlas .field-atlas-pin[data-npc] {border-radius:50%}
+.field-atlas :is(.field-atlas-pin,.field-atlas-symbol)[data-status="Report back"] {color:#fffaf0;background:#246454;border:2px double #e6ffe9;outline:1px solid #1b5446}
+.atlas-exclamation {font:850 16px/1 system-ui}
+.atlas-leaders {position:absolute;inset:0;pointer-events:none;stroke:#425e4e;stroke-width:1.3;fill:#425e4e}
+.field-atlas-mapkey label {display:inline-flex;align-items:center;gap:5px;cursor:pointer;min-height:34px}
+.field-atlas-mapkey i {background:#246454;border:1px solid #fff;border-radius:50%;width:14px;height:14px;display:inline-grid;place-items:center;color:white;font-style:normal}
+.field-atlas-mapkey i::before {content:"!"}
+@media(max-width:620px){
+  .field-atlas-map {--pin-size:21px}
+  .field-atlas-sheet {height:clamp(162px,40dvh,350px)}
+  .campus-shell .field-atlas .field-atlas-map {height:clamp(118px,calc(40dvh - 44px),306px)}
+  .field-atlas-sheet[data-zoomed=true] .field-atlas-map {--pin-size:28px}
+}
+.field-atlas :is(.field-atlas-pin,.field-atlas-symbol)[data-status="In progress"] {background:#365d75;color:white;border-color:#d7eef9}
+.field-atlas-mapkey :is(.atlas-legend-new,.atlas-legend-active) {margin:0;display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:#f4ca73;color:#302b21}
+.field-atlas-mapkey .atlas-legend-active {background:#365d75;color:white}

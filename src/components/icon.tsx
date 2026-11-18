@@ -1,6 +1,17 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  fish: "M3 12q6-10 14-2l4-3v10l-4-3q-8 8-14-2Zm5-1h.1",
+  hen: "M3 10l3 2c4 2 7 0 7-3a3 3 0 0 1 6-1l3 2-3 1c0 5-4 7-8 7-5 0-8-3-8-8Zm6 8v3m5-3v3",
+  sprout: "M12 21v-8M4 5c5 0 8 2 8 8-5 0-8-3-8-8Zm16-2c0 6-3 9-8 10 0-6 3-9 8-10Z",
+  flag: "M5 21V3m1 1c4-3 8 3 13 0v9c-5 3-9-3-13 0",
+  hurdle: "M3 20h5m8 0h5M5 20V7h14v13M5 12h14M8 7l3 5m2-5 3 5",
+  bed: "M3 5v16m0-5h18v5m0-5v-4c0-2-1-3-3-3h-7v7M3 9h5v4H3",
+  board: "M3 3h18v13H3zM8 21l4-5 4 5M7 8h5m-5 3h9",
+  pencil: "m4 15 11-11 5 5L9 20l-6 1zM13 6l5 5",
+  headphones: "M3 15v-3a9 9 0 0 1 18 0v3M3 12h4v8H4q-1 0-1-2zm18 0h-4v8h3q1 0 1-2z",
+  stage: "M3 3h18v16H3zM3 4q1 6 6 7l-6 5m18-12q-1 6-6 7l6 5M2 21h20",
+  cup: "M3 8h13v5a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6zm13 1h2a3 3 0 0 1 0 6h-2M2 21h17M7 3v2m5-2v2",
   pool: "M2 18q2.5-2 5 0t5 0 5 0 5 0M2 22q2.5-2 5 0t5 0 5 0 5 0M7 14l4-5 4 2 4 4m-8-6 3-4 4 1M21 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z",
   run: "M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM3 21l5-1 4-5m-5-3 3-3 4 1 4 4 3-1m-7-3-4 6 5 1 2 5",
   camera: "M3 7h4l2-3h6l2 3h4v13H3V7Zm13 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",

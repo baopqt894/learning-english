@@ -80,11 +80,17 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
     setStep(0);
   }
 
-  if (!open) return <button type="button" className="resident-open" onClick={onOpen}
-    aria-label={`Trò chuyện với ${name}`}>
-    <Icon name={status === 'ready' ? 'check' : 'chat'} size={19}/>
-    <span><strong>{name}</strong><small>{status === 'ready' ? 'Sẵn sàng báo cáo' : resident.role}</small></span><kbd>E</kbd>
-  </button>;
+  if (!open) {
+    const action = reporting ? 'Turn in mission' : !status ? 'Accept mission'
+      : status === 'active' ? 'Continue mission' : 'Talk';
+    return <button type="button" className="resident-open" data-mission-state={status ?? 'new'}
+      aria-label={`${action} · ${name} · ${mission.title}`} onClick={onOpen}>
+      {reporting || !status ? <b className="resident-quest-sign" aria-hidden="true">!</b>
+        : <Icon name={status === 'active' ? 'clock' : 'chat'} size={20}/>}
+      <span><strong lang="en">{action}</strong><small>{name} · {mission.title}</small></span>
+      <kbd>E</kbd><Icon name="chevron" size={16}/>
+    </button>;
+  }
 
   return <aside className="resident-card" aria-label={`Trò chuyện với ${name}`}>
     <div className="resident-card-heading">
