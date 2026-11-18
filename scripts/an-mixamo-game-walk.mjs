@@ -66,9 +66,26 @@ export async function bakeMixamoGameWalk(root,bones){
  const hips=clip.tracks.find(t=>t.name==='mixamorigHips.position');
  const drift=new Vector3().fromArray(hips.values,hips.values.length-3).sub(new Vector3().fromArray(hips.values));
  drift.y=0;if(drift.length()<.60)drift.set(0,0,0);
+ // The source performer can tuck their chin much farther than a chibi
+ // with a cap. Share the excess pitch between the neck and head, leaving
+ // the hands, hips and planted feet on the original work trajectory.
+ const gardenReach=['dig and plant seeds','pull plant','pull plant (2)','plant a plant','plant tree'].includes(clip.name);
+ const neck=targets.get(game.get('neck_01')),head=targets.get(game.get('head'));
+ const up=new Vector3(0,1,0);
+ function fitChibiReach(){
+  const headUp=up.clone().transformDirection(head.world);
+  const excess=headUp.angleTo(up)-Math.PI*.24;
+  if(excess<=0)return;
+  const axis=new Vector3().crossVectors(headUp,up).normalize();
+  const neckPivot=new Vector3().setFromMatrixPosition(neck.world);
+  const headOffset=new Vector3().setFromMatrixPosition(head.world).sub(neckPivot).applyAxisAngle(axis,excess*.45);
+  neck.world.premultiply(new Matrix4().makeRotationAxis(axis,excess*.45)).setPosition(neckPivot);
+  head.world.premultiply(new Matrix4().makeRotationAxis(axis,excess)).setPosition(headOffset.add(neckPivot));
+ }
  for(let i=0;i<times.length;i++){
   action.time=groundWalk&&i===times.length-1?0:Math.min(times[i],clip.duration-.00001);mixer.update(0);scene.updateMatrixWorld(true);
   for(const t of targets.values())t.world.multiplyMatrices(t.source.matrixWorld,t.inverse).multiply(t.neutral);
+  if(gardenReach)fitChibiReach();
   for(const [node,t] of targets){
    const parent=targets.get(node.parent)?.world??node.parent.matrixWorld;
    const local=parent.clone().invert().multiply(t.world),p=new Vector3(),q=new Quaternion();

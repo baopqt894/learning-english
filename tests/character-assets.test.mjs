@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Box3, Texture, Quaternion } from 'three';
+import { Box3, Texture, Quaternion, Vector3 } from 'three';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { createCampusCharacter, installCharacterAsset, updateCharacterDetail, animateCharacter, setRunningGrip, setHandGrips, sampleCampusWalk, CHARACTER_PROFILES } from '../src/lib/campus-character.ts';
 
@@ -175,6 +175,11 @@ test('every Mixamo option binds to An and garden actions crossfade without movin
     for (let frame=0; frame<30; frame++) {
       animateCharacter(rig,frame/60,false,false);
       playAnMotion(rig,name,1/60,false,.5);
+    }
+    if (action==='plant'||action==='harvest') {
+      const vertical=new Vector3(0,1,0);
+      const headUp=vertical.clone().applyQuaternion(rig.head.getWorldQuaternion(new Quaternion()));
+      assert.ok(headUp.angleTo(vertical)<Math.PI*.26,action+' keeps the cap up during a deep reach');
     }
     const before=rig.rightArm.quaternion.clone();
     animateCharacter(rig,0,false,false);
