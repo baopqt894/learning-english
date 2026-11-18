@@ -1,11 +1,15 @@
 "use client";
 
-import {ATHLETICS_TRACK, SPORTS_VENUES, TRACK_STANDS} from "@/lib/sports-layout";
+import {ATHLETICS_TRACK, SPORTS_VENUES, STADIUM, TRACK_OUTER_RADIUS, TRACK_STANDS} from "@/lib/sports-layout";
 import { DISTRICT_PATHS,LIVESTOCK_PENS,FISH_POND,SWIMMING_POOL,TRAINING_GROUND,DISTRICT_STRUCTURES,TRAINING_EQUIPMENT } from '@/lib/campus-districts-layout';
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, EXPLORATION_ZONES, MAP_BOUNDS, type ZoneId } from "@/lib/campus-map";
 import { FARM_LAYOUT, SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_TREES } from "@/lib/campus-spaces";
 import { PLACES, type Place } from "@/lib/game";
 import { Icon } from "./icon";
+
+const atlasWidth = (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) * 10;
+const atlasHeight = (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ) * 10;
+const worldToAtlas = `translate(${-MAP_BOUNDS.minX * 10} ${-MAP_BOUNDS.minZ * 10}) scale(10)`;
 
 export function mapPosition(x: number, z: number) {
   return {
@@ -34,17 +38,37 @@ export function CampusMap({
     <div
       className={`campus-map-art ${large ? "campus-map-large" : ""}`}
       aria-label="Bản đồ toàn trường"
+      style={{
+        aspectRatio: `${atlasWidth}/${atlasHeight}`,
+        maxWidth: large ? `calc(max(300px, 100dvh - 172px) * ${atlasWidth / atlasHeight})` : undefined,
+      }}
     >
-      <svg className="campus-cartography" viewBox="0 0 1560 1550" role="img" aria-label="Campus atlas: classrooms, dormitories, garden, animal care, training ground, swimming pool and fish pond">
+      <svg className="campus-cartography" viewBox={`0 0 ${atlasWidth} ${atlasHeight}`} preserveAspectRatio="none" role="img" aria-label="Campus atlas: classrooms, dormitories, garden, animal care, training ground, swimming pool and fish pond">
         <defs>
           <pattern id={large ? "atlas-grid-large" : "atlas-grid-mini"} width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#698677" strokeOpacity=".12" strokeWidth="1" /></pattern>
         </defs>
-        <rect width="1560" height="1550" fill="#dbe3cc" />
-        <rect x="12" y="12" width="1536" height="1526" rx="20" fill="none" stroke="#96ae90" strokeWidth="2" strokeDasharray="5 6" />
-        <rect width="1560" height="1550" fill={`url(#${large ? "atlas-grid-large" : "atlas-grid-mini"})`} />
-        <g transform="translate(460 870) scale(10)">
+        <rect width={atlasWidth} height={atlasHeight} fill="#dbe3cc" />
+        <rect x="12" y="12" width={atlasWidth - 24} height={atlasHeight - 24} rx="20" fill="none" stroke="#96ae90" strokeWidth="2" strokeDasharray="5 6" />
+        <rect width={atlasWidth} height={atlasHeight} fill={`url(#${large ? "atlas-grid-large" : "atlas-grid-mini"})`} />
+        <g transform={worldToAtlas}>
           {DISTRICT_PATHS.map((p,i)=><rect key={`new-path-${i}`} x={p.x-p.w/2} y={p.z-p.d/2} width={p.w} height={p.d} fill="#f6efd8"/>)}
-          <g aria-label="English running track"><rect x={ATHLETICS_TRACK.x-ATHLETICS_TRACK.w/2} y={ATHLETICS_TRACK.z-4.5} width={ATHLETICS_TRACK.w} height={ATHLETICS_TRACK.d} fill="#9f604d"/>{[0,1,2,3,4].map(i=><path key={i} d={`M-22 ${-75+i*2}H22`} stroke="#f8edcc" strokeWidth=".08"/>)}<path d="M-20-75V-67M20-75V-67" stroke="#fff3cc" strokeWidth=".15"/></g>
+          <g aria-label="Campus stadium">
+            <rect x={STADIUM.x - STADIUM.straight / 2 - TRACK_OUTER_RADIUS} y={STADIUM.z - TRACK_OUTER_RADIUS}
+              width={STADIUM.straight + TRACK_OUTER_RADIUS * 2} height={TRACK_OUTER_RADIUS * 2} rx={TRACK_OUTER_RADIUS} fill="#ad6754"/>
+            <rect x={STADIUM.x - STADIUM.straight / 2 - STADIUM.innerRadius} y={STADIUM.z - STADIUM.innerRadius}
+              width={STADIUM.straight + STADIUM.innerRadius * 2} height={STADIUM.innerRadius * 2} rx={STADIUM.innerRadius} fill="#75925e"/>
+            {Array.from({ length: STADIUM.lanes + 1 }, (_, lane) => {
+              const r = STADIUM.innerRadius + lane * STADIUM.laneWidth;
+              return <rect key={lane} x={STADIUM.x - STADIUM.straight / 2 - r} y={STADIUM.z - r}
+                width={STADIUM.straight + r * 2} height={r * 2} rx={r} fill="none" stroke="#f9efcf" strokeWidth=".15"/>;
+            })}
+            {[ATHLETICS_TRACK.start, ATHLETICS_TRACK.finish].map(x => <path key={x} d={`M${x} ${ATHLETICS_TRACK.z - ATHLETICS_TRACK.d / 2}v${ATHLETICS_TRACK.d}`} stroke="#fff1d5" strokeWidth=".2"/>)}
+            <g stroke="#f8f1dc" strokeWidth=".25">
+              <rect x={SPORTS_FIELD.x-SPORTS_FIELD.w/2} y={SPORTS_FIELD.z-SPORTS_FIELD.d/2} width={SPORTS_FIELD.w} height={SPORTS_FIELD.d} fill="#90ad6d"/>
+              <path d={`M${SPORTS_FIELD.x} ${SPORTS_FIELD.z - SPORTS_FIELD.d / 2}v${SPORTS_FIELD.d}`} />
+              <circle cx={SPORTS_FIELD.x} cy={SPORTS_FIELD.z} r="2.7" fill="none"/>
+            </g>
+          </g>
           <rect x={TRAINING_GROUND.x-TRAINING_GROUND.w/2} y={TRAINING_GROUND.z-TRAINING_GROUND.d/2} width={TRAINING_GROUND.w} height={TRAINING_GROUND.d} rx=".5" fill="#c8b38b"/>
           {TRAINING_EQUIPMENT.map(e=><rect key={e.id} x={e.x-e.w/2} y={e.z-e.d/2} width={e.w} height={e.d} fill="#72805a"/>)}
           {LIVESTOCK_PENS.map(p=><g key={p.id}><rect x={p.x-p.w/2} y={p.z-p.d/2} width={p.w} height={p.d} fill="#c9b68e" stroke="#6c815d" strokeWidth=".18"/><rect x={p.x-p.w/2+.5} y={p.z-p.d/2+.5} width={p.w-1} height="2" fill="#6c896a"/></g>)}
@@ -62,7 +86,7 @@ export function CampusMap({
           <g fill="#6b8567">{[-15,15].flatMap(x=>[-16,-8,4,16].map(z=><circle key={`${x}-${z}`} cx={x+2.2} cy={z} r=".24"/>))}</g>
           <rect x="-12" y="-5" width="24" height="14" rx=".6" fill="#e7d9ba" stroke="#c2b28e" strokeWidth=".2" />
           <path d="M-10 2H10M0-4V8" stroke="#f4ead2" strokeWidth=".15" strokeDasharray=".5 .5" />
-          <g fill="#90af8b" stroke="#f8f1dc" strokeWidth=".3"><rect x={SPORTS_FIELD.x-SPORTS_FIELD.w/2} y={SPORTS_FIELD.z-SPORTS_FIELD.d/2} width={SPORTS_FIELD.w} height={SPORTS_FIELD.d}/><path d="M16 2H32"/><circle cx={SPORTS_FIELD.x} cy={SPORTS_FIELD.z} r="2.2" fill="none"/></g>
+
           {READING_PLANTERS.map(b=><rect key={b.x} x={b.x-b.w/2} y={b.z-b.d/2} width={b.w} height={b.d} rx=".5" fill="#b0c4a0"/>)}
           <rect x="-4.4" y={PERGOLA.centerZ-PERGOLA.depth/2} width="8.8" height={PERGOLA.depth} fill="#bda879" opacity=".65"/>
           <g aria-label="Khu tăng gia"><rect x={FARM_LAYOUT.bounds.minX} y={FARM_LAYOUT.bounds.minZ} width={FARM_LAYOUT.bounds.maxX-FARM_LAYOUT.bounds.minX} height={FARM_LAYOUT.bounds.maxZ-FARM_LAYOUT.bounds.minZ} fill="#b7ab7c" stroke="#57724c" strokeWidth=".2"/>
@@ -82,7 +106,7 @@ export function CampusMap({
           {!large && Object.values(PLACES).map(p=><circle key={p.npc} cx={p.position[0]} cy={p.position[1]} r="1.3" fill="#d9b964"/>)}
           <circle cx="2.7" cy="-1.9" r=".6" fill="#bd775e" /><path d="M2.7-1.9V-3.9" stroke="#416d60" strokeWidth=".15" />
         </g>
-        {large && <g transform="translate(460 870) scale(10)" className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x="0" y="-63">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>}
+        {large && <g transform={worldToAtlas} className="cartography-labels" fill="#365f4b" textAnchor="middle" fontSize="1.6" fontWeight="600"><text x="0" y="-34">LEARNING QUARTER</text><text x="-39" y="7">DORMITORY</text><text x={STADIUM.x} y={STADIUM.z - TRACK_OUTER_RADIUS - 1.2}>CAMPUS STADIUM</text><text x="0" y="-62">TRAINING GROUND</text><text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+SWIMMING_POOL.deckD/2+3}>SWIMMING POOL</text><text x={FISH_POND.x} y={FISH_POND.z-FISH_POND.d/2-2}>FISH POND</text><text x="75" y="55">ANIMAL CARE</text><text x={FARM_LAYOUT.center.x} y={FARM_LAYOUT.bounds.maxZ+3}>VEGETABLE GARDEN</text><text x="0" y="34">READING GARDEN</text></g>}
       </svg>
       {large && EXPLORATION_ZONES.map((zone) => (
         <button

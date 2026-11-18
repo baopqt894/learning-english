@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SPORTS_FIELD, READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK, BLEACHERS, SPORT_GOAL_ZS } from "./campus-spaces";
+import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -160,7 +160,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     decal.castShadow = decal.receiveShadow = false;
     return decal;
   };
-  const landscape = surfaceBox(270, 0.12, 240, finish("turf", 0x798c4f), 0, -0.23, 0, 5);
+  const landscape = surfaceBox(270, 0.12, 285, finish("turf", 0x798c4f), 0, -0.23, 0, 5);
   landscape.castShadow = false;
   const lawn = surfaceBox(MAP_BOUNDS.maxX-MAP_BOUNDS.minX+4, 0.18, MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ+4, finish("turf", 0x91a65f), (MAP_BOUNDS.maxX+MAP_BOUNDS.minX)/2, -0.12, (MAP_BOUNDS.maxZ+MAP_BOUNDS.minZ)/2, 4.5);
   lawn.castShadow = false;
@@ -609,28 +609,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     box(bed.w-.16,.08,1.7,0x71815c,bed.x,1.0,bed.z+.2);box(.75,.13,.42,0xe8e0c7,bed.x,.99,bed.z-.86);
     for(const side of [-1,1])for(const end of [-1,1])box(.065,.66,.065,0x53655b,bed.x+side*.58,.5,bed.z+end*1.05);
   }
-  // Eastern sports district: a playable field, goals, track and bleachers.
-  box(SPORTS_FIELD.w+4, 0.08, SPORTS_FIELD.d+3, 0xba956e, SPORTS_FIELD.x, 0.005, SPORTS_FIELD.z);
-  surfaceBox(SPORTS_FIELD.w, 0.09, SPORTS_FIELD.d, finish("turf", 0x739253), SPORTS_FIELD.x, 0.02, SPORTS_FIELD.z, 3.5);
-  for (const x of [SPORTS_FIELD.x-SPORTS_FIELD.w/2+.25,SPORTS_FIELD.x+SPORTS_FIELD.w/2-.25]) box(.09,.012,SPORTS_FIELD.d-.5,0xf1edd4,x,.073,SPORTS_FIELD.z);
-  for (const z of [SPORTS_FIELD.z-SPORTS_FIELD.d/2+.25,SPORTS_FIELD.z,SPORTS_FIELD.z+SPORTS_FIELD.d/2-.25]) box(SPORTS_FIELD.w-.5,.012,.09,0xf1edd4,SPORTS_FIELD.x,.073,z);
-  const centreCircle = mesh(
-    new THREE.RingGeometry(2.1, 2.18, 48),
-    mat(0xf1edd4),
-    [SPORTS_FIELD.x, 0.076, SPORTS_FIELD.z],
-  );
-  centreCircle.rotation.x = -Math.PI / 2;
-  for (const z of SPORT_GOAL_ZS) {
-    for (const x of [SPORTS_FIELD.x-2.5,SPORTS_FIELD.x+2.5])
-      cylinder(0.045, 0.045, 2.75, 0xf0ead3, x, 1.45, z);
-    box(5.1, 0.09, 0.09, 0xf0ead3, SPORTS_FIELD.x, 2.85, z);
-    for (let i = 0; i < 12; i++)
-      box(0.015, 2.55, 0.015, 0xd4ddbd, SPORTS_FIELD.x-2.4 + i * 0.43, 1.4, z + 0.5);
-  }
-  for(const row of BLEACHERS)box(row.w,.28,row.d,0xc1b69a,row.x,row.y,row.z);
-  sign("SÂN BÓNG ĐÁ · FOOTBALL", 7, 0.45, SPORTS_FIELD.x, 1.4, 24.2, "#3b6545");
-  sphere(0.24, 0xf1ead5, 25.5, 0.3, 4.5);
-
   // Southern learning garden with a circular path and planted reading nooks.
   const gardenPath = mesh(
     new THREE.RingGeometry(5.2, 6.5, 64),
@@ -662,12 +640,14 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   const ridgeGeometry=new THREE.PlaneGeometry(260,140,65,35);
   ridgeGeometry.rotateX(-Math.PI/2);
   const ridgePosition=ridgeGeometry.attributes.position,ridgeColors:number[]=[];
+  const ridgeEdge = MAP_BOUNDS.minZ - 6;
   for(let i=0;i<ridgePosition.count;i++){
-    const x=ridgePosition.getX(i)+17,z=ridgePosition.getZ(i)-145;
-    const envelope=Math.sin(Math.PI*THREE.MathUtils.clamp((-z-75)/140,0,1))**1.2;
+    const x=ridgePosition.getX(i)+17,z=ridgePosition.getZ(i)+ridgeEdge-70;
+    const depth = ridgeEdge - z;
+    const envelope=Math.sin(Math.PI*THREE.MathUtils.clamp(depth/140,0,1))**1.2;
     const height=(6+Math.sin(x*.035)*2.2+Math.sin(x*.081+z*.04)*1.5)*envelope;
     ridgePosition.setXYZ(i,x,height-.4,z);
-    const tint=new THREE.Color(0x7e9e73).lerp(new THREE.Color(0x8ca993),THREE.MathUtils.clamp((-z-90)/125,0,1));
+    const tint=new THREE.Color(0x7e9e73).lerp(new THREE.Color(0x8ca993),THREE.MathUtils.clamp((depth-15)/125,0,1));
     tint.multiplyScalar(.93+height*.012);ridgeColors.push(tint.r,tint.g,tint.b);
   }
   ridgeGeometry.setAttribute('color',new THREE.Float32BufferAttribute(ridgeColors,3));ridgeGeometry.computeVertexNormals();

@@ -1,4 +1,4 @@
-import { SPORTS_VENUES, ATHLETICS_TRACK, type SportsVenueId } from './sports-layout.ts';
+import { SPORTS_VENUES, ATHLETICS_TRACK, FIELD_GAMES_COURSE, STADIUM_LOBBIES, type SportsVenueId } from './sports-layout.ts';
 import { SWIM_QUESTIONS } from './swim-race.ts';
 export type CompetitionId='swimming'|'sprint'|'hurdles'|'sack'|'relay';
 export const DIFFICULTIES = {
@@ -13,10 +13,10 @@ export type RaceQuestion={id:string;sentence:string;choices:string[];answer:numb
 const q=(id:string,sentence:string,choices:string[],answer:string,explanation:string):RaceQuestion=>({id,sentence,choices,answer:choices.indexOf(answer),explanation});
 export const COMPETITIONS={
  swimming:{id:'swimming',title:'Swim & solve',subtitle:'25 m freestyle',zone:'swimming',station:'pool',venue:SPORTS_VENUES.pool.name,distance:25,x:75,z:-51,w:29,d:21,axis:'x',start:62.5,lobby:{x:58,z:-51},arrival:SPORTS_VENUES.pool.approach,verb:'swim'},
- sprint:{id:'sprint',title:'Word sprint',subtitle:'40 m running race',zone:'athletics',station:'track',venue:SPORTS_VENUES.track.name,distance:40,x:0,z:-71,w:ATHLETICS_TRACK.w,d:ATHLETICS_TRACK.d,axis:'x',start:ATHLETICS_TRACK.start,lobby:{x:0,z:-65.8},arrival:SPORTS_VENUES.track.approach,verb:'run'},
- hurdles:{id:'hurdles',title:'Grammar hurdles',subtitle:'40 m hurdle race',zone:'athletics',station:'track',venue:SPORTS_VENUES.track.name,distance:40,x:0,z:-71,w:ATHLETICS_TRACK.w,d:ATHLETICS_TRACK.d,axis:'x',start:ATHLETICS_TRACK.start,lobby:{x:0,z:-65.8},arrival:SPORTS_VENUES.track.approach,verb:'jump'},
- sack:{id:'sack',title:'Vocabulary hops',subtitle:'20 m sack race',zone:'field-games',station:'field',venue:SPORTS_VENUES.field.name,distance:20,x:27,z:6,w:20,d:24,axis:'z',start:16,lobby:{x:40,z:8},arrival:SPORTS_VENUES.field.approach,verb:'hop'},
- relay:{id:'relay',title:'Message dash',subtitle:'20 m baton challenge',zone:'field-games',station:'field',venue:SPORTS_VENUES.field.name,distance:20,x:27,z:6,w:20,d:24,axis:'z',start:16,lobby:{x:40,z:8},arrival:SPORTS_VENUES.field.approach,verb:'carry'},
+ sprint:{id:'sprint',title:'Word sprint',subtitle:'40 m running race',zone:'athletics',station:'track',venue:SPORTS_VENUES.track.name,distance:40,x:ATHLETICS_TRACK.x,z:ATHLETICS_TRACK.z,w:ATHLETICS_TRACK.w,d:ATHLETICS_TRACK.d,axis:'x',start:ATHLETICS_TRACK.start,lobby:STADIUM_LOBBIES.track,arrival:SPORTS_VENUES.track.approach,verb:'run'},
+ hurdles:{id:'hurdles',title:'Grammar hurdles',subtitle:'40 m hurdle race',zone:'athletics',station:'track',venue:SPORTS_VENUES.track.name,distance:40,x:ATHLETICS_TRACK.x,z:ATHLETICS_TRACK.z,w:ATHLETICS_TRACK.w,d:ATHLETICS_TRACK.d,axis:'x',start:ATHLETICS_TRACK.start,lobby:STADIUM_LOBBIES.track,arrival:SPORTS_VENUES.track.approach,verb:'jump'},
+ sack:{id:'sack',title:'Vocabulary hops',subtitle:'20 m sack race',zone:'field-games',station:'field',venue:SPORTS_VENUES.field.name,distance:20,x:FIELD_GAMES_COURSE.x,z:FIELD_GAMES_COURSE.z,w:FIELD_GAMES_COURSE.w,d:FIELD_GAMES_COURSE.d,axis:'z',start:FIELD_GAMES_COURSE.start,lobby:STADIUM_LOBBIES.field,arrival:SPORTS_VENUES.field.approach,verb:'hop'},
+ relay:{id:'relay',title:'Message dash',subtitle:'20 m baton challenge',zone:'field-games',station:'field',venue:SPORTS_VENUES.field.name,distance:20,x:FIELD_GAMES_COURSE.x,z:FIELD_GAMES_COURSE.z,w:FIELD_GAMES_COURSE.w,d:FIELD_GAMES_COURSE.d,axis:'z',start:FIELD_GAMES_COURSE.start,lobby:STADIUM_LOBBIES.field,arrival:SPORTS_VENUES.field.approach,verb:'carry'},
 } as const;
 export const COMPETITION_IDS=Object.keys(COMPETITIONS) as CompetitionId[];
 export const RACE_COLOURS=['#e7bd63','#89b798','#92c9dd','#e1a38b'];

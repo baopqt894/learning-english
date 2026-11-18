@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local review history and superseded generated cast
+/.playwright-cli/
+/public/models/cast-v2/
+/public/concepts/tripo-cast-free/*.glb
+
+# Original local Mixamo downloads and visual review captures
+/assets/mixamo/
+/docs/model-reviews/screenshots/

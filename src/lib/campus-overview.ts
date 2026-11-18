@@ -5,7 +5,8 @@ import {
   SWIMMING_POOL, TRAINING_GROUND, TRAINING_EQUIPMENT,
 } from './campus-districts-layout';
 import { CAMPUS_TREES, FARM_FENCES, FARM_LAYOUT, READING_PLANTERS, SPORTS_FIELD } from './campus-spaces';
-import { ATHLETICS_TRACK, SPORTS_VENUES, TRACK_STANDS } from './sports-layout';
+import { SPORTS_VENUES, STADIUM, TRACK_OUTER_RADIUS, TRACK_STANDS } from './sports-layout';
+import { stadiumBand } from './sports-venue-scene';
 
 type Footprint = { x: number; z: number; w: number; d: number };
 type Instance = Footprint & { y: number; h: number; color: number };
@@ -77,13 +78,23 @@ export function createCampusOverview(sky: number) {
 
   ground(TRAINING_GROUND, 0xc6b181);
   for (const item of TRAINING_EQUIPMENT) boxes.push({ ...item, h: .45, y: .28, color: 0x827757 });
-  ground(ATHLETICS_TRACK, 0xb4604d, .055);
-  for (let lane = 0; lane <= 4; lane++) {
-    ground({ ...ATHLETICS_TRACK, z: ATHLETICS_TRACK.z - ATHLETICS_TRACK.d / 2 + lane * ATHLETICS_TRACK.d / 4, d: .09 }, 0xeee4cf, .095);
+  const stadiumMeshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[] = [];
+  function ring(inner: number, outer: number, color: number, y: number, straight = STADIUM.straight) {
+    const mesh = new THREE.Mesh(stadiumBand(inner, outer, 18, straight), new THREE.MeshBasicMaterial({ color, toneMapped: false }));
+    mesh.position.set(STADIUM.x, y, STADIUM.z);
+    stadiumMeshes.push(mesh);
+    scene.add(mesh);
   }
+  ring(0, STADIUM.innerRadius, 0x668144, .044);
+  ring(STADIUM.innerRadius, TRACK_OUTER_RADIUS + .15, 0xb46755, .06);
+  for (let lane = 0; lane <= STADIUM.lanes; lane++) {
+    const radius = STADIUM.innerRadius + lane * STADIUM.laneWidth;
+    ring(radius - .045, radius + .045, 0xf0dfc3, .075);
+  }
+  ring(2.55, 2.71, 0xefe6bd, .105, 0);
   for (const stand of TRACK_STANDS) building(stand, 1.6, 0x667e61);
   ground(SPORTS_FIELD, 0x799750);
-  ground({ ...SPORTS_FIELD, d: .13 }, 0xefe6bd, .07);
+  ground({ ...SPORTS_FIELD, w: .13 }, 0xefe6bd, .08);
   for (const { desk } of Object.values(SPORTS_VENUES)) building(desk, 1.25, 0x5d8b6d);
 
   const matrix = new THREE.Matrix4();
@@ -127,6 +138,7 @@ export function createCampusOverview(sky: number) {
     mark(x: number, z: number) { marker.position.set(x, 2.6, z); },
     dispose() {
       scenery.forEach(mesh => { mesh.geometry.dispose(); mesh.dispose(); });
+      stadiumMeshes.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); });
       material.dispose();
       marker.geometry.dispose();
       marker.material.dispose();

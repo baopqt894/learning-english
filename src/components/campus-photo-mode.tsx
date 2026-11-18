@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { PHOTO_FORMATS, PHOTO_LIGHTS, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
+import motionGroups from '@/lib/an-mixamo-catalog.json';
 import { Icon } from "./icon";
 
 type PhotoPreview = Omit<PhotoCapture, "blob"> & { url: string; filename: string };
@@ -12,9 +13,10 @@ const adjustments: Record<string, PhotoAdjustment> = {
 };
 
 export function CampusPhotoMode({
-  area, onClose, onLight, onFrame, onAdjust, onCapture,
+  area, onClose, onLight, onFrame, onAdjust, onCapture, onPose,
 }: {
   area: string;
+  onPose?:(name:string)=>void;
   onClose: () => void;
   onLight: (light: PhotoLight) => void;
   onFrame: (wholeCampus: boolean) => void;
@@ -73,7 +75,7 @@ export function CampusPhotoMode({
   }
 
   function keydown(event: KeyboardEvent<HTMLElement>) {
-    if (preview || busy || event.altKey || event.ctrlKey || event.metaKey || !Object.hasOwn(adjustments, event.key)) return;
+    if (event.target instanceof HTMLSelectElement || preview || busy || event.altKey || event.ctrlKey || event.metaKey || !Object.hasOwn(adjustments, event.key)) return;
     event.preventDefault();
     onAdjust(adjustments[event.key]);
   }
@@ -136,6 +138,9 @@ export function CampusPhotoMode({
           <div className="photo-deck">
             {settings && (
               <div id="photo-controls" className="photo-controls">
+                {onPose&&<label>Character action <select defaultValue="Idle" onChange={e=>onPose(e.target.value)}>
+                  {motionGroups.map(group=><optgroup key={group.label} label={group.label}>{group.items.map(([name])=><option key={name} value={name}>{name}</option>)}</optgroup>)}
+                </select></label>}
                 <div className="photo-control-row" role="group" aria-label="Ánh sáng">
                   <span aria-hidden="true">Ánh sáng</span>
                   <div className="photo-segments">

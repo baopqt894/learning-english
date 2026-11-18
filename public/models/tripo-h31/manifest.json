@@ -1,0 +1,257 @@
+{
+  "version": 4,
+  "source": "Tripo H3.1 user export",
+  "sourceSha256": "4b091d17c155aed68e390f73cd210baed3d65c3620d8f4067d1ea179e3013e8a",
+  "sourceTriangles": 1923248,
+  "textures": [
+    {
+      "url": "/models/tripo-h31/color-original.jpg",
+      "sha256": "7f7a5857615e69f0b2b1204ebd9cb90fbd406b16cabeb367cd26ddc3256f63a4"
+    },
+    {
+      "url": "/models/tripo-h31/orm-original.jpg",
+      "sha256": "dfb26c968b50ab2e723e187687dc14dd372739383b1d21ec9416e21394c44fbb"
+    },
+    {
+      "url": "/models/tripo-h31/normal-original.png",
+      "sha256": "b1ecdf02ceda7a510212bb7cbda3d3a6f911833a5bf45d1b24f6e33d3126a892"
+    }
+  ],
+  "originalMaterial": {
+    "name": "tripo_material_b83b248b-57e3-4e73-a2b7-dbc0a5af9613",
+    "pbrMetallicRoughness": {
+      "baseColorTexture": {
+        "index": 0
+      },
+      "metallicRoughnessTexture": {
+        "index": 1
+      }
+    },
+    "normalTexture": {
+      "index": 2
+    }
+  },
+  "characters": [
+    {
+      "kind": "cadet",
+      "name": "An",
+      "url": "/models/tripo-h31/cadet.glb?v=bbb88116f79a",
+      "bytes": 398860,
+      "transferBytes": 316513,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 95276,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "linh",
+      "name": "Linh",
+      "url": "/models/tripo-h31/linh.glb?v=0a63ee43fc14",
+      "bytes": 353136,
+      "transferBytes": 307127,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 111000,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "minh",
+      "name": "Minh",
+      "url": "/models/tripo-h31/minh.glb?v=1b305174156d",
+      "bytes": 352344,
+      "transferBytes": 306925,
+      "nearTriangles": 22000,
+      "farTriangles": 3498,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 109710,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "library",
+      "name": "Cô Lan",
+      "url": "/models/tripo-h31/library.glb?v=f06f531062cb",
+      "bytes": 348936,
+      "transferBytes": 303461,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 131792,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "canteen",
+      "name": "Chú Hùng",
+      "url": "/models/tripo-h31/canteen.glb?v=ab08f0570ce0",
+      "bytes": 351020,
+      "transferBytes": 305253,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 147042,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "mai",
+      "name": "Mai",
+      "url": "/models/tripo-h31/mai.glb?v=864ab7730fb2",
+      "bytes": 347600,
+      "transferBytes": 302608,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 111370,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "nam",
+      "name": "Nam",
+      "url": "/models/tripo-h31/nam.glb?v=bcfcc8834e43",
+      "bytes": 344140,
+      "transferBytes": 299905,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 108280,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "thu",
+      "name": "Thu",
+      "url": "/models/tripo-h31/thu.glb?v=a5e11d7126ca",
+      "bytes": 338808,
+      "transferBytes": 294680,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 108918,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "khoa",
+      "name": "Khoa",
+      "url": "/models/tripo-h31/khoa.glb?v=d78b6f21901d",
+      "bytes": 343008,
+      "transferBytes": 298216,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 105168,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "phuc",
+      "name": "Chú Phúc",
+      "url": "/models/tripo-h31/phuc.glb?v=0ec5d525b57a",
+      "bytes": 344892,
+      "transferBytes": 301175,
+      "nearTriangles": 22000,
+      "farTriangles": 3498,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 142828,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "yen",
+      "name": "Yến",
+      "url": "/models/tripo-h31/yen.glb?v=a28b5896e0b0",
+      "bytes": 343720,
+      "transferBytes": 299200,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 111942,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "hai",
+      "name": "Thầy Hải",
+      "url": "/models/tripo-h31/hai.glb?v=5a943b751999",
+      "bytes": 345204,
+      "transferBytes": 299891,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 97958,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "vy",
+      "name": "Vy",
+      "url": "/models/tripo-h31/vy.glb?v=9c23933a1065",
+      "bytes": 344524,
+      "transferBytes": 299914,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 106182,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "bao",
+      "name": "Bảo",
+      "url": "/models/tripo-h31/bao.glb?v=421e9a30c209",
+      "bytes": 351684,
+      "transferBytes": 306828,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 94092,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "tram",
+      "name": "Trâm",
+      "url": "/models/tripo-h31/tram.glb?v=e71de28c7a6a",
+      "bytes": 344128,
+      "transferBytes": 299322,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 95714,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "thao",
+      "name": "Cô Thảo",
+      "url": "/models/tripo-h31/thao.glb?v=e9ca4dfea478",
+      "bytes": 344556,
+      "transferBytes": 299919,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 136866,
+      "repairedScalpVertices": 0
+    },
+    {
+      "kind": "quang",
+      "name": "Quang",
+      "url": "/models/tripo-h31/quang.glb?v=7c70ab2a35a4",
+      "bytes": 345304,
+      "transferBytes": 300768,
+      "nearTriangles": 22000,
+      "farTriangles": 3500,
+      "drawCalls": 1,
+      "joints": 80,
+      "sourceTriangles": 109110,
+      "repairedScalpVertices": 0
+    }
+  ]
+}

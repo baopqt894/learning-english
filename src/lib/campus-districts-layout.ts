@@ -1,7 +1,7 @@
 import type { BalanceRun } from './balance-challenge.ts';
 import { SPORTS_VENUES } from './sports-layout.ts';
 /** Every new district shares footprints between geometry, navigation and the atlas. */
-export const CAMPUS_EXTENT={minX:-46,maxX:110,minZ:-87,maxZ:68};
+export const CAMPUS_EXTENT={minX:-49,maxX:110,minZ:-125,maxZ:68};
 export const BASE_DISTRICT_PATHS=[
   {x:44,z:-19.5,w:58,d:3.6},{x:38,z:-9.5,w:3.6,d:87},
   {x:25,z:35,w:96,d:3.6},{x:0,z:-32,w:3.6,d:14},
@@ -110,6 +110,7 @@ export const DISTRICT_PATHS=[
  {x:19.75,z:-25.25,w:1.2,d:15.5},
  {x:0,z:-35.25,w:3,d:4.5},
  {x:-25.5,z:-49.4,w:1.6,d:32.8},{x:-12.75,z:-65.8,w:25.5,d:1.2},
+ {x:2.5,z:-67.25,w:58,d:2.9},
  // Eastern service spine joins water safety, aquaculture and animal care.
  {x:44,z:-7.5,w:4,d:137},
  {x:74,z:-76,w:60,d:2.4},
@@ -136,5 +137,6 @@ export const DISTRICT_PATHS=[
  // Courtyard approaches and the cross-campus promenade.
  {x:0,z:-7.25,w:3,d:2.5},
  {x:0,z:11.6,w:28,d:3},
+ {x:28.8,z:11.6,w:31,d:3.5},
  {x:-14.5,z:1.8,w:1,d:16.6},
 ] as const;

@@ -1,0 +1,7 @@
+assets/sources/
+docs/model-reviews/screenshots/
+public/models/cast-v2/
+public/concepts/tripo-cast-free/*.glb
+.playwright-cli/
+assets/
+docs/model-reviews/

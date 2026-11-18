@@ -17,11 +17,18 @@ export function createSwimRaceScene(scene:THREE.Scene){
   parts=[];
   const group=new THREE.Group();root.add(group);group.rotation.y=Math.PI/2;
   const cap=new THREE.Color(r.color),suit=cap.clone().multiplyScalar(.65);
-  oval(group,.26,.135,.43,0,-.035,0,suit);oval(group,.22,.13,.24,0,-.045,-.38,suit);
-  oval(group,.075,.07,.12,0,.04,.46,skin);oval(group,.19,.18,.22,0,.12,.66,skin);
-  oval(group,.199,.14,.19,0,.24,.63,cap);
-  for(const side of [-1,1]){oval(group,.079,.047,.045,side*.087,.16,.846,black);oval(group,.06,.029,.014,side*.087,.16,.882,white);}
-  oval(group,.035,.04,.054,0,.11,.873,skin);
+  oval(group,.258,.142,.47,0,-.035,-.018,suit);oval(group,.217,.123,.243,0,-.045,-.38,suit);
+  oval(group,.088,.075,.135,0,.027,.46,skin);oval(group,.234,.195,.237,0,.126,.663,skin);
+  oval(group,.241,.155,.216,0,.24,.641,cap);
+  const lens=cap.clone().lerp(white,.66);
+  for(const side of [-1,1]){
+   oval(group,.038,.06,.046,side*.216,.121,.692,skin);
+   oval(group,.093,.051,.046,side*.1,.166,.859,black);
+   oval(group,.071,.034,.018,side*.1,.167,.894,lens);
+   oval(group,.022,.011,.004,side*.1-.013,.183,.911,white);
+  }
+  oval(group,.053,.012,.016,0,.17,.885,black);
+  oval(group,.039,.037,.042,0,.103,.89,skin);
   const arms:THREE.Group[]=[],elbows:THREE.Group[]=[],legs:THREE.Group[]=[];
   for(const side of [-1,1]){
    const arm=new THREE.Group();arm.position.set(side*.27,.015,.29);group.add(arm);arms.push(arm);
@@ -41,6 +48,7 @@ export function createSwimRaceScene(scene:THREE.Scene){
  bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
  bodyParts.forEach(({color},index)=>bodies.setColorAt(index,color));
  root.add(bodies);
+ const hidden=new THREE.Matrix4().makeScale(0,0,0);
  const stroke=new THREE.Euler(), strokeRotation=new THREE.Quaternion();
  function banner(text:string,x:number){
   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#234b3c';ctx.fillRect(0,0,256,64);ctx.font='bold 30px Arial';ctx.fillStyle='#fff0c8';ctx.textAlign='center';ctx.fillText(text,128,43);
@@ -51,7 +59,7 @@ export function createSwimRaceScene(scene:THREE.Scene){
  const finish=new THREE.Mesh(new THREE.PlaneGeometry(.18,pool.d),new THREE.MeshStandardMaterial({color:white}));finish.rotation.x=-Math.PI/2;finish.position.set(startX+SWIM_DISTANCE,.245,pool.z);root.add(finish);
  let currentRound: string|undefined;
  return {
-  update(visible:boolean,distances:number[],delta:number,reduced:boolean,count:number,roundId?:string){
+  update(visible:boolean,distances:number[],delta:number,reduced:boolean,count:number,roundId?:string,characterLanes:readonly boolean[]=[]){
    root.visible=visible;
    if(!visible){currentRound=undefined;return;}
    let partIndex=0;
@@ -79,8 +87,8 @@ export function createSwimRaceScene(scene:THREE.Scene){
      s.legs[side].rotation.x=Math.sin(phase*2)*.14*s.blend;
     }
     s.group.rotation.z=Math.sin(cycle)*.10*s.blend;
-    s.group.updateMatrixWorld(true);
-    for(const part of s.parts) bodies.setMatrixAt(partIndex++,part.shape.matrixWorld);
+    if(!characterLanes[i])s.group.updateMatrixWorld(true);
+    for(const part of s.parts) bodies.setMatrixAt(partIndex++,characterLanes[i]?hidden:part.shape.matrixWorld);
     s.ripples.forEach((ring,n)=>{
      const p=(cycle/(Math.PI*2)+n/2)%1;
      ring.visible=s.blend>.05&&distance>0;

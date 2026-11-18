@@ -24,3 +24,7 @@
   .character-study-select { margin: 8px 0 12px; }
   .character-study-panel > a:last-child { display: inline-block; margin-top: 8px; }
 }
+
+.character-study-all { width: 100%; margin-bottom: 20px; }
+.character-study-panel button:disabled { opacity: .5; cursor: default; }
+.character-loading { position: absolute; inset: 40% 16px auto; text-align: center; }

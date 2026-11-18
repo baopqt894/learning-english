@@ -1,4 +1,5 @@
 import { CAMPUS_EXTENT, EXPANDED_TREES } from './campus-districts-layout.ts';
+export { SPORTS_FIELD } from './sports-layout.ts';
 /** Shared spatial truth: rendering, navigation, minimap and layout audit use these coordinates. */
 export const FARM_LAYOUT = {
   bounds: {minX:16.8,maxX:39.5,minZ:34.3,maxZ:55.4},
@@ -39,7 +40,6 @@ export const FARM_OBSTACLES = [
   // Both bamboo gate leaves are parked open along the passage sides.
   ...[-1,1].map(side=>({x:f.gate.x+.2,z:f.gate.z+side*(f.gate.width/2+.6),w:.1,d:1.2})),
 ];
-export const SPORTS_FIELD={x:27,z:6,w:22,d:26};
 export const READING_PLANTERS=[-10.5,10.5].map(x=>({x,z:23.5,w:4,d:6.6}));
 export const PERGOLA={xs:[-4,4],zs:[19.7,21.5],centerZ:20.6,depth:2.4,height:2.85};
 export const CAMPUS_BENCHES=[
@@ -47,9 +47,9 @@ export const CAMPUS_BENCHES=[
   {x:-18.4,z:8,angle:0},{x:-18.4,z:11,angle:0},
   {x:-7.6,z:24,angle:-Math.PI/2},{x:7.6,z:24,angle:Math.PI/2},
   {x:-5,z:-15.3,angle:0},{x:5,z:-15.3,angle:0},
-  {x:40.5,z:12,angle:Math.PI/2},{x:40.5,z:16,angle:Math.PI/2},
+  {x:36.5,z:16,angle:0},{x:32.5,z:16,angle:0},
 ];
-export const DISTRICT_TREES=[[-39,-20],[-39,-6],[-39,6],[-41,23],[-21,-27],[-18,25],[20,-36],[40,-13],[40.5,24],[-5,29],[5,29],[-9,16],[9,16],[11,28.8]] as const;
+export const DISTRICT_TREES=[[-39,-20],[-39,-6],[-39,6],[-41,23],[-21,-27],[-18,25],[20,-36],[40,-13],[40.5,24],[-5,29],[5,29],[-9,16],[9,16],[11,28.8],[19,16],[38,17],[-45,-82],[46,-87],[-34,-116],[36,-116]] as const;
 export const SITE_STATIC_OBSTACLES=[
   ...READING_PLANTERS,
   ...PERGOLA.xs.flatMap(x=>PERGOLA.zs.map(z=>({x,z,w:.17,d:.17}))),
@@ -62,10 +62,7 @@ export const CAMPUS_TREES=[...EXPANDED_TREES,...CORE_TREES,...PERIMETER_TREES,..
 export const COURTYARD_PLANTERS=[-10.7,10.7].flatMap(x=>[-.6,6].map(z=>({x,z,w:1.4,d:2.5})));
 export const EDGE_PLANTERS=[-12.8,12.8].flatMap(x=>[-1,3,7].map(z=>({x,z,w:.85,d:1.9})));
 export const BICYCLE_RACK={xs:Array.from({length:4},(_,i)=>-11+i*.85),z:-12,x:-9.725,w:3.85,d:.55};
-export const BLEACHERS=Array.from({length:3},(_,i)=>({x:27,z:22+i*.8,w:20,d:.75,y:.17+i*.28}));
-export const SPORT_GOAL_ZS=[SPORTS_FIELD.z-SPORTS_FIELD.d/2+.5,SPORTS_FIELD.z+SPORTS_FIELD.d/2-.5];
 export const ADDITIONAL_STATIC_OBSTACLES=[...CORE_TREES,...PERIMETER_TREES].filter(t=>Math.abs(t.x)<36&&Math.abs(t.z)<30).map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale}));
-export const FIXED_SITE_OBSTACLES=[...COURTYARD_PLANTERS,...EDGE_PLANTERS,BICYCLE_RACK,...BLEACHERS,
+export const FIXED_SITE_OBSTACLES=[...COURTYARD_PLANTERS,...EDGE_PLANTERS,BICYCLE_RACK,
   {x:2.7,z:-1.9,w:1.9,d:1.9},{x:-3,z:-.7,w:1.9,d:1.9},
-  ...SPORT_GOAL_ZS.flatMap(z=>[{x:SPORTS_FIELD.x-2.5,z,w:.09,d:.09},{x:SPORTS_FIELD.x+2.5,z,w:.09,d:.09},{x:SPORTS_FIELD.x,z:z+.5,w:5.1,d:.06}]),
 ];

@@ -1,6 +1,6 @@
 {
-  "scope": "Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.",
-  "playableAreaMetresSquared": 24180,
+  "scope": "Functional campus layout, stadium and pitch clearance, district markers, farm segregation, room clearance and routes between named destinations and NPCs. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.",
+  "playableAreaMetresSquared": 30687,
   "roomAreas": [
     {
       "name": "NHÀ Ở HỌC VIÊN A",
@@ -75,12 +75,12 @@
     {
       "id": "track",
       "approach": {
-        "x": -16,
-        "z": -63
+        "x": -18,
+        "z": -67.1
       },
       "desk": {
-        "x": -16,
-        "z": -65.15,
+        "x": -18,
+        "z": -69.55,
         "w": 4.2,
         "d": 1.35
       }
@@ -88,25 +88,37 @@
     {
       "id": "field",
       "approach": {
-        "x": 40,
-        "z": 20
+        "x": 23,
+        "z": -67.1
       },
       "desk": {
-        "x": 40,
-        "z": 21.9,
-        "w": 3.4,
-        "d": 1.15
+        "x": 23,
+        "z": -69.55,
+        "w": 3.8,
+        "d": 1.35
       }
     }
   ],
+  "stadium": {
+    "centre": {
+      "x": 1,
+      "z": -93
+    },
+    "lanes": 4,
+    "pitch": {
+      "width": 43,
+      "depth": 22
+    }
+  },
+  "residentApproaches": 12,
   "workStations": 12,
   "districtPracticeStations": 7,
   "expandedDistrictObstacles": 65,
-  "namedDestinations": 42,
-  "orderedRoutes": 1722,
-  "solidFootprints": 268,
-  "sharedTrees": 110,
-  "circulationPaths": 38,
+  "namedDestinations": 54,
+  "orderedRoutes": 2862,
+  "solidFootprints": 273,
+  "sharedTrees": 116,
+  "circulationPaths": 40,
   "productiveBeds": 8,
   "productiveSoilArea": 135.27999999999997,
   "farmAreaMetresSquared": 478.97,

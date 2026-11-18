@@ -945,6 +945,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
       {photoOpen && (
         <CampusPhotoMode
+          onPose={progress.avatar===0?name=>worldRef.current?.posePhoto(name):undefined}
           area={areaName}
           onClose={closePhoto}
           onLight={(light) => worldRef.current?.lightPhoto(light)}

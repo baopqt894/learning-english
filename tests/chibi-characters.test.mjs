@@ -15,14 +15,17 @@ test('all residents have their own rig and walk on short, clear paths', () => {
   }
 });
 
-test('main chibi models have a ground-aligned body, distinct faces and independent moving pivots', () => {
-  for (const kind of ['cadet', 'linh', 'minh', 'library', 'canteen']) {
+test('all chibi models have a ground-aligned body, readable proportions and independent moving pivots', () => {
+  for (const kind of Object.keys(CHARACTER_PROFILES)) {
     const rig = createCampusCharacter(kind, kind === 'cadet');
     const full = new Box3().setFromObject(rig.group);
     const head = new Box3().setFromObject(rig.head);
     assert.ok(Math.abs(full.min.y) < .02, kind);
-    assert.ok((head.max.y - head.min.y) / (full.max.y - full.min.y) >= .4, kind);
+    // Slightly smaller heads stay chibi without requiring an oversized silhouette.
+    const headRatio = (head.max.y - head.min.y) / (full.max.y - full.min.y);
+    assert.ok(headRatio >= .37 && headRatio <= .5, kind);
     assert.equal(rig.eyes.length, 2);
+    assert.equal(rig.lids.length, 2);
     assert.equal(rig.elbows.length, 2);
     let meshes = 0;
     rig.group.traverse(object => {

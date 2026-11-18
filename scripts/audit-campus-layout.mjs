@@ -1,14 +1,21 @@
-import {ATHLETICS_TRACK, SPORTS_VENUES, SPORTS_OBSTACLES, TRACK_STANDS, nearbySportsVenue} from '../src/lib/sports-layout.ts';
+import {ATHLETICS_TRACK, SPORTS_VENUES, SPORTS_OBSTACLES, STADIUM, TRACK_OUTER_RADIUS, TRACK_STANDS, nearbySportsVenue, stadiumDistance} from '../src/lib/sports-layout.ts';
 import {SWIMMING_POOL, DISTRICT_STATIONS, DISTRICT_OBSTACLES, DISTRICT_PATHS, BALANCE_END} from '../src/lib/campus-districts-layout.ts';
 import {writeFileSync} from 'node:fs';
 import {FARM_LAYOUT,FARM_FENCES,FARM_OBSTACLES,SPORTS_FIELD,READING_PLANTERS,PERGOLA,CAMPUS_BENCHES,CAMPUS_TREES} from '../src/lib/campus-spaces.ts';
 import {WORK_STATIONS} from '../src/lib/fieldwork.ts';
 import {EXPLORATION_ZONES,MAP_BOUNDS,CORE_BUILDINGS,EXPANSION_BUILDINGS,MAP_OBSTACLES,canWalkCampus,canWalkSegment,findCampusPath} from '../src/lib/campus-map.ts';
 import {PLACES} from '../src/lib/game.ts';
+import {CAMPUS_RESIDENTS} from '../src/lib/campus-residents.ts';
 const failures=[];
 const check=(ok,message)=>{if(!ok)failures.push(message);};
 const overlaps=(a,b)=>Math.abs(a.x-b.x)<(a.w+b.w)/2-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2-1e-6;
 const f=FARM_LAYOUT;
+const r=TRACK_OUTER_RADIUS;
+check(STADIUM.x-STADIUM.straight/2-r>MAP_BOUNDS.minX&&STADIUM.x+STADIUM.straight/2+r<MAP_BOUNDS.maxX,'Stadium sides cross the campus boundary');
+check(STADIUM.z-r>MAP_BOUNDS.minZ&&STADIUM.z+r<MAP_BOUNDS.maxZ,'Stadium ends cross the campus boundary');
+for(const sx of [-1,1])for(const sz of [-1,1])
+ check(stadiumDistance(SPORTS_FIELD.x+sx*SPORTS_FIELD.w/2,SPORTS_FIELD.z+sz*SPORTS_FIELD.d/2)<STADIUM.innerRadius-1.5,'Pitch has insufficient clearance from the inner lane');
+
 const farmBox={x:(f.bounds.minX+f.bounds.maxX)/2,z:(f.bounds.minZ+f.bounds.maxZ)/2,w:f.bounds.maxX-f.bounds.minX,d:f.bounds.maxZ-f.bounds.minZ};
 check(!overlaps(farmBox,SPORTS_FIELD),'Farm overlaps sports pitch');
 for(const b of [...EXPANSION_BUILDINGS,...READING_PLANTERS])check(!overlaps(farmBox,b),'Farm overlaps reading garden or building');
@@ -51,10 +58,15 @@ for(const object of SPORTS_OBSTACLES) {
  for(const b of buildings)check(!overlaps(object,b),'Sports object intersects campus building');
 }
 for(const stand of TRACK_STANDS)check(stand.z-stand.d/2>MAP_BOUNDS.minZ,'Grandstand crosses campus boundary');
-const points=[{name:'spawn',x:0,z:6},{name:'potting-shed',...f.shed.approach},{name:'potting-aisle',x:17.8,z:36.4},...Object.entries(PLACES).map(([id,p])=>({name:id,x:p.position[0],z:p.position[1]+1})),...EXPLORATION_ZONES.map(z=>({name:z.id,x:z.x,z:z.z})),...WORK_STATIONS.map(s=>({name:s.id,...s.approach})),...DISTRICT_STATIONS.map(s=>({name:s.id,x:s.x,z:s.z})),{name:'balance-exit',...BALANCE_END}];
+const residents=CAMPUS_RESIDENTS.map(resident=>{
+ const [[x,z],[endX,endZ]=[x,z]]=resident.route;
+ check(canWalkSegment({x,z},{x:endX,z:endZ}),`${resident.kind}: patrol crosses a solid footprint`);
+ return {name:'npc-'+resident.kind,x:(x+endX)/2,z:(z+endZ)/2};
+});
+const points=[...residents,{name:'spawn',x:0,z:6},{name:'potting-shed',...f.shed.approach},{name:'potting-aisle',x:17.8,z:36.4},...Object.entries(PLACES).map(([id,p])=>({name:id,x:p.position[0],z:p.position[1]+1})),...EXPLORATION_ZONES.map(z=>({name:z.id,x:z.x,z:z.z})),...WORK_STATIONS.map(s=>({name:s.id,...s.approach})),...DISTRICT_STATIONS.map(s=>({name:s.id,x:s.x,z:s.z})),{name:'balance-exit',...BALANCE_END}];
 for(const p of points)check(canWalkCampus(p.x,p.z),`${p.name}: blocked destination`);
 let routes=0;
 for(const a of points)for(const b of points){if(a===b)continue;routes++;const path=findCampusPath(a,b);check(path.length>0,`${a.name} → ${b.name}: no route`);let previous=a;for(const step of path){check(canWalkSegment(previous,step),`${a.name} → ${b.name}: segment crosses obstacle`);previous=step;}}
-const report={scope:'Functional campus layout, district markers, farm segregation, furniture footprints, gate/header clearance and navigation between every named destination. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.',playableAreaMetresSquared:(MAP_BOUNDS.maxX-MAP_BOUNDS.minX)*(MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ),roomAreas:EXPANSION_BUILDINGS.map(b=>({name:b.name,width:b.w,depth:b.d,area:b.w*b.d})),zones:EXPLORATION_ZONES.length,sportsRegistration:registration,workStations:WORK_STATIONS.length,districtPracticeStations:DISTRICT_STATIONS.length,expandedDistrictObstacles:DISTRICT_OBSTACLES.length,namedDestinations:points.length,orderedRoutes:routes,solidFootprints:MAP_OBSTACLES.length,sharedTrees:CAMPUS_TREES.length,circulationPaths:DISTRICT_PATHS.length,productiveBeds:f.beds.length+f.reserve.length,productiveSoilArea:[...f.beds,...f.reserve].reduce((n,b)=>n+b.w*b.d,0),farmAreaMetresSquared:Number((farmBox.w*farmBox.d).toFixed(2)),trainingBedAislesMetres:gaps,gateWidthMetres:f.gate.width,gateHeadClearanceMetres:f.gate.height-f.gate.headerHeight/2-2.64,farmFenceSegments:FARM_FENCES.length,farmSolidObjects:FARM_OBSTACLES.length,failures,passed:failures.length===0};
+const report={scope:'Functional campus layout, stadium and pitch clearance, district markers, farm segregation, room clearance and routes between named destinations and NPCs. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.',playableAreaMetresSquared:(MAP_BOUNDS.maxX-MAP_BOUNDS.minX)*(MAP_BOUNDS.maxZ-MAP_BOUNDS.minZ),roomAreas:EXPANSION_BUILDINGS.map(b=>({name:b.name,width:b.w,depth:b.d,area:b.w*b.d})),zones:EXPLORATION_ZONES.length,sportsRegistration:registration,stadium:{centre:{x:STADIUM.x,z:STADIUM.z},lanes:STADIUM.lanes,pitch:{width:SPORTS_FIELD.w,depth:SPORTS_FIELD.d}},residentApproaches:residents.length,workStations:WORK_STATIONS.length,districtPracticeStations:DISTRICT_STATIONS.length,expandedDistrictObstacles:DISTRICT_OBSTACLES.length,namedDestinations:points.length,orderedRoutes:routes,solidFootprints:MAP_OBSTACLES.length,sharedTrees:CAMPUS_TREES.length,circulationPaths:DISTRICT_PATHS.length,productiveBeds:f.beds.length+f.reserve.length,productiveSoilArea:[...f.beds,...f.reserve].reduce((n,b)=>n+b.w*b.d,0),farmAreaMetresSquared:Number((farmBox.w*farmBox.d).toFixed(2)),trainingBedAislesMetres:gaps,gateWidthMetres:f.gate.width,gateHeadClearanceMetres:f.gate.height-f.gate.headerHeight/2-2.64,farmFenceSegments:FARM_FENCES.length,farmSolidObjects:FARM_OBSTACLES.length,failures,passed:failures.length===0};
 writeFileSync(new URL('../docs/campus-layout-audit.json',import.meta.url),JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify(report,null,2));if(failures.length)process.exitCode=1;

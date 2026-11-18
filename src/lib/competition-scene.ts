@@ -1,9 +1,11 @@
 import * as THREE from 'three';
-import {createCampusCharacter,animateCharacter} from './campus-character.ts';
+import {createCampusCharacter,animateCharacter,setRunningGrip} from './campus-character.ts';
+import {playAnMotion} from './an-game-motion.ts';
 import {createSwimRaceScene} from './swim-race-scene.ts';
-import {COMPETITIONS,RACE_COLOURS,type CompetitionId} from './competition-catalog.ts';
+import {ATHLETICS_TRACK,COMPETITIONS,RACE_COLOURS,type CompetitionId} from './competition-catalog.ts';
 import {buildSportsVenues,venueSign} from './sports-venue-scene.ts';
 import { SWIMMING_POOL } from './campus-districts-layout.ts';
+import { STADIUM_FLOORS } from './sports-layout.ts';
 import {raceDistance,raceTime,smoothRaceDistance,type CompetitionRoom} from './competition-engine.ts';
 export function createCompetitionScene(scene:THREE.Scene){
  const root=new THREE.Group();scene.add(root);
@@ -12,13 +14,16 @@ export function createCompetitionScene(scene:THREE.Scene){
  const white=new THREE.MeshStandardMaterial({color:0xf0e3c2,roughness:.9}),wood=new THREE.MeshStandardMaterial({color:0x6a7e54,roughness:.9});
  const box=(w:number,h:number,d:number,x:number,y:number,z:number,material:THREE.Material,parent:THREE.Object3D=root)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=h>.2;parent.add(m);return m;};
  const hurdles=new THREE.Group();root.add(hurdles);hurdles.visible=false;
- for(const x of [-12,-4,4,12])for(let i=0;i<4;i++){const z=-74+i*2;for(const s of [-1,1])box(.06,.65,.06,x,.42,z+s*.7,wood,hurdles);box(.09,.09,1.5,x,.77,z,white,hurdles);}
- const makeRigs=(avatars:number[])=>Array.from({length:4},(_,i)=>{const rig=createCampusCharacter(avatars[i]===1?'linh':'cadet');rig.group.scale.setScalar(1.1);root.add(rig.group);rig.group.visible=false;
+ const trackLane = (seat:number) => ATHLETICS_TRACK.z + (seat - 1.5) * ATHLETICS_TRACK.laneWidth;
+ for(const offset of [8,16,24,32])for(let i=0;i<4;i++){const x=ATHLETICS_TRACK.start+offset,z=trackLane(i);for(const s of [-1,1])box(.06,.65,.06,x,.42,z+s*.7,wood,hurdles);box(.09,.09,1.5,x,.77,z,white,hurdles);}
+ const makeSeat=(i:number,avatar:number)=>{const rig=createCampusCharacter(avatar===1?'linh':'cadet');rig.group.scale.setScalar(1.1);root.add(rig.group);rig.group.visible=false;
   const tag=venueSign('',0,2.65,0,2.4,.38,rig.group);tag.name='Competition seat label';
   const sack=new THREE.Mesh(new THREE.CylinderGeometry(.32,.27,.83,20),new THREE.MeshStandardMaterial({color:0xa18a60,roughness:1}));sack.position.y=.53;rig.group.add(sack);sack.visible=false;
   const baton=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.42,12),new THREE.MeshStandardMaterial({color:RACE_COLOURS[i],roughness:.6}));baton.rotation.z=Math.PI/2;baton.position.set(0,-.25,.11);rig.elbows[1].add(baton);baton.visible=false;
-  return {rig,sack,baton,tag,label:''};});
- let rigs:ReturnType<typeof makeRigs>|null=null;
+  return {rig,sack,baton,tag,label:''};};
+ const seats=Array.from({length:4},()=>new Map<number,ReturnType<typeof makeSeat>>());
+ const characterLanes=[false,false,false,false];
+ const swimmerHead=new THREE.Vector3();
  const distances=[0,0,0,0], positions=[0,0,0,0];
  let roundId: string|undefined;
  let active = false;
@@ -38,26 +43,53 @@ export function createCompetitionScene(scene:THREE.Scene){
    roundId=nextRound;
    const swimming = !!view && mode === 'swimming' && !lobby;
    if (swimming && !pool) pool = createSwimRaceScene(scene);
-   pool?.update(swimming,positions,delta,reduced,room?.members.length??0,nextRound);
+   characterLanes.fill(false);
    hurdles.visible=!!view&&mode==='hurdles'&&!lobby;
-   if(view&&!swimming&&room?.members.length&&!rigs)rigs=makeRigs(room.members.map(m=>m.avatar));
-   rigs?.forEach(({rig,sack,baton,tag},i)=>{
-    const member=room?.members[i];rig.group.visible=!!view&&!!member&&(lobby||mode!=='swimming');if(!rig.group.visible)return;
+   seats.forEach((variants,i)=>{
+    const member=room?.members[i];
+    for(const [avatar,seat] of variants)seat.rig.group.visible=!!view&&member?.avatar===avatar;
+    if(!view||!member)return;
+    let seat=variants.get(member.avatar);
+    if(!seat){seat=makeSeat(i,member.avatar);variants.set(member.avatar,seat);}
+    const {rig,sack,baton,tag}=seat;
+    rig.group.visible=true;
     const label=`${member!.name} · ${member!.kind==='bot'?'BOT':'PLAYER'}`;
-    if(rigs![i].label!==label){rigs![i].label=label;const texture=(tag.material as THREE.MeshBasicMaterial).map!,canvas=texture.image as HTMLCanvasElement,ctx=canvas.getContext('2d')!;ctx.fillStyle='#234536';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle=member!.colour;ctx.font='600 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,canvas.width/2,canvas.height/2,canvas.width-20);texture.needsUpdate=true;}
-    animateCharacter(rig,time/1000+i,false,reduced);sack.visible=!lobby&&mode==='sack';baton.visible=!lobby&&mode==='relay';rig.leftLeg.visible=rig.rightLeg.visible=!sack.visible;
-    if(lobby){if(mode==='swimming'){rig.group.position.set(58.7,.13,SWIMMING_POOL.z-6.75+i*4.5);rig.group.rotation.y=Math.PI/2;}else if(definition.axis==='x'){rig.group.position.set(-12+i*3.6,.13,-65.15);rig.group.rotation.y=Math.PI;}else{rig.group.position.set(40,.13,1+i*3.2);rig.group.rotation.y=-Math.PI/2;}rig.leftLeg.rotation.x=rig.rightLeg.rotation.x=0;rig.knees.forEach(k=>k.rotation.x=0);}
+    if(seat.label!==label){seat.label=label;const texture=(tag.material as THREE.MeshBasicMaterial).map!,canvas=texture.image as HTMLCanvasElement,ctx=canvas.getContext('2d')!;ctx.fillStyle='#234536';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle=member!.colour;ctx.font='600 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,canvas.width/2,canvas.height/2,canvas.width-20);texture.needsUpdate=true;}
+    animateCharacter(rig,time/1000+i,false,reduced);if(lobby)setRunningGrip(rig,0);sack.visible=!lobby&&mode==='sack';baton.visible=!lobby&&mode==='relay';rig.leftLeg.visible=rig.rightLeg.visible=!sack.visible;
+    rig.body.rotation.x=0;
+    if(swimming){
+     const moving=room!.phase==='racing'&&member!.finishedAt===null&&positions[i]>distances[i]+.00001;
+     characterLanes[i]=playAnMotion(rig,moving?'Swimming':'Treading Water',delta,reduced);
+     rig.group.visible=characterLanes[i];
+     if(rig.group.visible){
+      rig.group.rotation.y=Math.PI/2;
+      rig.group.position.set(SWIMMING_POOL.x-SWIMMING_POOL.w/2+1+positions[i],0,SWIMMING_POOL.z+(i-1.5)*SWIMMING_POOL.d/4);
+      rig.head.getWorldPosition(swimmerHead);
+      rig.group.position.y=.34-swimmerHead.y;
+     }
+     distances[i]=positions[i];
+    }else if(lobby){if(mode==='swimming'){rig.group.position.set(58.7,.13,SWIMMING_POOL.z-6.75+i*4.5);rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(definition.lobby.x+(i-1.5)*3.4,.09,definition.lobby.z);rig.group.rotation.y=0;}rig.leftLeg.rotation.x=rig.rightLeg.rotation.x=0;rig.knees.forEach(k=>k.rotation.x=0);playAnMotion(rig,'Idle',delta,reduced);}
     else{
      const d=positions[i]??0,moving=room!.phase!=='finished'&&member!.finishedAt===null&&d>distances[i]+.00001,cycle=reduced?0:elapsed*11+i*1.7;
-     if(definition.axis==='x'){rig.group.position.set(definition.start+d,.13,-74+i*2);rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(20.5+i*4.3,.13,definition.start-d);rig.group.rotation.y=Math.PI;}
+     if(definition.axis==='x'){rig.group.position.set(definition.start+d,STADIUM_FLOORS.running,trackLane(i));rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(definition.x+(i-1.5)*4.3,STADIUM_FLOORS.pitch,definition.start-d);rig.group.rotation.y=Math.PI;}
      let jump=0;if(mode==='hurdles'){const nearest=[8,16,24,32].find(at=>Math.abs(d-at)<1.2);if(nearest!==undefined)jump=Math.sin((d-nearest+1.2)/2.4*Math.PI)*.8;}
+     setRunningGrip(rig,moving&&!reduced&&mode!=='sack'?1:0,reduced?undefined:delta);
      if(mode==='sack'){jump=moving&&!reduced?Math.abs(Math.sin(cycle*.6))*.4:0;rig.leftArm.rotation.x=rig.rightArm.rotation.x=-.7;}
      else{rig.leftLeg.rotation.x=moving&&!reduced?Math.sin(cycle)*.68:0;rig.rightLeg.rotation.x=-rig.leftLeg.rotation.x;rig.knees.forEach((k,j)=>k.rotation.x=jump>.1?.85:Math.max(0,Math.sin(cycle+j*Math.PI))*.65);rig.leftArm.rotation.x=-rig.leftLeg.rotation.x*.7;rig.rightArm.rotation.x=mode==='relay'?-.9:rig.leftLeg.rotation.x*.7;rig.elbows[1].rotation.x=-.65;}
-     rig.group.position.y+=reduced?0:jump;rig.body.rotation.x=moving?.1:0;distances[i]=d;
+     rig.body.rotation.x=moving?.1:0;
+     const jumping=mode==='sack'||jump>0;
+     const take=!moving?'Idle':jumping?'Standing Jump':mode==='relay'?'Sprint':'Running';
+     const nearest=jump>0&&mode==='hurdles'?Math.round(d/8)*8:null;
+     const phase=nearest!==null?(d-nearest+1.2)/2.4:undefined;
+     const mixed=playAnMotion(rig,take,delta,reduced,phase);
+     if(!mixed&&!reduced)rig.group.position.y+=jump;
+     distances[i]=d;
     }
     tag.rotation.y=-rig.group.rotation.y;
+    tag.position.y=swimming?(2-rig.group.position.y)/rig.group.scale.y:2.65;
    });
+   pool?.update(swimming,positions,delta,reduced,room?.members.length??0,nextRound,characterLanes);
   },
-  dispose(){pool?.dispose();const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>{if('map'in m)(m.map as THREE.Texture|null)?.dispose();m.dispose();});root.removeFromParent();}
+  dispose(){pool?.dispose();const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>{if('map'in m){const texture=m.map as THREE.Texture|null;if(texture&&!texture.userData.sharedCharacterAtlas)texture.dispose();}m.dispose();});root.removeFromParent();}
  };
 }

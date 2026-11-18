@@ -4,7 +4,7 @@ import { FARM_LAYOUT } from './campus-spaces';
 import { createCampusSurfaces, worldAlignedUV } from './campus-surfaces';
 import { createFarmCraft, createVegetableGeometry } from './farm-craft';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import type { CampusCharacter } from './campus-character';
+import { setHandGrips, type CampusCharacter } from './campus-character';
 import { WORK_STATIONS, nextWorkTask, type Fieldwork, type Tool, type WorkKind } from './fieldwork';
 
 /** Dynamic work props are separate from the static campus batches. All geometry is reused. */
@@ -136,8 +136,16 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
   const targetRing=new THREE.Mesh(new THREE.RingGeometry(.43,.49,40),new THREE.MeshBasicMaterial({color:0xffda8a,side:THREE.DoubleSide,transparent:true,opacity:.9}));targetRing.rotation.x=-Math.PI/2;scene.add(targetRing);
   const hand=new THREE.Vector3(),target=new THREE.Vector3(),spout=new THREE.Vector3(),forward=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),soilWet=new THREE.Color(0x433b2b);
   const clothPos=clothGeo.attributes.position as THREE.BufferAttribute;
+  // An's baked skeleton has real knuckles; older rigs use the forearm socket.
+  const knuckles=['r','l'].map(side=>player.group.getObjectByName('middle_1_'+side));
+  function gripPoint(index:number,out:THREE.Vector3,offsetZ:number){
+    const knuckle=knuckles[index];
+    return knuckle ? knuckle.getWorldPosition(out) : player.elbows[index].localToWorld(out.set(0,-.29,offsetZ));
+  }
+  tools.can.position.set(0,-.41,-.05);
+  tools.basket.position.y=-.8*(.32+.31);
   let lastCloth=-1,lastState='';
-  function update(f:Fieldwork,kind:WorkKind|null,tool:Tool,actionProgress:number,working:boolean,time:number,reduced:boolean){
+  function update(f:Fieldwork,kind:WorkKind|null,tool:Tool,actionProgress:number,working:boolean,time:number,reduced:boolean,dt?:number,pose?:()=>void){
     craft.update(time,reduced);
     const task=kind?nextWorkTask(f,kind):null,station=kind?WORK_STATIONS.find(s=>s.id===(task?.station||(kind==='garden'?'garden-board':'duty-board'))):null;
     targetRing.visible=!!station;
@@ -180,7 +188,13 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
     tableBooks.visible=f.duty.books===0;shelfBooks.visible=f.duty.books===2;carriedBooks.visible=kind==='duty'&&f.duty.books===1;
     const state=`${kind}/${tool}`;if(state!==lastState){lastState=state;Object.entries(tools).forEach(([id,g])=>g.visible=!!kind&&tool===id);}
     toolRoot.visible=!!kind;particles.visible=false;stream.visible=false;harvestTransfer.visible=false;panLeaves.visible=f.duty.swept!==0;basketProduce.visible=f.garden.beds.some(b=>b===5);
-    if(!kind)return;
+    if(!kind){pose?.();return;}
+    const gathering=working&&task?.action==='harvest';
+    const sowing=working&&task?.action==='plant';
+    const reachCycle=reduced?.5:.5-.5*Math.cos(actionProgress*Math.PI*4);
+    const freeGrip=gathering?.18+.62*reachCycle:sowing?.68*(1-reachCycle):carriedBooks.visible?.34:0;
+    const toolGrip=tool==='hands'?0:tool==='seeds'?.48:tool==='basket'?.62:.80;
+    setHandGrips(player,freeGrip,toolGrip,reduced?undefined:dt);
     if(reduced&&!working){player.body.rotation.set(0,0,0);player.leftLeg.rotation.x=player.rightLeg.rotation.x=0;player.knees.forEach(k=>k.rotation.x=0);}
     // Override only the active joints after the normal gait has run.
     if(working&&station&&task){
@@ -194,12 +208,21 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
       player.leftArm.rotation.x=['fold','harvest','books','shelve'].includes(task.action)?-1.05:-.4;
       player.elbows[1].rotation.x=-.45-cycle*.15;player.elbows[0].rotation.x=-.5;
       if(task.action==='plant'||task.action==='harvest'){player.body.position.y=-.24;player.knees[0].rotation.x=.85;player.leftLeg.rotation.x=-.55;player.head.rotation.x=.18;}
+      if(task.action==='water'){
+        const pour=THREE.MathUtils.smoothstep(actionProgress,0,.2)*(1-THREE.MathUtils.smoothstep(actionProgress,.8,1));
+        player.rightArm.rotation.x=-.70-.26*pour;player.elbows[1].rotation.x=-.64;
+      }
+      if(task.action==='plant'||task.action==='harvest'){
+        player.leftArm.rotation.x=-.72-.38*reachCycle;
+        player.elbows[0].rotation.x=-.32-.40*(1-reachCycle);
+      }
       if(task.action==='fold'){player.leftArm.rotation.x=-1.1+cycle*.1;player.rightArm.rotation.x=-1.1-cycle*.1;}
       if(task.action==='till')player.rightArm.rotation.x=-.8+cycle*.4;
     }
     if(f.duty.books===1&&kind==='duty'){player.leftArm.rotation.x=-1.1;player.elbows[0].rotation.x=-.7;}
+    pose?.();
     player.group.updateMatrixWorld(true);
-    hand.set(0,-.29,.04);player.elbows[1].localToWorld(hand);toolRoot.position.copy(hand);
+    gripPoint(1,hand,.04);toolRoot.position.copy(hand);
     forward.set(0,0,1).applyAxisAngle(up,player.group.rotation.y);
     target.copy(hand).addScaledVector(forward,.75);
     if(tool==='broom'||tool==='hoe')target.y=.32;
@@ -207,12 +230,12 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
     const workZ=activeBed?activeBed.z-activeBed.d/2+.35:station?.z??0;
     if(working&&station){target.set(station.x,.25,workZ);if(task?.action==='sweep'){target.y=.325;target.x+=Math.sin(time*5.5)*.35;}if(task?.action==='till')target.y+=.15+Math.max(0,Math.sin(time*4))*.45;}
     toolRoot.lookAt(target);
-    tools.broom.position.z=tool==='broom'&&working?hand.distanceTo(target)-1:0;
-    if(tool==='can'){toolRoot.quaternion.copy(player.group.quaternion);toolRoot.rotateX(working&&task?.action==='water'?.38:0);}
+    tools.broom.scale.z=tool==='broom'&&working?hand.distanceTo(target):1;
+    if(tool==='can'){toolRoot.quaternion.copy(player.group.quaternion);toolRoot.rotateX(working&&task?.action==='water'?.38*THREE.MathUtils.smoothstep(actionProgress,0,.2)*(1-THREE.MathUtils.smoothstep(actionProgress,.8,1)):0);}
     if(tool==='basket'||tool==='seeds')toolRoot.quaternion.copy(player.group.quaternion);
-    if(carriedBooks.visible){carriedBooks.position.set(0,-.29,.16);player.elbows[0].localToWorld(carriedBooks.position);carriedBooks.quaternion.copy(player.group.quaternion);}
+    if(carriedBooks.visible){gripPoint(0,carriedBooks.position,.16);carriedBooks.quaternion.copy(player.group.quaternion);}
     if(working&&task?.action==='books'){
-      target.set(0,-.29,.16);player.elbows[0].localToWorld(target);
+      gripPoint(0,target,.16);
       const t=THREE.MathUtils.smoothstep(actionProgress,.15,1);tableBooks.position.lerp(target,t);tableBooks.position.y+=Math.sin(t*Math.PI)*.15;tableBooks.rotation.y=player.group.rotation.y*t;
     }
     if(working&&task?.action==='shelve'){
@@ -220,12 +243,12 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
     }
     if(working&&station&&task?.action==='harvest'){
       const index=Number(task.station.split('-')[1]),count=crops[index].length,n=Math.min(count-1,Math.floor(actionProgress*count)),t=(actionProgress*count)%1;
-      crops[index][n].getWorldPosition(harvestTransfer.position);target.copy(hand);target.y+=.3;
+      crops[index][n].getWorldPosition(harvestTransfer.position);gripPoint(0,target,.04);
       harvestTransfer.position.lerp(target,t);harvestTransfer.position.y+=Math.sin(t*Math.PI)*.45;harvestTransfer.visible=true;
     }
     if(working&&station&&task&&['water','fill','plant','till'].includes(task.action)&&!reduced){
       particles.visible=true;const water=task.action==='water'||task.action==='fill';(particles.material as THREE.PointsMaterial).color.setHex(water?0xb1e1ea:task.action==='plant'?0xdbb777:0x997650);
-      if(task.action==='fill')spout.set(farm.tap.spout.x,farm.tap.spout.y,farm.tap.spout.z);else{spout.set(0,.05,.74);toolRoot.localToWorld(spout);}
+      if(task.action==='fill')spout.set(farm.tap.spout.x,farm.tap.spout.y,farm.tap.spout.z);else if(tool==='can')rose.getWorldPosition(spout);else spout.copy(hand);
       stream.visible=water;
       for(let p=0;p<48;p++){
         const s=((time*(water?1.6:1)+p/48)%1);const endX=task.action==='fill'?hand.x:station.x+Math.sin(p*9.4)*.6,endZ=task.action==='fill'?hand.z:workZ+Math.cos(p*7.7)*.2;

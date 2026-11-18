@@ -73,3 +73,67 @@ export function sculptHairLock(points:THREE.Vector3[],width:number){
   }
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(index);geo.computeVertexNormals();return geo;
 }
+
+/** Continuous crown with a low nape, sideburns and a higher cut above the eyes. */
+export function sculptChibiHair(hairline: (azimuth: number) => number, steps = 20, segments = 42) {
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  for (let row = 0; row <= steps; row++) {
+    for (let col = 0; col <= segments; col++) {
+      const angle = col / segments * Math.PI * 2;
+      const theta = .005 + row / steps * hairline(angle);
+      const radius = Math.sin(theta);
+      positions.push(.428 * radius * Math.sin(angle), .132 + .314 * Math.cos(theta), -.061 + .386 * radius * Math.cos(angle));
+      uvs.push(col / segments, row / steps);
+      if (row < steps && col < segments) {
+        const v = row * (segments + 1) + col, next = v + segments + 1;
+        indices.push(v, next, v + 1, v + 1, next, next + 1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const normals = geometry.attributes.normal;
+  const seam = new THREE.Vector3();
+  for (let row = 0; row <= steps; row++) {
+    const first = row * (segments + 1), last = first + segments;
+    seam.set(normals.getX(first) + normals.getX(last), normals.getY(first) + normals.getY(last),
+      normals.getZ(first) + normals.getZ(last)).normalize();
+    normals.setXYZ(first, seam.x, seam.y, seam.z);
+    normals.setXYZ(last, seam.x, seam.y, seam.z);
+  }
+  return geometry;
+}
+
+/** A closed swept lock with a raised centre and a fine tapered tip. */
+export function sculptChibiLock(points: THREE.Vector3[], width: number, thickness: number) {
+  const curve = new THREE.CatmullRomCurve3(points);
+  const rows = 12, segments = 10;
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const across = new THREE.Vector3(), depth = new THREE.Vector3(), vertex = new THREE.Vector3();
+  for (let row = 0; row <= rows; row++) {
+    const t = row / rows, anchor = curve.getPoint(t), tangent = curve.getTangent(t);
+    across.set(-tangent.y, tangent.x, 0).normalize();
+    depth.crossVectors(across, tangent).negate();
+    const taper = Math.max(.02, (1 - t) ** .64 * (.72 + .55 * Math.sin(t * Math.PI)));
+    for (let side = 0; side <= segments; side++) {
+      const a = side / segments * Math.PI * 2;
+      vertex.copy(anchor).addScaledVector(across, Math.cos(a) * width * taper)
+        .addScaledVector(depth, Math.sin(a) * thickness * taper);
+      positions.push(vertex.x, vertex.y, vertex.z);
+      uvs.push(side / segments, t);
+      if (row < rows && side < segments) {
+        const v = row * (segments + 1) + side, next = v + segments + 1;
+        indices.push(v, v + 1, next, v + 1, next + 1, next);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SWIMMING_POOL } from './campus-districts-layout.ts';
-import { ATHLETICS_TRACK, POOL_TOWER, POOL_WATCH, SPORTS_VENUES, TRACK_BENCHES, TRACK_STANDS } from './sports-layout.ts';
+import { ATHLETICS_TRACK, FOOTBALL_GOALS, POOL_TOWER, POOL_WATCH, SPORTS_FIELD, SPORTS_VENUES, STADIUM, STADIUM_FLOORS, STADIUM_LIGHTS, TRACK_BENCHES, TRACK_OUTER_RADIUS, TRACK_STANDS } from './sports-layout.ts';
 
 const palette = {
   cream: 0xffedce, timber: 0x946b48, tin: 0x466860, dark: 0x304d45,
@@ -29,6 +29,30 @@ export function venueSign(text: string, x: number, y: number, z: number, width: 
   sign.position.set(x, y, z);
   parent.add(sign);
   return sign;
+}
+
+/** One ring serves the stadium mesh and the low-detail campus view. */
+export function stadiumBand(inner: number, outer: number, steps = 28, straight = STADIUM.straight) {
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const stride = (steps + 1) * 2;
+  for (let i = 0; i < stride; i++) {
+    const west = i > steps;
+    const angle = -Math.PI / 2 + (west ? Math.PI : 0) + (i % (steps + 1)) * Math.PI / steps;
+    const x = (west ? -1 : 1) * straight / 2;
+    for (const radius of [outer, inner]) {
+      const dx = x + Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+      positions.push(dx, 0, z);
+      uvs.push(dx / 100 + .5, z / 50 + .5);
+    }
+    const a = i * 2, next = ((i + 1) % stride) * 2;
+    indices.push(a, a + 1, next, next, a + 1, next + 1);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 export function buildSportsVenues(root: THREE.Group) {
@@ -76,35 +100,75 @@ export function buildSportsVenues(root: THREE.Group) {
     part(new THREE.RingGeometry(.57,.66,40), palette.gold, venue.approach.x, .153, venue.approach.z, -Math.PI/2, 0, 0, true);
   }
 
-  const track = ATHLETICS_TRACK;
-  box(54, .075, 18.5, 0xc6bea4, 0, .061, -72.2);
-  box(track.w+.45, .05, 9.6, 0x784b3e, track.x, .104, track.z);
-  for (let lane = 0; lane < 4; lane++) {
-    const z = track.z + (lane-1.5)*track.laneWidth;
-    box(track.w, .035, 2, lane%2 ? 0xaa6353 : 0xb56a57, track.x, .134, z);
-    for (const x of [track.start,track.finish]) {
-      const number = sign(String(lane+1), x+(x<0?-1.35:1.35), .165, z, .67, .63);
-      number.rotation.x = -Math.PI/2;
+  const track = ATHLETICS_TRACK, stadium = STADIUM, pitch = SPORTS_FIELD;
+  const band = (inner: number, outer: number, color: number, height: number) =>
+    part(stadiumBand(inner, outer), color, stadium.x, height, stadium.z, 0, 0, 0, true);
+  band(TRACK_OUTER_RADIUS, TRACK_OUTER_RADIUS + .85, palette.concrete, .07);
+  band(stadium.innerRadius - .38, stadium.innerRadius, 0xc7bd95, .081);
+  for (let lane = 0; lane < stadium.lanes; lane++) {
+    const inner = stadium.innerRadius + lane * stadium.laneWidth;
+    band(inner, inner + stadium.laneWidth, lane % 2 ? 0xad604d : 0xb96b55, STADIUM_FLOORS.running - .004);
+    const z = stadium.z + inner + stadium.laneWidth / 2;
+    const number = sign(String(lane + 1), track.start - 1.25, .099, z, .59, .56);
+    number.rotation.x = -Math.PI / 2;
+    for (const offset of [0, .28]) box(.19, .068, .34, palette.steel, track.start - .62 - offset, .12, z + offset);
+  }
+  for (let lane = 0; lane <= stadium.lanes; lane++) {
+    const r = stadium.innerRadius + lane * stadium.laneWidth;
+    band(r - .026, r + .026, palette.cream, .097);
+  }
+  for (const x of [track.start, track.finish]) {
+    box(.094, .008, track.d, palette.cream, x, .101, track.z);
+    sign(x === track.start ? 'START' : 'FINISH', x, 1.07, stadium.z + TRACK_OUTER_RADIUS + .65, 1.75, .36);
+    for (const offset of [-.78,.78]) box(.065,1.25,.07,palette.tin,x+offset,.69,stadium.z+TRACK_OUTER_RADIUS+.71);
+  }
+  for (let i = 0; i < 30; i++)
+    box(.16, .008, track.d / 30, i % 2 ? palette.cream : palette.rust, track.finish + .16, .101, track.z + (i - 14.5) * track.d / 30);
+
+  const chalk = 0xf1ecd4, inset = .36, left = pitch.x - pitch.w / 2 + inset, right = pitch.x + pitch.w / 2 - inset;
+  const north = pitch.z - pitch.d / 2 + inset, south = pitch.z + pitch.d / 2 - inset;
+  band(0, stadium.innerRadius - .39, 0x728a51, .045);
+  for (let i = 0; i < 10; i++)
+    box(pitch.w / 10, .012, pitch.d, i % 2 ? 0x719a51 : 0x7da258, pitch.x + (i - 4.5) * pitch.w / 10, STADIUM_FLOORS.pitch - .006, pitch.z);
+  for (const z of [north, south]) box(right - left, .009, .076, chalk, pitch.x, .073, z);
+  for (const x of [left, pitch.x, right]) box(.076, .009, south - north, chalk, x, .073, pitch.z);
+  part(new THREE.RingGeometry(2.7, 2.78, 48), chalk, pitch.x, .078, pitch.z, -Math.PI / 2, 0, 0, true);
+  part(new THREE.CircleGeometry(.11, 12), chalk, pitch.x, .078, pitch.z, -Math.PI / 2, 0, 0, true);
+  for (const side of [-1, 1]) {
+    const edge = side < 0 ? left : right;
+    for (const [depth, width] of [[5.8, 12.3],[2.35, 8.0]]) {
+      box(.075, .009, width, chalk, edge - side * depth, .074, pitch.z);
+      for (const dz of [-width / 2, width / 2]) box(depth, .009, .075, chalk, edge - side * depth / 2, .074, pitch.z + dz);
     }
-    for (let i = 0; i < 9; i++) box(.11,.012,.27,palette.cream,-20+i*5,.157,z+.76);
-    for (let i = 0; i < 2; i++) box(.23,.075,.38,palette.steel,-20.65-i*.3,.19,z+(i-.5)*.48,0, i ? .14 : -.14);
+    part(new THREE.CircleGeometry(.09, 10), chalk, edge - side * 4.25, .078, pitch.z, -Math.PI / 2, 0, 0, true);
+    for (const z of [north, south]) {
+      box(.038, .76, .038, chalk, edge, .42, z);
+      box(.27, .16, .025, palette.gold, edge - side * .12, .75, z);
+    }
   }
-  for (let lane = 0; lane <= 4; lane++) box(track.w,.009,.053,palette.cream,0,.156,track.z+(lane-2)*2);
-  for (const x of [track.start,track.finish]) box(.095,.013,8.12,palette.cream,x,.16,track.z);
-  for (let i = 0; i < 32; i++) box(.13,.01,.25,i%2 ? palette.cream : palette.dark,20.17,.163,-74.875+i*.25);
-  for (const x of [-20,20]) {
-    sign(x<0 ? 'START' : 'FINISH',x,1.22,-76.1,2.12,.51);
-    for (const dx of [-.89,.89]) box(.065,1.55,.07,palette.tin,x+dx,.82,-76.15);
+  for (const { x, z, back, width } of FOOTBALL_GOALS) {
+    for (const dz of [-width / 2, width / 2]) {
+      box(.095, 2.26, .095, chalk, x, 1.17, z + dz);
+      box(.05, 1.72, .05, palette.steel, x + back, .90, z + dz);
+      box(Math.abs(back), .045, .045, palette.steel, x + back / 2, .10, z + dz);
+      for (let step = 1; step < 5; step++)
+        box(Math.abs(back), .014, .014, 0xbac8ae, x + back / 2, .1 + step * .30, z + dz);
+    }
+    box(.095, .095, width + .095, chalk, x, 2.29, z);
+    box(.045, .045, width, palette.steel, x + back, 1.75, z);
+    for (let i = 0; i < 14; i++) box(.016, 1.68, .018, 0xd1d7bd, x + back, .91, z + (i - 6.5) * width / 14);
+    for (let i = 1; i < 7; i++) box(.018, .016, width, 0xd1d7bd, x + back, .08 + i * .23, z);
   }
+
   for (const stand of TRACK_STANDS) {
     const { x,z,w,d } = stand;
     for (let row = 0; row < 3; row++) {
       const height = .39+row*.42, rowZ = z+d/2-.58-row*1.13;
       box(w,height,1.13,palette.concrete,x,.09+height/2,rowZ);
       box(w-.18,.09,.11,palette.cream,x,.12+height,rowZ+.48);
-      for (let seat = 0; seat < 17; seat++) {
-        box(.49,.12,.44,row%2 ? palette.tin : palette.dark,x+(seat-8)*.6,.21+height,rowZ);
-        box(.49,.35,.075,row%2 ? palette.tin : palette.dark,x+(seat-8)*.6,.42+height,rowZ-.205);
+      for (let seat = 0; seat < 21; seat++) {
+        box(.49,.12,.44,row%2 ? palette.tin : palette.dark,x+(seat-10)*.66,.21+height,rowZ);
+        box(.49,.35,.075,row%2 ? palette.tin : palette.dark,x+(seat-10)*.66,.42+height,rowZ-.205);
       }
     }
     for (const dx of [-1,1]) {
@@ -114,12 +178,13 @@ export function buildSportsVenues(root: THREE.Group) {
     box(w+.5,.14,d+.56,palette.tin,x,3.24,z,.117);
     for (let rib = -5; rib <= 5; rib++) box(.045,.037,d+.56,0x789083,x+rib,3.326,z,.117);
   }
-  sign('40 M ATHLETICS',0,2.89,-77.9,5.2,.58);
-  for (const x of [-23.6,23.6]) {
-    for (const z of [-74.8,-67.2]) {
-      part(new THREE.ConeGeometry(.17,.34,8),palette.gold,x,.25,z);
-      box(.36,.045,.36,palette.dark,x,.1,z);
-    }
+  const grandstand = TRACK_STANDS[1];
+  box(7.5, 1.04, .19, palette.dark, grandstand.x, 3.86, grandstand.z + grandstand.d / 2);
+  sign('CAMPUS STADIUM', grandstand.x, 3.86, grandstand.z + grandstand.d / 2 + .11, 7.1, .82);
+  for (const { x, z, w, d } of STADIUM_LIGHTS) {
+    box(w, 5.1, d, palette.dark, x, 2.57, z);
+    box(1.36, .32, .24, palette.tin, x, 5.08, z);
+    for (let lamp = -1; lamp <= 1; lamp++) box(.37, .22, .13, palette.cream, x + lamp * .4, 5.07, z + .15);
   }
   for (const bench of [...TRACK_BENCHES,...POOL_WATCH]) {
     const { x,z,w,d } = bench;

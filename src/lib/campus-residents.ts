@@ -27,7 +27,7 @@ export const CAMPUS_RESIDENTS = [
     line: 'Take one step at a time and keep looking ahead.', meaning: 'Đi từng bước một và luôn nhìn về phía trước.' },
   { kind: 'vy', role: 'Trực hồ bơi', route: [[86, -32.3], [87.9, -32.5]], facing: -.3,
     line: 'Wait on the dry deck until your group is called.', meaning: 'Đợi trên sàn khô đến khi nhóm của bạn được gọi.' },
-  { kind: 'bao', role: 'Đội trưởng bóng đá', route: [[24, 8.5], [26.8, 8.5]], facing: -.65,
+  { kind: 'bao', role: 'Đội trưởng bóng đá', route: [[16, -83.2], [18, -83.2]], facing: -.65,
     line: 'Pass to a teammate who has space to move.', meaning: 'Chuyền bóng cho đồng đội đang có khoảng trống.' },
   { kind: 'tram', role: 'Trợ lý phòng ngoại ngữ', route: [[29, -10.4]], facing: .3,
     line: 'Try saying the whole sentence before you check the transcript.', meaning: 'Thử nói cả câu trước khi xem bản chép lời.' },

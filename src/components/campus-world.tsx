@@ -22,7 +22,10 @@ import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork,
 import { ResidentPrompt } from "./resident-prompt";
 import type { CampusResident } from "@/lib/campus-residents";
 import type { ResidentKind, ResidentMissionProgress } from '@/lib/resident-missions';
-import { animateCharacter } from "@/lib/campus-character";
+import { animateCharacter, setRunningGrip, updateCharacterDetail } from "@/lib/campus-character";
+import {fieldworkMotion, loadAnMotion, playAnMotion} from '@/lib/an-game-motion';
+import { preloadCampusCharacters } from "@/lib/campus-character-assets";
+import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
 import { createCampusWorldLabels } from "@/lib/campus-world-labels";
@@ -60,6 +63,7 @@ export type WorldHandle = {
   framePhoto: (wholeCampus: boolean) => void;
   lightPhoto: (light: PhotoLight) => void;
   adjustPhoto: (adjustment: PhotoAdjustment) => void;
+  posePhoto: (name:string)=>void;
   capturePhoto: (format: PhotoFormat) => Promise<PhotoCapture | null>;
 };
 type Props = {
@@ -109,6 +113,7 @@ const emptyActions = (): WorldHandle => ({
   framePhoto: () => {},
   lightPhoto: () => {},
   adjustPhoto: () => {},
+  posePhoto: () => {},
   capturePhoto: async () => null,
 });
 
@@ -145,6 +150,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   const balanceCancelRef=useRef<()=>void>(()=>{});
   const districtTravelRef=useRef<(id:DistrictStationId)=>void>(()=>{});
   const onDistrictHold=useRef((hold:boolean)=>districtHoldRef.current(hold)).current;
+  const [charactersReady, setCharactersReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    preloadCampusCharacters().then(() => { if (active) setCharactersReady(true); });
+    return () => { active = false; };
+  }, []);
   const hostRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
   const actionRef = useRef<WorldHandle>(emptyActions());
@@ -194,6 +205,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       endPhoto: () => actionRef.current.endPhoto(),
       framePhoto: (wholeCampus) => actionRef.current.framePhoto(wholeCampus),
       lightPhoto: (light) => actionRef.current.lightPhoto(light),
+      posePhoto:name=>actionRef.current.posePhoto(name),
       adjustPhoto: (adjustment) => actionRef.current.adjustPhoto(adjustment),
       capturePhoto: (format) => actionRef.current.capturePhoto(format),
     }),
@@ -203,7 +215,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   useEffect(() => {
     const host = hostRef.current;
     const labels = labelsRef.current;
-    if (!host || !labels) return;
+    if (!host || !labels || !charactersReady) return;
     callbacks.current.onNear(null);
     let renderer: THREE.WebGLRenderer;
     try {
@@ -307,16 +319,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const workScene = createFieldworkScene(scene,player);
     let holdingWork=false, workElapsed=0, lastWorkFrame=0, workWide=false;
     let wasStudying=false, studyElapsed=0;const studyStand=new THREE.Vector3();
+    let lastPreloadedTask='';
     let workMessage='', lastWorkKind: WorkKind|null=null, workTaskKey='';
     let localWork=callbacks.current.fieldwork||freshFieldwork();
     let lastWorkInput=callbacks.current.fieldwork;
     workScene.update(localWork,null,'hands',0,false,0,reducedMotion.matches);workScene.study(false);
     let residentNear: CampusResident | null = null, residentSession: CampusResident | null = null;
     let residentSpeaking = false;
+    let greetRemaining=0,photoPose='Idle';
     residentAction.current = {
       open() {
         if (!residentNear || !callbacks.current.enabled) return;
-        residentSession = residentNear;
+        residentSession = residentNear;greetRemaining=1;
         keys.clear();
         route = [];
         destination.visible = false;
@@ -324,7 +338,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       },
       close() {
         if (!residentSession) return;
-        residentSession = null;
+        residentSession = null;greetRemaining=0;
         residentSpeaking = false;
         setTalkingResident(null);
         renderer.domElement.focus({ preventScroll: true });
@@ -387,7 +401,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const savedCamera = { position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom };
     const focusPosition = new THREE.Vector3();
     const focusTarget = new THREE.Vector3();
-    let gait = 0, movementBlend = 0;
+    let gait = 0, movementBlend = 0, runBlend = 0;
     let route: MapPoint[] = [];
     let nearest: Place | null = null;
     let lastTime = 0;
@@ -493,6 +507,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       return true;
     };
     const endPhoto = () => {
+      photoPose='Idle';
       if (!photoSession) return;
       controls.enablePan = false;
       controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
@@ -607,6 +622,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       endPhoto,
       framePhoto,
       lightPhoto,
+      posePhoto:name=>{photoPose=name;},
       adjustPhoto,
       capturePhoto,
       recenter: () => {
@@ -805,7 +821,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           renderer.shadowMap.needsUpdate=true;
           const frame:{x:number;z:number;w:number;d:number}={x:definition.x,z:definition.z,w:definition.w,d:definition.d};
           const landscape=host.clientHeight<=620&&host.clientWidth>600;
-          if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else if(definition.axis==='x'){frame.x=-7;frame.z=-65.7;frame.w=17;frame.d=5.5;}else{frame.x=40;frame.z=6;frame.w=8;frame.d=17;}}
+          if(view?.room?.phase==='lobby'){if(definition.id==='swimming'){frame.x=65;frame.w=18;frame.d=20;}else{frame.x=definition.lobby.x;frame.z=definition.lobby.z;frame.w=16;frame.d=5.5;}}
           // Fit actual pool bounds into the space above/beside the question panel.
           focusTarget.set(frame.x,0,frame.z);
           camera.position.copy(focusTarget).add(focusPosition.set(4,27,32));controls.target.copy(focusTarget);camera.zoom=1;camera.lookAt(controls.target);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
@@ -860,11 +876,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           focusTarget.set(npcPosition.x - 2, 0.8, npcPosition.z);
           focusPosition.set(npcPosition.x + 21.4, 19.52, npcPosition.z + 33.8);
           environment.npcs[activeConversation].group.rotation.y = 0.11;
-          player.group.visible = false;
+          greetRemaining=1;
+          player.group.rotation.y=Math.atan2(npcPosition.x-player.group.position.x,npcPosition.z-player.group.position.z);
+          player.group.visible = player.kind==='cadet';
           returningFromConversation = false;
         } else {
           player.group.visible = true;
-          returningFromConversation = true;
+          greetRemaining=0;returningFromConversation = true;
         }
         conversationPlace = activeConversation;
       }
@@ -921,7 +939,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       movementBlend = THREE.MathUtils.lerp(movementBlend, moving ? 1 : 0, 1 - Math.exp(-dt * 12));
       const running = keys.has("shift");
       animateCharacter(player,time/1000,false,reducedMotion.matches);
+      runBlend = reducedMotion.matches ? 0 : THREE.MathUtils.damp(runBlend, running ? movementBlend : 0, 12, dt);
+      if (!workKind) setRunningGrip(player, runBlend);
       if (!reducedMotion.matches) {
+        // Preserve phase across pauses and walls. Route and keyboard movement
+        // share the same cadence at the same actual travel speed.
+
         gait += dt * (running ? 15 : 10);
         const stride = Math.sin(gait) * movementBlend;
         player.leftLeg.rotation.x = stride * (running ? 0.75 : 0.48);
@@ -930,9 +953,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         player.knees[1].rotation.x = Math.max(0,stride) * (running ? .85 : .55);
         player.leftArm.rotation.x = -stride * 0.52;
         player.rightArm.rotation.x = stride * 0.52;
-        player.body.position.y = Math.abs(Math.cos(gait)) * 0.055 * movementBlend + Math.sin(time * 0.002) * 0.012 * (1 - movementBlend);
-        player.body.rotation.z = stride * 0.025;
+        if (player.group.userData.assetVersion === 4 && player.kind === 'cadet') {
+          player.elbows[0].rotation.x -= movementBlend * (.12 + runBlend * .77) - stride * .1;
+          player.elbows[1].rotation.x -= movementBlend * (.12 + runBlend * .77) + stride * .1;
+        }
+        player.body.position.y = Math.abs(Math.cos(gait)) * 0.036 * movementBlend + Math.sin(time * 0.002) * 0.012 * (1 - movementBlend);
+        player.body.rotation.z = stride * 0.026;
+        player.head.rotation.z -= stride * .019;
         player.body.rotation.x = movementBlend * (running ? 0.12 : 0.04);
+
       }
       const studying=callbacks.current.studying;
       if(studying&&!wasStudying){studyStand.copy(pos);studyElapsed=0;route=[];keys.clear();}
@@ -966,7 +995,29 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           }
         }
       }
-      workScene.update(localWork,workKind,callbacks.current.workTool||'hands',actionPercent,holdingWork,time/1000,reducedMotion.matches);
+      const workClip=fieldworkMotion(task);
+      if(player.kind==='cadet'&&workKind&&workClip&&taskKey!==lastPreloadedTask){
+        lastPreloadedTask=taskKey;void loadAnMotion(workClip);
+      }
+      let motion:string|null=moving?(running?'Running':'Standard Walk'):'Idle';
+      let phase:number|undefined;
+      if(holdingWork){motion=workClip;phase=actionPercent;}
+      else if(workKind==='duty'&&localWork.duty.books===1)motion=moving?'holding walk':'holding idle';
+      else if(studying)motion=studyElapsed<1.3?'Standard Walk':'Sitting Idle';
+      else if(districtActive)motion=null; // keep balance, feeding and rescue poses fitted to the station
+      else if(photoSession)motion=photoPose;
+      else if(residentSession||conversationPlace){
+        motion=greetRemaining>0?'Waving':(residentSpeaking||callbacks.current.speaking?'Thoughtful Head Nod':'Talking');
+        if(greetRemaining>0)phase=1-greetRemaining;
+        greetRemaining=Math.max(0,greetRemaining-dt);
+        if(residentSession){const npc=environment.residents.find(p=>p.resident===residentSession);
+         if(npc)player.group.rotation.y=Math.atan2(npc.rig.group.position.x-pos.x,npc.rig.group.position.z-pos.z);}
+      }
+      workScene.update(localWork,workKind,callbacks.current.workTool||'hands',actionPercent,holdingWork,time/1000,reducedMotion.matches,dt,()=>{
+        playAnMotion(player,motion,dt,reducedMotion.matches,phase);
+        const playing=player.group.userData.activeMotion??'';
+        if(host.dataset.cadetMotion!==playing)host.dataset.cadetMotion=playing;
+      });
       if(time-lastWorkFrame>90){callbacks.current.onWorkFrame?.({near:nearWork,busy:holdingWork,percent:Math.round(actionPercent*100),message:workMessage});lastWorkFrame=time;}
       if(workKind&&!conversationPlace&&!photoSession){
         const aim=focusTarget.set(pos.x,.4,pos.z);
@@ -1050,6 +1101,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       for (const [id,npc] of Object.entries(environment.npcs)) {
         if (!conversationPlace && !photoSession && !overviewMode && npc.group.position.distanceToSquared(controls.target)>42**2) continue;
+        updateCharacterDetail(npc, npc.group.position.distanceToSquared(controls.target), !!conversationPlace || !!photoSession);
         animateCharacter(npc,time/1000,callbacks.current.speaking===id,reducedMotion.matches);
       }
       if (!route.length) destination.visible = false;
@@ -1129,13 +1181,20 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         if (!rig.group.visible) continue;
         rig.group.position.y = campusFloorHeight(rig.group.position);
         if (conversation || (!walking && distance < 4 ** 2)) rig.group.rotation.y = Math.atan2(dx, dz);
+        updateCharacterDetail(rig, photoSession ? rig.group.position.distanceToSquared(controls.target) : distance, conversation || !!photoSession);
         animateCharacter(rig, time / 1000 + person.time * .19, conversation && residentSpeaking, reducedMotion.matches);
         const stride = walking ? Math.sin(person.time * 8) * .39 : 0;
         rig.leftLeg.rotation.x = stride;
         rig.rightLeg.rotation.x = -stride;
         rig.knees[0].rotation.x = Math.max(0, -stride);
         rig.knees[1].rotation.x = Math.max(0, stride);
-        if (walking) rig.body.position.y += Math.abs(stride) * .072;
+        if (walking) {
+          rig.body.position.y += Math.abs(stride) * .047;
+          rig.body.rotation.z = stride * .039;
+          rig.head.rotation.z -= stride * .026;
+          rig.rightArm.rotation.x += stride * .48;
+          if (!('prop' in CHARACTER_PROFILES[resident.kind])) rig.leftArm.rotation.x -= stride * .48;
+        } else rig.body.rotation.z = 0;
       }
       if (residentNear !== closestResident) {
         residentNear = closestResident;
@@ -1219,7 +1278,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         }),
       );
       geometries.forEach((g) => g.dispose());
-      textures.forEach((t) => t.dispose());
+      textures.forEach((t) => { if (!t.userData.sharedCharacterAtlas) t.dispose(); });
       allMaterials.forEach((m) => m.dispose());
       window.clearTimeout(warmOverview);
       campusOverview?.dispose();
@@ -1228,17 +1287,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       actionRef.current = emptyActions();
       districtHoldRef.current=()=>{};districtTravelRef.current=()=>{};balanceAnswerRef.current=()=>{};balanceCancelRef.current=()=>{};
     };
-  }, [avatar]);
+  }, [avatar, charactersReady]);
   useEffect(() => {
     actionRef.current.setQuality(highQuality);
-  }, [highQuality, avatar]);
+  }, [highQuality, avatar, charactersReady]);
 
   const presentResident = talkingResident ?? nearResident;
   const residentStatus = presentResident ? completedChallenges?.includes(`resident/${presentResident.kind}`)
     ? 'complete' : residentMissions?.[presentResident.kind] : undefined;
   return (
     <div className="campus-world">
-      <div className="world-canvas" ref={hostRef} />
+      <div className="world-canvas" ref={hostRef} aria-busy={!charactersReady} />
+      {!charactersReady && <div className="world-fallback" role="status">Preparing your campus…</div>}
       <div className="world-labels" ref={labelsRef} inert={!!conversation || photoMode}>
         {DISTRICT_STATIONS.map(s=><button key={s.id} data-station={s.id} className="map-label district-world-label" onClick={()=>districtTravelRef.current(s.id)}>{s.title}<small>Walk here to practise</small></button>)}
         {SPORTS_VENUE_IDS.map(id=><button key={id} className="map-label zone-world-label competition-world-label" data-competition={id} onClick={()=>actionRef.current.goToRegistration(id)}>{SPORTS_VENUES[id].name}<small>Walk to registration</small></button>)}

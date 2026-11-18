@@ -1,4 +1,4 @@
-import { SPORTS_OBSTACLES, nearbySportsVenue } from './sports-layout.ts';
+import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
 import { FARM_LAYOUT, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
 import { WORK_OBSTACLES } from './fieldwork.ts';
@@ -187,8 +187,7 @@ export const EXPLORATION_ZONES = [
     id: "sports",
     name: "Sân bóng đá",
     english: "Football field",
-    x: 27,
-    z: 6,
+    ...PITCH_APPROACH,
     icon: "ball",
     color: "#86ac78",
   },
@@ -280,6 +279,11 @@ export function campusFloorHeight(point:MapPoint){
     if(!isOpenRoom(b))continue;
     if(Math.abs(point.x-b.x)<b.w/2&&Math.abs(point.z-b.z)<b.d/2)return .31;
     if(Math.abs(point.x-b.x)<b.w/2+.25&&Math.abs(point.z-b.z)<b.d/2+.25)return .25;
+  }
+  if (point.z < -70) {
+    const radius = stadiumDistance(point.x, point.z);
+    if (radius < STADIUM.innerRadius) return STADIUM_FLOORS.pitch;
+    if (radius <= TRACK_OUTER_RADIUS + .85) return STADIUM_FLOORS.running;
   }
   return .13;
 }
@@ -444,9 +448,12 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
 }
 export function campusAreaName(point: MapPoint) {
   const venue = nearbySportsVenue(point.x, point.z);
-  if (venue === 'track' || (point.z < -65 && point.z > -77 && Math.abs(point.x) < 25)) return 'Đường chạy tiếng Anh';
+  if (venue === 'track') return 'Đường chạy tiếng Anh';
   if (venue === 'pool') return 'Hồ bơi';
   if (venue === 'field') return 'Sân trò chơi tiếng Anh';
+  const trackDistance = stadiumDistance(point.x, point.z);
+  if (trackDistance < STADIUM.innerRadius) return 'Sân bóng đá';
+  if (trackDistance <= TRACK_OUTER_RADIUS) return 'Đường chạy tiếng Anh';
   const district=DISTRICT_AREAS.find(d=>point.x>=d.minX&&point.x<=d.maxX&&point.z>=d.minZ&&point.z<=d.maxZ);
   if(district)return NEW_DISTRICT_ZONES.find(z=>z.id===district.id)!.name;
   const farm = FARM_LAYOUT.bounds;

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "models:build": "node scripts/repair-an-motion.mjs && node scripts/build-an-mixamo-preview.mjs && node scripts/build-tripo-character-models.mjs"
   },
   "dependencies": {
     "mongodb": "7.9.0",
@@ -26,7 +27,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "meshoptimizer": "1.1.1",
+    "sharp": "0.35.5"
   },
   "overrides": {
     "@typescript-eslint/typescript-estree": {
