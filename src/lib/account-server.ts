@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { MongoServerError } from 'mongodb';
-import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type Account, type AccountSession, type SavedProgress } from './account.ts';
+import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type Account, type AccountSession, type PositionCheckpoint, type SavedProgress } from './account.ts';
 import { freshProgress, restoreProgress } from './game.ts';
 import { restoreCampusPosition, type CampusPosition } from './campus-map.ts';
 import { MAX_VISIBLE_PEERS, PRESENCE_RADIUS, PRESENCE_TTL, type CampusPeer } from './campus-presence.ts';
@@ -15,7 +15,7 @@ const attempts = new Map<string, { count: number; until: number }>();
 let hashesInProgress = 0;
 
 type LoginSession = { hash: string; expires: number; presence?: CampusPosition & { seen: number } };
-type StoredAccount = { _id: string; id: string; salt: string; digest: string; sessions: LoginSession[]; save: SavedProgress };
+type StoredAccount = { _id: string; id: string; salt: string; digest: string; sessions: LoginSession[]; checkpoint?: PositionCheckpoint; save: SavedProgress };
 
 export class AccountError extends Error {
   constructor(message: string, readonly status = 400, readonly current?: SavedProgress) { super(message); }
@@ -89,7 +89,7 @@ export async function registerAccount(input: Record<string, unknown>, now = Date
     throw error;
   }
   attempts.delete(username);
-  return { cookie, session: { id, username, save } };
+  return { cookie, session: { id, username, save, serverNow: Date.now() } };
 }
 
 export async function signInAccount(input: Record<string, unknown>, now = Date.now()) {
@@ -105,11 +105,11 @@ export async function signInAccount(input: Record<string, unknown>, now = Date.n
   const updated = await collection.findOneAndUpdate(
     { _id: username, id: stored.id },
     { $push: { sessions: { $each: [entry], $slice: -16 } } },
-    { returnDocument: 'after', projection: { id: 1, save: 1 } },
+    { returnDocument: 'after', projection: { id: 1, save: 1, checkpoint: 1 } },
   );
   if (!updated) throw new AccountError('Phiên đăng nhập đã thay đổi.', 401);
   attempts.delete(username);
-  return { cookie, session: { id: updated.id, username, save: updated.save } };
+  return { cookie, session: resumedSession({ id: updated.id, username }, updated) };
 }
 
 function cookieParts(cookie: string | undefined) {
@@ -133,10 +133,30 @@ export async function endSession(cookie?: string) {
   await accounts().updateOne({ _id: parts.username }, { $pull: { sessions: { hash: parts.hash } } });
 }
 
+function resumedSession(account: Account, stored: Pick<StoredAccount,'save'|'checkpoint'>): AccountSession {
+  const {save, checkpoint} = stored;
+  const position = restoreCampusPosition(checkpoint?.position);
+  return { ...account, serverNow: Date.now(), positionSavedAt: checkpoint?.at,
+    save: position ? { ...save, progress: { ...save.progress, position } } : save };
+}
+
+export async function saveAccountPosition(cookie: string | undefined, data: Record<string,unknown>, now = Date.now()) {
+  const session = cookieParts(cookie);
+  if (!session) throw new AccountError('Please sign in.', 401);
+  const position = restoreCampusPosition(data.position), at = data.at;
+  if (!position || typeof at !== 'number' || !Number.isSafeInteger(at) || at <= 0 || at > now + 5000)
+    throw new AccountError('Invalid campus checkpoint.');
+  const filter = { _id: session.username, id: String(data.accountId), sessions: { $elemMatch: { hash: session.hash, expires: { $gt: now } } } };
+  // Retries and older tabs may arrive after a more recent walk.
+  const result = await accounts().updateOne({ ...filter, $or: [{ checkpoint: { $exists:false } }, { 'checkpoint.at': { $lt: at } }] },
+    { $set: { checkpoint: { position, at } } });
+  if (!result.matchedCount && !await accounts().findOne(filter,{projection:{_id:1}})) throw new AccountError('Please sign in.',401);
+}
+
 export async function accountSession(account: Account): Promise<AccountSession> {
-  const stored = await accounts().findOne({ _id: account.username, id: account.id }, { projection: { save: 1 } });
+  const stored = await accounts().findOne({ _id: account.username, id: account.id }, { projection: { save: 1, checkpoint: 1 } });
   if (!stored) throw new AccountError('Không đọc được tiến độ. Hãy thử lại sau.', 503);
-  return { id: account.id, username: account.username, save: stored.save };
+  return resumedSession(account, stored);
 }
 
 export async function saveAccountProgress(account: Account, revision: unknown, data: unknown) {
@@ -150,7 +170,9 @@ export async function saveAccountProgress(account: Account, revision: unknown, d
     'save.progress.name': progress.name, 'save.progress.avatar': progress.avatar,
   }, { $set: { save: saved } });
   if (result.matchedCount) return saved;
-  const current = (await accountSession(account)).save;
+  const stored = await accounts().findOne({ _id: account.username, id: account.id }, { projection: { save: 1 } });
+  if (!stored) throw new AccountError('Không đọc được tiến độ. Hãy thử lại sau.', 503);
+  const current = stored.save;
   if (current.progress.name !== progress.name || current.progress.avatar !== progress.avatar)
     throw new AccountError('Tiến độ không khớp hồ sơ học viên.');
   if (JSON.stringify(progress) === JSON.stringify(restoreProgress(JSON.stringify(current.progress)))) return current;

@@ -25,7 +25,7 @@ async function accountRequest(payload?: Record<string, unknown>) {
   } : { cache: 'no-store', signal });
   const packet: { session?: AccountSession | null; error?: string } = await response.json();
   if (!response.ok) throw new RequestError(packet.error || 'Không kết nối được. Hãy thử lại.', response.status);
-  return packet.session ?? null;
+  return packet.session ? { ...packet.session, receivedAt: Date.now() } : null;
 }
 
 function legacyProgress() {

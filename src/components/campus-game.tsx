@@ -27,6 +27,7 @@ import {
 import {CampaignJournal,CampaignTracker} from './campaign-journal';
 import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,hintStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
 import {nearStoryLocation,storyPosition} from '@/lib/campaign-locations';
+import { campusPositionTracker } from '@/lib/position-checkpoint';
 import { useProgress } from "@/lib/progress-store";
 import type { AccountSession } from "@/lib/account";
 import type { WorldHandle } from "./campus-world";
@@ -60,7 +61,7 @@ import { NpcPortrait } from "./npc-portrait";
 import { CampusMinimap } from "./campus-minimap";
 import { CampusLeaderboards } from "./campus-leaderboards";
 import { CampusMap, type AtlasDestination } from "./campus-map";
-import { EXPLORATION_ZONES, restoreCampusPosition, type MapPoint, type ZoneId } from "@/lib/campus-map";
+import { EXPLORATION_ZONES, type MapPoint, type ZoneId } from "@/lib/campus-map";
 
 const World = dynamic(
   () => import("./campus-world").then((module) => module.CampusWorld),
@@ -134,7 +135,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [retryCount,setRetryCount] = useState(0);
   const [reviewOpen,setReviewOpen] = useState(false);
   const [storyOpen,setStoryOpen]=useState(false);
-  const [initialPosition] = useState(() => restoreCampusPosition(account.save.progress.position));
+  const [positionTracker] = useState(() => campusPositionTracker(account));
+  const { initialPosition } = positionTracker;
   const [playerPosition,setPlayerPosition]=useState({...(initialPosition ?? {x:0,z:6,heading:0}),route:[] as MapPoint[]});
   const storyReturn=useRef(false);
   const campaign=progress.campaign||freshCampaign();
@@ -219,6 +221,23 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [areaName, setAreaName] = useState("Khu trung tâm");
   const worldRef = useRef<WorldHandle>(null);
+  useEffect(() => {
+    const saveLocation = () => {
+      positionTracker.observe(worldRef.current?.currentPosition());
+      void positionTracker.flush();
+    };
+    const visibility = () => { if (document.hidden) saveLocation(); };
+    const timer = window.setInterval(positionTracker.tick, 1000);
+    window.addEventListener('pagehide', saveLocation);
+    window.addEventListener('online', saveLocation);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('pagehide', saveLocation);
+      window.removeEventListener('online', saveLocation);
+      document.removeEventListener('visibilitychange', visibility);
+    };
+  }, [positionTracker]);
   const photoTrigger = useRef<HTMLButtonElement>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const speechToken = useRef(0);
@@ -497,6 +516,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,placePractice,closePlacePractice,sportsJournal,friendsOpen,rankingsOpen]);
 
   const updateMapPlayer = useCallback((x: number, z: number, heading: number, route: readonly MapPoint[]) => {
+    positionTracker.observe({x,z,heading});
     const classroom=EXPLORATION_ZONES.find(z=>z.id==='classrooms')!;setAtClassroom(Math.hypot(x-classroom.x,z-classroom.z)<.85);
     const waypoints = [...route]; // The world consumes its route in place.
     setPlayerPosition(old => old.x === x && old.z === z && old.heading === heading &&
@@ -505,7 +525,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     if (progress.residentMissions?.nam === 'active' && Math.hypot(x - classroom.x, z - classroom.z) < .85) {
       recordResidentTask(progress, { type: 'visit', zone: 'classrooms' });
     }
-  }, [progress, recordResidentTask]);
+  }, [positionTracker, progress, recordResidentTask]);
   const walkToRegistration = (venue:SportsVenueId) => {
     setSportsJournal(null);
     setMobileHudOpen(false);
@@ -748,9 +768,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setLogoutBusy(true);
     setLogoutError('');
     try {
-      const position = worldRef.current?.currentPosition();
-      if (position) saveProgress({...progress,position});
-      if (!await flush()) {
+      positionTracker.observe(worldRef.current?.currentPosition());
+      const [locationSaved, progressSaved] = await Promise.all([positionTracker.flush(), flush()]);
+      if (!locationSaved || !progressSaved) {
         setLogoutError('Hãy lưu tiến độ trước khi đăng xuất.');
         return;
       }

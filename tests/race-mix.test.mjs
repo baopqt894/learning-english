@@ -21,7 +21,7 @@ test('every event and difficulty assigns both humans the same ten items, audio, 
       if(q.kind==='listen')assert.ok(statSync(new URL('../public'+q.audio,import.meta.url)).size>1000);
     }
     const human=()=>room.members.find(m=>m.id===host.playerId);
-    for(let i=0;i<order.length;i++){
+    for(let i=0;i<7;i++){
       const q=questions[i], time=openedAt(human())+.5;
       const payload=q.kind==='fill'?{text:'  '+q.choices[q.answer].toUpperCase()+'!  '}:{choice:q.answer};
       get(code,guest.token,t+3000+Math.round(time*1000)-1);
@@ -30,7 +30,10 @@ test('every event and difficulty assigns both humans the same ten items, audio, 
       room=act({action:'answer',roundId:room.round.id,questionIndex:i,code,token:host.token,...payload},t+3000+Math.round(time*1000)).room;
       assert.equal(human().answers[i].correct,true);
     }
-    for(let elapsed=25;elapsed<=75;elapsed+=5) room=get(code,guest.token,t+elapsed*1000);
+    for(let elapsed=18;elapsed<=78;elapsed+=5) {
+      get(code,host.token,t+elapsed*1000);
+      room=get(code,guest.token,t+elapsed*1000);
+    }
     assert.equal(room.phase,'finished');
     for(const member of room.members)assert.deepEqual(member.answers.map(a=>a.questionId),order.slice(0,member.answers.length));
     const winner=human(),distance=COMPETITIONS[mode].distance;
@@ -89,4 +92,18 @@ test('ten wrong answers provide no distance and the swimmer coasts to the wall w
   const finished=roomSnapshot(auth.code,auth.token,start+65500);
   assert.equal(finished.members[0].finishedAt,62.5);
   assert.equal(finished.members[0].answers.length,10);
+});
+
+test('five quick correct swim answers leave over half the pool to swim while preserving double cruising pace',()=>{
+  const {room}=createCompetitionEngine().roomAction({action:'practice',mode:'swimming',profile:'a'.repeat(32)});
+  const swimmer=room.members[0];
+  for(let i=0;i<5;i++){
+    const at=openedAt(swimmer)+.5;
+    swimmer.answers.push(makeAnswer(room,swimmer,raceQuestion(room,swimmer).answer,at));
+  }
+  const afterBoost=swimmer.answers[4].at+1.5;
+  const distance=raceDistance(room,swimmer,afterBoost);
+  assert.ok(distance>25*afterBoost/62.5 && distance<12.5);
+  assert.ok(Math.abs(raceDistance(room,swimmer,afterBoost+1)-distance-.8)<1e-8);
+  assert.ok(raceDistance(room,swimmer,25)<25);
 });

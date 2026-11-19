@@ -1,7 +1,7 @@
 import {competitionQuestions,COMPETITIONS,DIFFICULTIES,RACE_COLOURS,type CompetitionId,type RaceQuestion,type RaceDifficulty} from './competition-catalog.ts';
 export type CompetitionAnswer={questionId:string;choice:number|null;correct:boolean;seconds:number;at:number;boost:number;streak:number};
 export type CompetitionMember={id:string;name:string;kind:'human'|'bot';ready:boolean;connected:boolean;avatar:number;colour:string;answers:CompetitionAnswer[];finishedAt:number|null;takeoverAt?:number;botAssisted?:boolean};
-export type CompetitionRound={id:string;startedAt:number;order:string[];fixed?:true;streakPace?:true};
+export type CompetitionRound={id:string;startedAt:number;order:string[];fixed?:true;streakPace?:true;swimPacing?:2};
 export type RecordStatus = 'personal-best' | 'kept-best' | 'not-qualified' | 'retrying';
 export type CompetitionRoom={code:string;mode:CompetitionId;difficulty:RaceDifficulty;format:'online'|'practice';record?:RecordStatus;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
 export const FEEDBACK_SECONDS=1.4;
@@ -33,11 +33,13 @@ export function makeAnswer(room:CompetitionRoom,member:CompetitionMember,choice:
 const BASE_COURSE_SECONDS = 62.5;
 const BOOST_DURATION_SECONDS = 1.5;
 const BOOST_SECONDS_PER_POINT = 1.25;
+const SWIM_BOOST_SECONDS_PER_POINT = .28;
 
 export function raceDistance(room: CompetitionRoom, member: CompetitionMember, time: number) {
  const distance = COMPETITIONS[room.mode].distance;
  if (member.finishedAt !== null && time >= member.finishedAt) return distance;
 
+ const boostSeconds = room.round?.swimPacing === 2 ? SWIM_BOOST_SECONDS_PER_POINT : BOOST_SECONDS_PER_POINT;
  let travelSeconds = Math.max(0, time);
  for (const [index, answer] of member.answers.entries()) {
    const age = time - answer.at;
@@ -45,7 +47,7 @@ export function raceDistance(room: CompetitionRoom, member: CompetitionMember, t
    const interval = Math.min(time, member.answers[index + 1]?.at ?? time) - answer.at;
    const pace = racePaceMultiplier(room, answer.streak);
    travelSeconds += interval * (pace - 1);
-   travelSeconds += answer.boost * BOOST_SECONDS_PER_POINT * Math.min(1, age / BOOST_DURATION_SECONDS);
+   travelSeconds += answer.boost * boostSeconds * Math.min(1, age / BOOST_DURATION_SECONDS);
  }
  return distance * Math.min(1, travelSeconds / BASE_COURSE_SECONDS);
 }

@@ -15,6 +15,7 @@ function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const nam
 function startRound(view: CompetitionRoom, now: number, previous: readonly string[] = []) {
  const order = drawRaceRound(view.mode, view.difficulty, previous);
  view.round = { id: id(), startedAt: now, order, fixed: true, streakPace: true };
+ if (view.mode === 'swimming') view.round.swimPacing = 2;
  view.phase = 'racing';
  view.members.forEach((member, index) => {
   member.answers = [];
