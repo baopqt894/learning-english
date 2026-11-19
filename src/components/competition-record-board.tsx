@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { COMPETITIONS, COMPETITION_IDS, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
+import { COMPETITIONS, COMPETITION_IDS, DIFFICULTIES, DIFFICULTY_IDS, RACE_QUESTION_COUNT, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
 import type { RaceBoard } from '@/lib/competition-records';
 
 import { Icon } from './icon';
@@ -33,7 +33,7 @@ export function CompetitionRecordBoard({ mode, difficulty, avatar, nickname, onV
       </div>
     </div>
     <RecordedTimes key={`${event}-${level}`} mode={event} difficulty={level} avatar={avatar} nickname={nickname} onVenue={onVenue}/>
-    <p className="rank-rule">Solo practice · {event === 'swimming' ? 'Finish all 10 swim questions correctly to qualify.' : `At least ${RECORD_MIN_CORRECT} correct answers to qualify.`}</p>
+    <p className="rank-rule">Solo practice · Answer all {RACE_QUESTION_COUNT} questions correctly to post a time.</p>
     {onBack && <button onClick={onBack}>Back</button>}
   </div>;
 }

@@ -44,7 +44,7 @@ function publicRecord({ name, avatar, milliseconds, correct, achievedAt }: Recor
 
 export const raceRecords: RecordStore = {
   async board(mode, difficulty, profile) {
-    const collection = await records(), event = { mode, difficulty, ...(mode === 'swimming' && {swimPacing: 3 as const}) };
+    const collection = await records(), event = { mode, difficulty, swimPacing: 3 as const };
     const [rows, mine] = await Promise.all([
       collection.find(event).sort(byTime).limit(10).toArray(),
       profile ? collection.findOne({ _id: key(mode, difficulty, profile,event.swimPacing) }) : null,

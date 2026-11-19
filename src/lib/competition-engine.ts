@@ -1,6 +1,7 @@
 import {competitionQuestions,COMPETITIONS,DIFFICULTIES,RACE_COLOURS,type CompetitionId,type RaceQuestion,type RaceDifficulty} from './competition-catalog.ts';
 export type CompetitionAnswer={questionId:string;choice:number|null;correct:boolean;seconds:number;at:number;boost:number;streak:number};
 export type CompetitionMember={id:string;name:string;kind:'human'|'bot';ready:boolean;connected:boolean;avatar:number;colour:string;answers:CompetitionAnswer[];finishedAt:number|null;takeoverAt?:number;botAssisted?:boolean};
+// Persisted protocol field: swimPacing 3 uses ten earned segments in every event.
 export type CompetitionRound={id:string;startedAt:number;order:string[];fixed?:true;streakPace?:true;swimPacing?:2|3};
 export type RecordStatus = 'personal-best' | 'kept-best' | 'not-qualified' | 'retrying';
 export type CompetitionRoom={code:string;mode:CompetitionId;difficulty:RaceDifficulty;format:'online'|'practice';record?:RecordStatus;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
@@ -25,13 +26,13 @@ export function raceQuestion(room:CompetitionRoom,member:CompetitionMember,index
  for(let i=choices.length-1;i>0;i--){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const j=seed%(i+1);[choices[i],choices[j]]=[choices[j],choices[i]];}
  return {...base,choices,answer:choices.indexOf(correct)};
 }
-function strokeSeconds(room: CompetitionRoom, answer: CompetitionAnswer) {
+function segmentSeconds(room: CompetitionRoom, answer: CompetitionAnswer) {
  return FEEDBACK_SECONDS / racePaceMultiplier(room,answer.streak);
 }
 export function openedAt(member: CompetitionMember, room?: CompetitionRoom) {
  const last = member.answers.at(-1);
  if (!last) return 0;
- return last.at + (room?.round?.swimPacing === 3 ? strokeSeconds(room,last) : FEEDBACK_SECONDS);
+ return last.at + (room?.round?.swimPacing === 3 ? segmentSeconds(room,last) : FEEDBACK_SECONDS);
 }
 export function racePaceMultiplier(room: CompetitionRoom, streak: number) {
  const steps = Math.min(4, Math.max(0, streak-1));
@@ -59,7 +60,7 @@ export function raceDistance(room: CompetitionRoom, member: CompetitionMember, t
    for (const answer of member.answers) {
      if (answer.at >= time) break;
      if (answer.correct) {
-       const duration = strokeSeconds(room,answer);
+       const duration = segmentSeconds(room,answer);
        earned += Math.min(1, (time-answer.at)/duration);
      }
    }

@@ -37,7 +37,7 @@ function practice(mode, difficulty, at, correct, delay, identity = profile) {
   let room = seat.room;
   for (let i = 0; i < room.round.order.length; i++) {
     const me = room.members[0];
-    const submittedAt = at + 3000 + openedAt(me) * 1000 + Math.max(50,delay);
+    const submittedAt = at + 3000 + openedAt(me,room) * 1000 + Math.max(50,delay);
     room = roomSnapshot(code,seat.token,submittedAt);
     if (room.members[0].finishedAt !== null) break;
     const q = raceQuestion(room, me);
@@ -68,10 +68,12 @@ test('solo swim keeps the fastest qualified time per browser profile and level',
 });
 
 test('solo sprint requires real correct answers and gives separate ranked places to different profiles', async () => {
-  assert.equal((await practice('sprint', 'intermediate', now + 220_000, 0, 0)).record, 'not-qualified');
+  const unfinished = await practice('sprint', 'intermediate', now + 220_000, 9, 0);
+  assert.equal(unfinished.phase, 'racing');
+  assert.equal(unfinished.record, undefined);
   assert.equal((await boardFor('sprint', 'intermediate', profile)).entries.length, 0);
-  assert.equal((await practice('sprint', 'intermediate', now + 290_000, 4, 1700)).record, 'personal-best');
-  assert.equal((await practice('sprint', 'intermediate', now + 360_000, 5, 1200, 'a'.repeat(32))).record, 'personal-best');
+  assert.equal((await practice('sprint', 'intermediate', now + 290_000, 10, 1700)).record, 'personal-best');
+  assert.equal((await practice('sprint', 'intermediate', now + 360_000, 10, 1200, 'a'.repeat(32))).record, 'personal-best');
   const board = await boardFor('sprint', 'intermediate', profile);
   assert.equal(board.entries.length, 2);
   assert.equal(board.personal.rank, 2);

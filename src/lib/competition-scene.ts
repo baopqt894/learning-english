@@ -15,7 +15,9 @@ export function createCompetitionScene(scene:THREE.Scene){
  const box=(w:number,h:number,d:number,x:number,y:number,z:number,material:THREE.Material,parent:THREE.Object3D=root)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=h>.2;parent.add(m);return m;};
  const hurdles=new THREE.Group();root.add(hurdles);hurdles.visible=false;
  const trackLane = (seat:number) => ATHLETICS_TRACK.z + (seat - 1.5) * ATHLETICS_TRACK.laneWidth;
- for(const offset of [8,16,24,32])for(let i=0;i<4;i++){const x=ATHLETICS_TRACK.start+offset,z=trackLane(i);for(const s of [-1,1])box(.06,.65,.06,x,.42,z+s*.7,wood,hurdles);box(.09,.09,1.5,x,.77,z,white,hurdles);}
+ // Place barriers between the 4 m stopping points so waiting runners land on the track.
+ const hurdleOffsets = [6,14,22,30];
+ for(const offset of hurdleOffsets)for(let i=0;i<4;i++){const x=ATHLETICS_TRACK.start+offset,z=trackLane(i);for(const s of [-1,1])box(.06,.65,.06,x,.42,z+s*.7,wood,hurdles);box(.09,.09,1.5,x,.77,z,white,hurdles);}
  const makeSeat=(i:number,avatar:number)=>{const rig=createCampusCharacter(avatar===1?'linh':'cadet');rig.group.scale.setScalar(1.1);root.add(rig.group);rig.group.visible=false;
   const tag=venueSign('',0,2.65,0,2.4,.38,rig.group);tag.name='Competition seat label';
   const sack=new THREE.Mesh(new THREE.CylinderGeometry(.32,.27,.83,20),new THREE.MeshStandardMaterial({color:0xa18a60,roughness:1}));sack.position.y=.53;rig.group.add(sack);sack.visible=false;
@@ -75,15 +77,15 @@ export function createCompetitionScene(scene:THREE.Scene){
     else{
      const d=positions[i]??0,moving=room!.phase!=='finished'&&member!.finishedAt===null&&d>distances[i]+.00001,cycle=reduced?0:gaitPhases[i];
      if(definition.axis==='x'){rig.group.position.set(definition.start+d,STADIUM_FLOORS.running,trackLane(i));rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(definition.x+(i-1.5)*4.3,STADIUM_FLOORS.pitch,definition.start-d);rig.group.rotation.y=Math.PI;}
-     let jump=0;if(mode==='hurdles'){const nearest=[8,16,24,32].find(at=>Math.abs(d-at)<1.2);if(nearest!==undefined)jump=Math.sin((d-nearest+1.2)/2.4*Math.PI)*.8;}
+     const hurdle = mode==='hurdles' ? hurdleOffsets.find(at=>Math.abs(d-at)<1.2) : undefined;
+     const phase = hurdle===undefined ? undefined : (d-hurdle+1.2)/2.4;
+     let jump = phase===undefined ? 0 : Math.sin(phase*Math.PI)*.8;
      setRunningGrip(rig,moving&&!reduced&&mode!=='sack'?1:0,reduced?undefined:delta);
      if(mode==='sack'){jump=moving&&!reduced?Math.abs(Math.sin(cycle*.6))*.4:0;rig.leftArm.rotation.x=rig.rightArm.rotation.x=-.7;}
-     else{rig.leftLeg.rotation.x=moving&&!reduced?Math.sin(cycle)*.68:0;rig.rightLeg.rotation.x=-rig.leftLeg.rotation.x;rig.knees.forEach((k,j)=>k.rotation.x=jump>.1?.85:Math.max(0,Math.sin(cycle+j*Math.PI))*.65);rig.leftArm.rotation.x=-rig.leftLeg.rotation.x*.7;rig.rightArm.rotation.x=mode==='relay'?-.9:rig.leftLeg.rotation.x*.7;rig.elbows[1].rotation.x=-.65;}
+     else{rig.leftLeg.rotation.x=moving&&!reduced?Math.sin(cycle)*.68:0;rig.rightLeg.rotation.x=-rig.leftLeg.rotation.x;rig.knees.forEach((k,j)=>k.rotation.x=jump>.1?.85:moving&&!reduced?Math.max(0,Math.sin(cycle+j*Math.PI))*.65:0);rig.leftArm.rotation.x=-rig.leftLeg.rotation.x*.7;rig.rightArm.rotation.x=mode==='relay'?-.9:rig.leftLeg.rotation.x*.7;rig.elbows[1].rotation.x=-.65;}
      rig.body.rotation.x=moving?.1:0;
      const jumping=mode==='sack'||jump>0;
      const take=!moving?'Idle':jumping?'Standing Jump':mode==='relay'?'Sprint':'Running';
-     const nearest=jump>0&&mode==='hurdles'?Math.round(d/8)*8:null;
-     const phase=nearest!==null?(d-nearest+1.2)/2.4:undefined;
      const mixed=playAnMotion(rig,take,moving?delta*(1+(lanePaces[i]-1)*.45):delta,reduced,phase);
      if(!mixed&&!reduced)rig.group.position.y+=jump;
      distances[i]=d;
