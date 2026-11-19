@@ -60,7 +60,7 @@ import { NpcPortrait } from "./npc-portrait";
 import { CampusMinimap } from "./campus-minimap";
 import { CampusLeaderboards } from "./campus-leaderboards";
 import { CampusMap, type AtlasDestination } from "./campus-map";
-import { EXPLORATION_ZONES, type MapPoint, type ZoneId } from "@/lib/campus-map";
+import { EXPLORATION_ZONES, restoreCampusPosition, type MapPoint, type ZoneId } from "@/lib/campus-map";
 
 const World = dynamic(
   () => import("./campus-world").then((module) => module.CampusWorld),
@@ -134,7 +134,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [retryCount,setRetryCount] = useState(0);
   const [reviewOpen,setReviewOpen] = useState(false);
   const [storyOpen,setStoryOpen]=useState(false);
-  const [playerPosition,setPlayerPosition]=useState({x:0,z:6,heading:0,route:[] as MapPoint[]});
+  const [initialPosition] = useState(() => restoreCampusPosition(account.save.progress.position));
+  const [playerPosition,setPlayerPosition]=useState({...(initialPosition ?? {x:0,z:6,heading:0}),route:[] as MapPoint[]});
   const storyReturn=useRef(false);
   const campaign=progress.campaign||freshCampaign();
   const storyIndex=storyChapterIndex(campaign);
@@ -747,6 +748,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setLogoutBusy(true);
     setLogoutError('');
     try {
+      const position = worldRef.current?.currentPosition();
+      if (position) saveProgress({...progress,position});
       if (!await flush()) {
         setLogoutError('Hãy lưu tiến độ trước khi đăng xuất.');
         return;
@@ -796,6 +799,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         <div className="scene-layer" inert={(modalOpen && !photoOpen) || !!talking || swimOpen}>
           <World
             ref={worldRef}
+            initialPosition={initialPosition}
             swimOpen={!!competitionView}
             competitionView={competitionView}
             onCompetition={venue=>{setCompetitionVenue(venue);setSwimOpen(true);}}

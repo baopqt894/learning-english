@@ -743,3 +743,20 @@
 .resident-open[data-mission-state="ready"] .resident-quest-sign {background:#246454;color:white;border:2px solid #bfe8cc}
 .campus-shell:has(.resident-open,.resident-card) .interact-button,
 .campus-shell:has(.resident-open,.resident-card) .district-prompt {visibility:hidden}
+
+.campus-peer-name {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #103c32ed;
+  color: #fff;
+  font: 600 11px/1.45 system-ui, sans-serif;
+}
+.campus-peer-name::before { content: '●'; color: #9ce4b7; margin-right: 4px; }

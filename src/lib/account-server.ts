@@ -2,6 +2,8 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { MongoServerError } from 'mongodb';
 import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type Account, type AccountSession, type SavedProgress } from './account.ts';
 import { freshProgress, restoreProgress } from './game.ts';
+import { restoreCampusPosition, type CampusPosition } from './campus-map.ts';
+import { MAX_VISIBLE_PEERS, PRESENCE_RADIUS, PRESENCE_TTL, type CampusPeer } from './campus-presence.ts';
 import { campusDatabase } from './mongodb.ts';
 
 export const ACCOUNT_COOKIE = 'campus_session';
@@ -12,7 +14,7 @@ const DUMMY_SALT = randomBytes(16).toString('hex');
 const attempts = new Map<string, { count: number; until: number }>();
 let hashesInProgress = 0;
 
-type LoginSession = { hash: string; expires: number };
+type LoginSession = { hash: string; expires: number; presence?: CampusPosition & { seen: number } };
 type StoredAccount = { _id: string; id: string; salt: string; digest: string; sessions: LoginSession[]; save: SavedProgress };
 
 export class AccountError extends Error {
@@ -165,4 +167,42 @@ export async function findCadetProfile(username: unknown) {
     id: stored.id,
     profile: { username: key, nickname: stored.save.progress.name, avatar: stored.save.progress.avatar },
   };
+}
+
+let presenceIndex: Promise<string> | undefined;
+
+export async function nearbyCadets(cookie: string | undefined, value: unknown, now = Date.now()) {
+  const session = cookieParts(cookie);
+  if (!session) throw new AccountError('Please sign in.', 401);
+  const point = restoreCampusPosition(value);
+  if (value !== null && !point) throw new AccountError('Invalid campus position.');
+  const collection = accounts();
+  const written = await collection.updateOne({
+    _id: session.username, sessions: { $elemMatch: { hash: session.hash, expires: { $gt: now } } },
+  }, point ? { $set: { 'sessions.$.presence': { ...point, seen: now } } } : { $unset: { 'sessions.$.presence': '' } });
+  if (!written.matchedCount) throw new AccountError('Please sign in.', 401);
+
+  if (!point) return [];
+  presenceIndex ??= collection.createIndex({ 'sessions.presence.seen': -1 }).catch(error => {
+    presenceIndex = undefined;
+    throw error;
+  });
+  await presenceIndex;
+  const active = { $gt: now - PRESENCE_TTL };
+  // Use the newest online session per account and return only public, nearby avatars.
+  return collection.aggregate<CampusPeer>([
+    { $match: { _id: { $ne: session.username }, 'sessions.presence.seen': active } },
+    { $unwind: '$sessions' },
+    { $match: { 'sessions.presence.seen': active, 'sessions.expires': { $gt: now } } },
+    { $sort: { 'sessions.presence.seen': -1 } },
+    { $group: { _id: '$id', name: { $first: '$save.progress.name' }, avatar: { $first: '$save.progress.avatar' }, p: { $first: '$sessions.presence' } } },
+    { $set: { distance: { $add: [
+      { $pow: [{ $subtract: ['$p.x', point.x] }, 2] },
+      { $pow: [{ $subtract: ['$p.z', point.z] }, 2] },
+    ] } } },
+    { $match: { distance: { $lte: PRESENCE_RADIUS ** 2 } } },
+    { $sort: { distance: 1, _id: 1 } },
+    { $limit: MAX_VISIBLE_PEERS },
+    { $project: { _id: 0, id: '$_id', name: 1, avatar: 1, x: '$p.x', z: '$p.z', heading: '$p.heading' } },
+  ]).toArray();
 }

@@ -30,6 +30,7 @@ import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
 import { nearReadingTable, READING_PAVILION } from '@/lib/reading-pavilion';
 import { campusSunFitter } from "@/lib/campus-sun";
+import { createCampusPeerScene } from '@/lib/campus-peer-scene';
 import { createCampusWorldLabels } from "@/lib/campus-world-labels";
 import { PLACES, type Place } from "@/lib/game";
 import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type PhotoFormat, type PhotoLight } from "@/lib/campus-photo";
@@ -41,11 +42,13 @@ import {
   campusFloorHeight,
   findCampusPath,
   advanceCampusRoute,
-  type MapPoint,
+  type CampusPosition, type MapPoint,
+  restoreCampusPosition,
   type ZoneId,
 } from "@/lib/campus-map";
 
 export type WorldHandle = {
+  currentPosition: () => CampusPosition | undefined;
   goToRegistration:(venue:SportsVenueId)=>void;
   openRegistration:()=>boolean;
   fieldworkAvailable: () => boolean;
@@ -69,6 +72,7 @@ export type WorldHandle = {
   capturePhoto: (format: PhotoFormat) => Promise<PhotoCapture | null>;
 };
 type Props = {
+  initialPosition?: CampusPosition;
   pets?:PetCare;
   residentMissions?: ResidentMissionProgress;
   completedChallenges?: readonly string[];
@@ -103,6 +107,7 @@ type Props = {
   onAreaChange?: (name: string) => void;
 };
 const emptyActions = (): WorldHandle => ({
+  currentPosition: () => undefined,
   goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{},goToResident:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
   goTo: () => {},
   recenter: () => {},
@@ -122,7 +127,7 @@ const emptyActions = (): WorldHandle => ({
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
     pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
-    avatar,
+    avatar, initialPosition,
     cadetRank, quizHistory, residentMissions, completedChallenges, onResidentAccept, onResidentStart, onResidentClaim,
     enabled,
     objective,
@@ -189,6 +194,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   useImperativeHandle(
     ref,
     () => ({
+      currentPosition: () => actionRef.current.currentPosition(),
       goToRegistration:venue=>actionRef.current.goToRegistration(venue),
       openRegistration:()=>actionRef.current.openRegistration(),
       goToPractice:id=>actionRef.current.goToPractice(id),
@@ -228,9 +234,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       fallback.textContent =
         "Thiết bị chưa hỗ trợ WebGL. Em vẫn có thể dùng nút Bản đồ toàn trường để khám phá và luyện hội thoại ở chế độ 2D.";
       host.appendChild(fallback);
+      let current = initialPosition;
+      actionRef.current.currentPosition = () => current;
       let visitor: CampusResident | null = null;
       let desk: SportsVenueId | undefined;
       const arrive = (point: MapPoint, place: Place | null = null, resident: CampusResident | null = null) => {
+        current = {x:point.x,z:point.z,heading:0};
         visitor = resident;
         desk = nearbySportsVenue(point.x, point.z);
         setTalkingResident(null);
@@ -239,6 +248,11 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         callbacks.current.onMove?.(point.x, point.z, 0, []);
         callbacks.current.onAreaChange?.(campusAreaName(point));
       };
+      if (initialPosition) {
+        desk = nearbySportsVenue(initialPosition.x,initialPosition.z);
+        callbacks.current.onMove?.(initialPosition.x,initialPosition.z,initialPosition.heading,[]);
+        callbacks.current.onAreaChange?.(campusAreaName(initialPosition));
+      }
       actionRef.current.goTo = place => {
         const [x, z] = PLACES[place].position;
         arrive({ x, z: z + 1 }, place);
@@ -310,7 +324,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       camera.updateProjectionMatrix();
       controls.update();
     };
-    resetCamera();
+    if (initialPosition) resetCamera(initialPosition.x, initialPosition.z);
+    else resetCamera();
     const daylight = PHOTO_LIGHTS.daylight;
     const hemisphere = new THREE.HemisphereLight(daylight.ambient, daylight.bounce, daylight.fill);
     scene.add(hemisphere);
@@ -338,6 +353,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const worldLabels = createCampusWorldLabels(labels);
     const environment = createCampusEnvironment(scene, avatar);
     const { floor, player, selection, destination } = environment;
+    if (initialPosition) {
+      player.group.position.set(initialPosition.x, campusFloorHeight(initialPosition), initialPosition.z);
+      player.group.rotation.y = initialPosition.heading;
+      environment.updateRooms(initialPosition);
+      followPlayer = true;
+    }
+    const peers = createCampusPeerScene(scene, host, () => callbacks.current.swimOpen ? null : {
+      x: player.group.position.x, z: player.group.position.z, heading: player.group.rotation.y,
+    });
     const diningHall = EXPANSION_BUILDINGS.find(building => building.kind === 'dining')!;
     const followTarget = new THREE.Vector3();
     const districts=createCampusDistricts(scene);
@@ -602,6 +626,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       });
     };
     actionRef.current = {
+      currentPosition: () => restoreCampusPosition({x:player.group.position.x,z:player.group.position.z,heading:player.group.rotation.y}),
       goToRegistration:venue=>{
         const { x, z } = SPORTS_VENUES[venue].approach;
         renderer.domElement.focus({preventScroll:true});
@@ -862,6 +887,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       wasSwimming=swimming;
       if(swimming){
+        peers.hide();
         player.group.visible=false;
         const view=callbacks.current.competitionView,definition=COMPETITIONS[view?.mode??'swimming'];
         competitionScene.update(view??null,Date.now()+(view?.clockOffset??0),reducedMotion.matches,dt);
@@ -893,6 +919,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return;
       }
       if (overviewMode && campusOverview && !photoSession) {
+        peers.hide();
         if (callbacks.current.conversation || callbacks.current.workKind || callbacks.current.studying) {
           resumeFollowing();
         } else {
@@ -1299,6 +1326,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);
       // Shadow matrices and articulated poses are rendered in the same frame.
+      peers.draw(camera, pos, interior, time, dt, reducedMotion.matches, !conversationPlace && !photoSession && !residentSession);
       host.dataset.interior = interior;
       renderFrame(time);
     });
@@ -1307,6 +1335,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderer.setAnimationLoop(null);
       window.removeEventListener('pointerup',releaseActions);window.removeEventListener('pointercancel',releaseActions);window.removeEventListener('blur',releaseActions);document.removeEventListener('visibilitychange',visibilityWork);
       observer.disconnect();
+      peers.dispose();
       worldLabels.dispose();
       controls.dispose();
       workScene.dispose();
@@ -1343,7 +1372,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       actionRef.current = emptyActions();
       districtHoldRef.current=()=>{};districtTravelRef.current=()=>{};balanceAnswerRef.current=()=>{};balanceCancelRef.current=()=>{};
     };
-  }, [avatar, charactersReady]);
+  }, [avatar, charactersReady, initialPosition]);
   useEffect(() => {
     actionRef.current.setQuality(highQuality);
   }, [highQuality, avatar, charactersReady]);

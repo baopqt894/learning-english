@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logCampusDatabaseError } from '@/lib/mongodb';
 import {
   ACCOUNT_COOKIE, SESSION_LIFETIME, AccountError, accountSession, endSession,
-  registerAccount, saveAccountProgress, signInAccount, signedInAccount,
+  nearbyCadets, registerAccount, saveAccountProgress, signInAccount, signedInAccount,
 } from '@/lib/account-server';
 
 const headers = { 'Cache-Control': 'no-store' };
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       response.cookies.set(ACCOUNT_COOKIE, result.cookie, { ...cookieOptions, maxAge: SESSION_LIFETIME });
       return response;
     }
+    if (body.action === 'presence') return json({ peers: await nearbyCadets(cookie, body.position) });
     if (body.action === 'logout') {
       await endSession(cookie);
       const response = json({ session: null });

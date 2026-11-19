@@ -85,3 +85,15 @@ test("asking for repetition or help teaches without granting progress", () => {
   assert.match(helped.reply,/Try:/);
   assert.deepEqual(helped.progress.goals,["directions"]);
 });
+
+test('account progress round-trips a walkable logout position and rejects obsolete or malformed coordinates',()=>{
+  const progress={...freshProgress(),name:'Linh'};
+  const restore=position=>restoreProgress(JSON.stringify({...progress,position}));
+  const desk={x:.55,z:26,heading:-1.2};
+  assert.deepEqual(restore(desk).position,desk);
+  assert.deepEqual(restore({...desk,heading:'bad'}).position,{...desk,heading:0});
+  for(const position of [undefined,{x:'1',z:2},{x:0,z:-11.5},{x:1e8,z:0}]){
+    assert.equal(restore(position).position,undefined);
+    assert.equal(restore(position).name,'Linh');
+  }
+});

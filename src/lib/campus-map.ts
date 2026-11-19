@@ -298,6 +298,14 @@ export function canWalkCampus(x: number, z: number) {
     )
   );
 }
+export type CampusPosition = MapPoint & { heading: number };
+export function restoreCampusPosition(value: unknown): CampusPosition | undefined {
+  if (!value || typeof value !== 'object') return;
+  const {x,z,heading} = value as Partial<CampusPosition>;
+  if (typeof x === 'number' && typeof z === 'number' && canWalkCampus(x,z))
+    return {x,z,heading: typeof heading === 'number' && Number.isFinite(heading) ? heading : 0};
+}
+
 export function canWalkSegment(a: MapPoint, b: MapPoint) {
   if (!canWalkCampus(a.x, a.z) || !canWalkCampus(b.x, b.z)) return false;
   const dx = b.x - a.x, dz = b.z - a.z;
