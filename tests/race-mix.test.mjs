@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { statSync } from 'node:fs';
-import { competitionQuestions, COMPETITIONS, COMPETITION_IDS, DIFFICULTY_IDS } from '../src/lib/competition-catalog.ts';
+import { competitionQuestions, drawRaceRound, COMPETITIONS, COMPETITION_IDS, DIFFICULTY_IDS } from '../src/lib/competition-catalog.ts';
 import { createCompetitionEngine } from '../src/lib/competition-server.ts';
 import { raceQuestion, openedAt, raceDistance, makeAnswer, racePaceMultiplier } from '../src/lib/competition-engine.ts';
 
@@ -123,3 +123,25 @@ for(const mode of COMPETITION_IDS) for(const format of ['practice','online']){
   }else assert.equal(room.phase,'finished');
  });
 }
+
+test('all venues include the 200 new exercises at each level and each draw uses separate passages', () => {
+  for (const difficulty of DIFFICULTY_IDS) {
+    for (const mode of COMPETITION_IDS) {
+      const bank = competitionQuestions(mode, difficulty);
+      const additions = bank.filter(q => q.passageId || q.id.startsWith(difficulty + '-gap-'));
+      assert.equal(new Set(additions.map(q => q.id)).size, 200);
+      for (const [kind, count] of Object.entries({ choice: 80, listen: 60, fill: 60 })) {
+        assert.equal(additions.filter(q => q.kind === kind).length, count);
+      }
+      const sources = new Map(bank.map(q => [q.id, q.passageId ?? q.id]));
+      let previous = [];
+      for (let i = 0; i < 20; i++) {
+        const round = drawRaceRound(mode, difficulty, previous);
+        const passages = round.map(id => sources.get(id));
+        assert.equal(new Set(passages).size, 10);
+        assert.ok(previous.every(id => !passages.includes(sources.get(id))));
+        previous = round;
+      }
+    }
+  }
+});

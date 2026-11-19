@@ -468,6 +468,17 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             <div><small>Invite your friends to {definition.venue}</small><strong>{room.code}</strong></div>
             <button onClick={() => { void navigator.clipboard?.writeText(room.code).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'Copied' : 'Copy code'}</button>
           </div>
+          <label className="race-level">Room difficulty
+            <select value={room.difficulty} disabled={!isHost || busy || !connected}
+              onChange={event => void act('difficulty', { difficulty: event.target.value })}>
+              {DIFFICULTY_IDS.map(id => {
+                const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
+                return <option key={id} value={id} disabled={isHost && cadetRank < required}>
+                  {item.label} ({item.level}){isHost && cadetRank < required ? ` · Level ${required} required` : ''}
+                </option>;
+              })}
+            </select>
+          </label>
           <div className="competition-seats">
             {slots.map((member, index) => member ? (
               <div key={member.id} className="competition-seat">
@@ -481,10 +492,10 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             ))}
           </div>
           {isHost && <button ref={inviteLaunch} className="competition-invite-friends" onClick={() => setInviteOpen(true)}><Icon name="users" size={17}/> Invite friends</button>}
-          <p className="swim-help">Friends can replace bots while registration is open. Empty seats fill on Start.</p>
+          <p className="swim-help">If the host changes the difficulty, other players must press Ready again.</p>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           <div className="swim-result-actions">
-            <button disabled={busy} onClick={() => void act('ready', { ready: !me?.ready })}>{me?.ready ? 'Ready ✓' : 'I’m ready'}</button>
+            <button disabled={busy} onClick={() => void act('ready', { ready: !me?.ready, difficulty: room.difficulty })}>{me?.ready ? 'Ready ✓' : 'I’m ready'}</button>
             {isHost ? <button className="swim-primary" disabled={busy || room.members.some(member => member.kind === 'human' && !member.ready)} onClick={() => void act('start')}>Start race</button>
               : <span>Waiting for the host to start…</span>}
           </div>

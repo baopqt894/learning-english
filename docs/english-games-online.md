@@ -27,7 +27,7 @@ Rooms expire after 30 idle minutes. Vercel Functions and self-hosted Node instan
 1. Open the same game server address on every device and sign in to a cadet account.
 2. Use **English competitions → Walk there**, or walk to the venue yourself. Press **E** or tap **Register** at the desk.
 3. Choose **Race with friends**, your event and difficulty, then **Create online room**.
-4. Share the venue and displayed room code. Friends register at that same desk and press **Join room**. The host’s difficulty applies to everyone.
+4. Share the venue and displayed room code. Friends register at that same desk and press **Join room**. The host’s difficulty applies to everyone. Before starting, the host can change **Room difficulty** to any level they have unlocked. Other players then confirm **Ready** again.
 5. Every human presses **I’m ready**. The host can add bots with **+** or press **Start race** to fill the remaining seats. Answer with keys 1–4 or the on-screen choices.
 
 The **How to play** button stays available at the desk and in the race. The pool has four marked lanes with floats, dive blocks, ladders, rescue rings and a surveillance chair. The four-lane 46 × 9 m track has a 40 m timed straight, distance marks and covered stands. The registration desks, waiting aprons and pathways sit outside the race lanes.
@@ -38,7 +38,7 @@ Open **Friends** in the campus HUD, search for a classmate's exact username, and
 
 ## Solo practice and campus records
 
-Choose **Solo practice** at a registration desk. The race uses one lane and no bots. **Beginner (A1)** allows 12 seconds per question, **Intermediate (A2)** allows 10, and **Advanced (B1)** allows 8. Each level has its own questions. During a race, feedback shows progress or a missed attempt. After crossing the finish line, open **Review your answers** to see the correct answers and explanations for each attempt.
+Choose **Solo practice** at a registration desk. The race uses one lane and no bots. **Beginner (A1)** allows 12 seconds per question, **Intermediate (A2)** allows 10, and **Advanced (B1)** allows 8. Each level has its own questions. The expanded campus bank adds 80 reading questions, 60 listening questions based on 20 recordings, and 60 word gaps per level. A round draws four multiple-choice reading questions, three listening questions and three word gaps, using a different passage for each item. During a race, feedback shows progress or a missed attempt. After crossing the finish line, open **Review your answers** to see the correct answers and explanations for each attempt.
 
 Complete all ten segments to qualify. The leaderboard compares times earned under the same rules. The server calculates the time and keeps the fastest result per account, event and level. **Campus records** shows the ten fastest cadets for the selected event and level along with your personal rank. Change either filter to browse the entire campus. The chosen nickname appears with qualifying records. Online results appear in the room.
 

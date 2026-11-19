@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const authStart = performance.now();
     let authMs = 0;
     const account = playerAccount(cookie).then(async player => {
-      if ((body.action === 'create' || body.action === 'practice')
+      if ((body.action === 'create' || body.action === 'practice' || body.action === 'difficulty')
         && typeof body.difficulty === 'string' && Object.hasOwn(DIFFICULTIES, body.difficulty)) {
         const tier = DIFFICULTIES[body.difficulty as RaceDifficulty].level;
         const required = TIER_LEVEL[tier];

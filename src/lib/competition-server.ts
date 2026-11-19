@@ -130,7 +130,16 @@ export function createCompetitionEngine(rooms = new Map<string, Room>()) {
    r.tokens.delete(m.id);r.seen.delete(m.id);r.accountSeats.delete(m.id);
    if(v.phase==='lobby')v.members=v.members.filter(x=>x.id!==m.id);else{m.kind='bot';m.connected=false;m.takeoverAt=Math.max(0,raceTime(v,now));}
    if(v.hostId===m.id)v.hostId=v.members.find(x=>x.kind==='human')?.id??'';
-  }else if(action==='ready'){if(v.phase!=='lobby')throw new RoomError('Wait until the next lobby.',409);m.ready=!!input.ready;
+  }else if(action==='difficulty'){
+   hostOnly();
+   if(v.phase!=='lobby'||v.format!=='online')throw new RoomError('Change difficulty in the lobby before the race starts.',409);
+   const level=input.difficulty;
+   if(typeof level!=='string'||!Object.hasOwn(DIFFICULTIES,level))throw new RoomError('Choose a difficulty.');
+   if(v.difficulty!==level){
+    v.difficulty=level as RaceDifficulty;
+    for(const member of v.members) member.ready=member.kind==='bot'||member.id===v.hostId;
+   }
+  }else if(action==='ready'){if(v.phase!=='lobby')throw new RoomError('Wait until the next lobby.',409);if(input.ready&&input.difficulty!==undefined&&input.difficulty!==v.difficulty)throw new RoomError('The difficulty changed. Check it before confirming.',409);m.ready=!!input.ready;
   }else if(action==='add-bot'){hostOnly();if(v.phase!=='lobby'||v.members.length>=4)throw new RoomError('No empty seat is available.',409);bot(r);
   }else if(action==='remove'){hostOnly();if(v.phase!=='lobby')throw new RoomError('Seats cannot change during a race.',409);if(input.playerId===m.id)throw new RoomError('Use Leave room to leave your own seat.');const target=v.members.find(x=>x.id===input.playerId);if(!target)throw new RoomError('Seat not found.',404);v.members=v.members.filter(x=>x!==target);r.tokens.delete(target.id);r.seen.delete(target.id);r.accountSeats.delete(target.id);
   }else if(action==='start'){

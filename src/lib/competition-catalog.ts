@@ -1,3 +1,6 @@
+import { beginnerRaceExercises } from './race-questions-beginner.ts';
+import { intermediateRaceExercises } from './race-questions-intermediate.ts';
+import { advancedRaceExercises } from './race-questions-advanced.ts';
 import { extraRaceQuestions } from './race-question-bank.ts';
 import { drawQuestions, shuffled } from './question-rotation.ts';
 import { SPORTS_VENUES, ATHLETICS_TRACK, FIELD_GAMES_COURSE, STADIUM_LOBBIES, type SportsVenueId } from './sports-layout.ts';
@@ -11,7 +14,7 @@ export const DIFFICULTIES = {
 export type RaceDifficulty = keyof typeof DIFFICULTIES;
 export const DIFFICULTY_IDS = Object.keys(DIFFICULTIES) as RaceDifficulty[];
 export const RECORD_MIN_CORRECT = 3;
-export type RaceQuestion={id:string;sentence:string;choices:string[];answer:number;explanation:string;kind?:'listen'|'choice'|'fill';audio?:string;alternatives?:string[]};
+export type RaceQuestion={id:string;passageId?:string;sentence:string;choices:string[];answer:number;explanation:string;kind?:'listen'|'choice'|'fill';audio?:string;alternatives?:string[]};
 const q=(id:string,sentence:string,choices:string[],answer:string,explanation:string):RaceQuestion=>({id,sentence,choices,answer:choices.indexOf(answer),explanation});
 export const COMPETITIONS={
  swimming:{id:'swimming',title:'Swim & solve',subtitle:'25 m freestyle',zone:'swimming',station:'pool',venue:SPORTS_VENUES.pool.name,distance:25,x:75,z:-51,w:29,d:21,axis:'x',start:62.5,lobby:{x:58,z:-51},arrival:SPORTS_VENUES.pool.approach,verb:'swim'},
@@ -123,8 +126,14 @@ const questionBanks = {
   },
 };
 
+const campusExercises = {
+  beginner: beginnerRaceExercises,
+  intermediate: intermediateRaceExercises,
+  advanced: advancedRaceExercises,
+};
+
 for (const bank of Object.values(questionBanks)) {
-  for (const level of DIFFICULTY_IDS) bank[level].push(...extraRaceQuestions[level]);
+  for (const level of DIFFICULTY_IDS) bank[level].push(...extraRaceQuestions[level], ...campusExercises[level]);
 }
 
 // One written opener, then three mixed sets of one question per skill.
@@ -133,9 +142,18 @@ export const RACE_QUESTION_COUNT = 1 + MIXED_RACE_SETS * 3;
 
 export function drawRaceRound(mode: CompetitionId, difficulty: RaceDifficulty, previous: readonly string[]) {
   const bank = competitionQuestions(mode, difficulty);
-  const draw = (kind: NonNullable<RaceQuestion['kind']>, count: number) => drawQuestions(
-    bank.filter(q => (q.kind ?? 'choice') === kind), count, q => q.id, previous,
-  );
+  const source = (q: RaceQuestion) => q.passageId ?? q.id;
+  const previousIds = new Set(previous);
+  const recentSources = bank.filter(q => previousIds.has(q.id)).map(source);
+  const draw = (kind: NonNullable<RaceQuestion['kind']>, count: number) => {
+    const candidates = bank.filter(q => (q.kind ?? 'choice') === kind);
+    const seen = new Set<string>();
+    return drawQuestions(candidates, candidates.length, source, recentSources).filter(q => {
+      if (seen.has(source(q))) return false;
+      seen.add(source(q));
+      return true;
+    }).slice(0, count);
+  };
   const choices = draw('choice', MIXED_RACE_SETS + 1);
   const clips = draw('listen', MIXED_RACE_SETS);
   const words = draw('fill', MIXED_RACE_SETS);

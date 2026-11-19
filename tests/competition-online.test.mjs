@@ -61,3 +61,27 @@ test('a rematch and a new practice draw unseen race questions first when the ban
  const practice=act({action:'practice',mode:'sprint',difficulty:'intermediate',name:'Host',previous:seen},start+95_003,'a'.repeat(32));
  assert.ok(!seen.includes(practice.room.round.order[0]));
 });
+
+test('only the lobby host changes difficulty and guests confirm readiness at the new level', () => {
+  const { roomAction: act, roomSnapshot } = createCompetitionEngine();
+  const host = act({ action: 'create', mode: 'relay' });
+  const code = host.room.code;
+  const guest = act({ action: 'join', code });
+  const setLevel = (seat, difficulty) => act({ action: 'difficulty', code, token: seat.token, difficulty });
+  const ready = difficulty => act({ action: 'ready', code, token: guest.token, ready: true, difficulty });
+  ready('beginner');
+  assert.throws(() => setLevel(guest, 'advanced'), /host/);
+  assert.throws(() => setLevel(host, 'invalid'), /difficulty/);
+  setLevel(host, 'advanced');
+  const room = roomSnapshot(code, guest.token);
+  assert.equal(room.difficulty, 'advanced');
+  assert.ok(room.members.every(m => m.ready === (m.id !== guest.playerId)));
+  assert.throws(() => ready('beginner'), /changed/);
+  assert.throws(() => act({ action: 'start', code, token: host.token }), /Ready/);
+  ready('advanced');
+  setLevel(host, 'advanced');
+  const started = act({ action: 'start', code, token: host.token }).room;
+  assert.equal(started.difficulty, 'advanced');
+  assert.equal(started.round.order.length, 10);
+  assert.throws(() => setLevel(host, 'beginner'), /before the race/);
+});
