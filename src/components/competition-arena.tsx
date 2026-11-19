@@ -401,7 +401,8 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             <li>In solo practice, you have the course to yourself. Get at least {RECORD_MIN_CORRECT} answers right to post a time. The board keeps your fastest time for each event and level.</li>
             <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
             <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
-            <li>Tap a choice or press keys 1–4. Quick correct answers make you faster. Two correct in a row increase your pace. Keep answering correctly to reach ×2 at five. A mistake or timeout resets your pace.</li>
+            <li>Tap an answer or use keys 1–4. For listening questions, play the clip and choose an answer. For word gaps, type the missing word and press Check.</li>
+            <li>Answer quickly for a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.</li>
           </ol>
           <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
         </div>
@@ -523,7 +524,9 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           <div className="swim-panel swim-question">
             <div className="swim-question-meta">
               <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {index+1}{room.round?.fixed ? ' / '+room.round.order.length : ''}</span>
-              <strong className={pace>1?'race-pace-active':undefined}>{pace>1 ? `${last!.streak} in a row · ×${pace} pace` : '2 in a row to speed up'}</strong>
+              <strong className={pace>1?'race-pace-active':undefined}>
+                {pace>1 ? `${last!.streak} in a row · ×${pace} pace` : last?.streak===1 ? '1 more to speed up' : '2 in a row to speed up'}
+              </strong>
             </div>
             <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
             <h3>{question.sentence}</h3>
