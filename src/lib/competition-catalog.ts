@@ -127,14 +127,24 @@ for (const bank of Object.values(questionBanks)) {
   for (const level of DIFFICULTY_IDS) bank[level].push(...extraRaceQuestions[level]);
 }
 
+// One written opener, then three mixed sets of one question per skill.
+export const MIXED_RACE_SETS = 3;
+export const RACE_QUESTION_COUNT = 1 + MIXED_RACE_SETS * 3;
+
 export function drawRaceRound(mode: CompetitionId, difficulty: RaceDifficulty, previous: readonly string[]) {
   const bank = competitionQuestions(mode, difficulty);
-  const draw = (kind: NonNullable<RaceQuestion['kind']>) => drawQuestions(
-    bank.filter(q => (q.kind ?? 'choice') === kind), 2, q => q.id, previous,
+  const draw = (kind: NonNullable<RaceQuestion['kind']>, count: number) => drawQuestions(
+    bank.filter(q => (q.kind ?? 'choice') === kind), count, q => q.id, previous,
   );
-  const [choices, clips, words] = [draw('choice'), draw('listen'), draw('fill')];
-  // Opening with a written choice gives phones time to preload the first recording.
-  return [choices[0], ...shuffled([clips[0], words[0]]), ...shuffled([choices[1], clips[1], words[1]])].map(q => q.id);
+  const choices = draw('choice', MIXED_RACE_SETS + 1);
+  const clips = draw('listen', MIXED_RACE_SETS);
+  const words = draw('fill', MIXED_RACE_SETS);
+  // The written opener also gives phones time to preload the recordings.
+  const order = [choices[0]];
+  for (let i = 0; i < MIXED_RACE_SETS; i++) {
+    order.push(...shuffled([choices[i+1], clips[i], words[i]]));
+  }
+  return order.map(q => q.id);
 }
 
 export function competitionQuestions(id: CompetitionId, difficulty: RaceDifficulty = 'beginner'): RaceQuestion[] {

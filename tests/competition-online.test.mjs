@@ -33,7 +33,7 @@ test('leaving and disconnected racers are replaced by bots without changing comp
  const v=roomSnapshot(a.room.code,a.token,now+20000);for(const m of v.members)for(let i=1;i<m.answers.length;i++)assert.ok(m.answers[i].at>m.answers[i-1].at);
 });
 test('every mode uses the same fair answer mechanics and finishes in its physical course distance',()=>{
- for(const mode of ['swimming','sprint','hurdles','sack','relay']){const a=create(mode),r=roomAction({action:'start',code:a.room.code,token:a.token},now).room,m=r.members[0];const first=makeAnswer(r,m,raceQuestion(r,m).answer,1);m.answers.push(first);assert.ok(raceDistance(r,m,2)>raceDistance(r,{...m,answers:[]},2));const result=roomSnapshot(a.room.code,a.token,now+140000);assert.equal(result.phase,'finished');assert.ok(result.members.every(m=>m.finishedAt!==null));}
+ for(const mode of ['swimming','sprint','hurdles','sack','relay']){const a=create(mode),r=roomAction({action:'start',code:a.room.code,token:a.token},now).room,m=r.members[0];const first=makeAnswer(r,m,raceQuestion(r,m).answer,1);m.answers.push(first);assert.ok(raceDistance(r,m,2)>raceDistance(r,{...m,answers:[]},2));const result=roomSnapshot(a.room.code,a.token,now+200000);assert.equal(result.phase,'finished');assert.ok(result.members.every(m=>m.finishedAt!==null));}
 });
 
 test('a new human can host an abandoned waiting room instead of leaving it permanently without a host',()=>{
@@ -50,18 +50,18 @@ test('a rematch and a new practice draw unseen race questions first when the ban
  const auth={code:seat.room.code,token:seat.token};
  const first=act({action:'start',...auth},start+1).room;
  let race=first;
- // Answer the first questions as a human so the server knows what was seen.
- for(let index=0;index<5;index++){
+ // Finish the assigned questions so the rematch excludes this deck.
+ for(let index=0;index<first.round.order.length;index++){
   const member=race.members[0], time=openedAt(member)+1;
   race=act({action:'answer',...auth,roundId:first.round.id,questionIndex:index,...reply(raceQuestion(race,member))},start+3001+Math.round(time*1000)).room;
  }
- const done=snapshot(auth.code,auth.token,start+63_000);
+ const done=snapshot(auth.code,auth.token,start+70_000);
  assert.equal(done.phase,'finished');
  const seen=first.round.order.slice(0,done.members[0].answers.length+1);
  assert.equal(seen.length,first.round.order.length);
- act({action:'lobby',...auth},start+63_001);
- const second=act({action:'start',...auth},start+63_002).room;
+ act({action:'lobby',...auth},start+70_001);
+ const second=act({action:'start',...auth},start+70_002).room;
  assert.ok(second.round.order.every(id=>!seen.includes(id)));
- const practice=act({action:'practice',mode:'sprint',difficulty:'intermediate',name:'Host',previous:seen},start+63_003,'a'.repeat(32));
+ const practice=act({action:'practice',mode:'sprint',difficulty:'intermediate',name:'Host',previous:seen},start+70_003,'a'.repeat(32));
  assert.ok(!seen.includes(practice.room.round.order[0]));
 });

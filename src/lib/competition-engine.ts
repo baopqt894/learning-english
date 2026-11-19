@@ -25,12 +25,23 @@ export function makeAnswer(room:CompetitionRoom,member:CompetitionMember,choice:
  return {questionId:q.id,choice,correct,seconds,at:time,streak,boost:correct?(1.5+2.7*(1-seconds/limit))*multiplier:0};
 }
 export function raceDistance(room:CompetitionRoom,member:CompetitionMember,time:number){
- let units=Math.max(0,time)*.4;for(const a of member.answers)units+=a.boost*Math.min(1,Math.max(0,(time-a.at)/1.5));
+ let units = Math.max(0,time)*.4, resolved = 0;
+ for (const answer of member.answers) {
+   const progress = Math.min(1, Math.max(0, (time-answer.at)/1.5));
+   units += answer.boost*progress;
+   resolved += progress;
+ }
  let fraction = Math.min(1, units/25);
  if (room.round?.fixed) {
-   const last = member.answers.at(-1);
-   const completion = questionsComplete(room, member) && last ? Math.min(1, Math.max(0, (time-last.at)/1.5)) : 0;
-   fraction = Math.min(fraction, .96 + .04*completion);
+   if (room.round.order.length > 6) {
+     // Reserve part of the course for the remaining questions. A fast start
+     // should not leave a racer parked beside the finish for several turns.
+     fraction = .6*fraction + .4*resolved/room.round.order.length;
+   } else {
+     const last = member.answers.at(-1);
+     const completion = questionsComplete(room,member) && last ? Math.min(1, Math.max(0, (time-last.at)/1.5)) : 0;
+     fraction = Math.min(fraction, .96 + .04*completion);
+   }
  }
  return fraction*COMPETITIONS[room.mode].distance;
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
-import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
+import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, MIXED_RACE_SETS, RACE_QUESTION_COUNT, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
 import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
 import { followRaceSocket, SocketUnavailable, type SendRoomAnswer } from '@/lib/race-socket-client';
 import type { FeedMessage } from '@/lib/competition-feed';
@@ -430,7 +430,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               })}
             </select>
           </label>
-          <p className="level-note">6 questions per race · 2 listening, 2 multiple choice, 2 word gaps. Listening and typing get extra time.</p>
+          <p className="level-note">{RACE_QUESTION_COUNT} questions per race · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
           <label className="competition-name">Nickname
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
@@ -541,7 +541,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
               ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Combo reset'}</strong><p>{question.explanation}</p></>
-              : <p>{error || (completed ? 'All six answered. Heading to the finish…' : sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+              : <p>{error || (completed ? 'All questions complete. Heading to the finish…' : sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div>
         </>
