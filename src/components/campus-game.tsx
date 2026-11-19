@@ -32,6 +32,8 @@ import type { AccountSession } from "@/lib/account";
 import type { WorldHandle } from "./campus-world";
 import { CampusPhotoMode } from "./campus-photo-mode";
 import {PlacePractice} from "./place-practice";
+import { nearReadingTable } from '@/lib/reading-pavilion';
+import { pavilionReadingRound } from '@/lib/pavilion-reading';
 import { levelMissionRound, placePracticeRound, practiceQuestionKey, type PlaceQuestion } from '@/lib/place-practice';
 import { LEVEL_MISSIONS, LEVEL_MISSION_IDS, englishTier, TIER_LEVEL, type EnglishTier, type LevelMissionId } from '@/lib/cadet-tiers';
 import { createQuizHistory } from '@/lib/browser-quiz-history';
@@ -108,7 +110,7 @@ function Cadet({
   );
 }
 
-type PracticeRequest = {area:string;feeding?:PetId;work?:WorkKind;station?:'rescue-ring';mission?:LevelMissionId;resident?:ResidentKind};
+type PracticeRequest = {area:string; reading?:true;feeding?:PetId;work?:WorkKind;station?:'rescue-ring';mission?:LevelMissionId;resident?:ResidentKind};
 
 const SYNC_LABELS = {
   saved: 'Tiến độ đã lưu vào tài khoản.',
@@ -346,9 +348,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const mission = request.mission ? LEVEL_MISSIONS[request.mission] : null;
     if (mission && (level.level < mission.level || !nearStoryLocation(mission.area, playerPosition))) return;
     const quizTier = mission?.tier ?? tier;
-    const key = request.mission ? `mission/${request.mission}` : `practice/${request.feeding ?? request.area}/${quizTier}`;
+    const key = request.mission ? `mission/${request.mission}` : `practice/${request.reading ? "reading-table" : request.feeding ?? request.area}/${quizTier}`;
     const previous = quizHistory.previous(key);
-    const questions = request.mission
+    const questions = request.reading ? pavilionReadingRound(quizTier, previous) : request.mission
       ? levelMissionRound(request.mission, previous) : placePracticeRound(request.area, quizTier, previous, request.feeding);
     quizHistory.record(key, questions.map(practiceQuestionKey));
     setPlacePractice({ ...request, tier: quizTier, questions });
@@ -522,7 +524,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     stopSpeech();
     worldRef.current?.goToZone(zoneId);
     setNotice(
-      `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
+      zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
   };
 
@@ -823,7 +825,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             photoMode={photoOpen}
             enabled={!!progress.name && !modalOpen && !talking && !swimOpen}
             onNear={setNear}
-            onInteract={()=>{if(!physicalWork)interactWithStoryNpc();}}
+            onInteract={target=>{if (target === "reading") openPlacePractice({area:"garden",reading:true}); else if (!physicalWork) interactWithStoryNpc();}}
             onMove={updateMapPlayer}
             onAreaChange={setAreaName}
           />
@@ -881,6 +883,11 @@ export function CampusGame({ account, onExpired, onLogout }: {
             {registration && !classStudy && (
               <button ref={deskTrigger} className="interact-button sports-register" lang="en" onClick={()=>worldRef.current?.openRegistration()}>
                 <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> Register at {SPORTS_VENUES[registration].name.toLowerCase()}
+              </button>
+            )}
+            {nearReadingTable(playerPosition) && !levelMissionTravel && (
+              <button className="interact-button" lang="en" onClick={()=>openPlacePractice({area:"garden",reading:true})}>
+                <kbd>E</kbd><Icon name="book" size={19}/> Read and practise English
               </button>
             )}
             {near && !registration && (
@@ -965,7 +972,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??placePractice.resident??''}`}
         area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}
         mission={placePractice.mission} resident={placePractice.resident} tier={placePractice.tier} questions={placePractice.questions}
-        purpose={placePractice.work?'work':placePractice.station?'rescue':undefined}
+        purpose={placePractice.reading?'reading':placePractice.work?'work':placePractice.station?'rescue':undefined}
         onExit={closePlacePractice} onFeed={pet=>openPlacePractice({area:pet==='fish'?'fish-pond':'livestock',feeding:pet})}
         onComplete={completePlacePractice}/>}
       {sportsJournal&&<SportsJournal kind={sportsJournal} day={day} progress={progress.daily} onClose={()=>setSportsJournal(null)} onWalk={walkToRegistration}/>}

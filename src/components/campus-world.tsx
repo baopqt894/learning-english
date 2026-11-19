@@ -28,6 +28,7 @@ import { preloadCampusCharacters } from "@/lib/campus-character-assets";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
+import { nearReadingTable, READING_PAVILION } from '@/lib/reading-pavilion';
 import { campusSunFitter } from "@/lib/campus-sun";
 import { createCampusWorldLabels } from "@/lib/campus-world-labels";
 import { PLACES, type Place } from "@/lib/game";
@@ -97,7 +98,7 @@ type Props = {
   highQuality?: boolean;
   photoMode?: boolean;
   onNear: (place: Place | null) => void;
-  onInteract: () => void;
+  onInteract: (target?: 'reading') => void;
   onMove?: (x: number, z: number, heading: number, route: readonly MapPoint[]) => void;
   onAreaChange?: (name: string) => void;
 };
@@ -708,6 +709,14 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         }
         return;
       }
+      const readingShortcut = key === 'e' && !event.repeat && !overviewMode &&
+        !callbacks.current.workKind && !callbacks.current.studying && nearReadingTable(player.group.position);
+      if (readingShortcut && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        route = [];
+        callbacks.current.onInteract('reading');
+        return;
+      }
       if (typing(event.target)) return;
       if(callbacks.current.workKind && key===' '){event.preventDefault();if(!event.repeat)actionRef.current.holdWork(true);return;}
       if(key==='e' && !event.repeat && requestedResident && residentNear?.kind===requestedResident){
@@ -1152,9 +1161,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       ) {
         followPlayer = true;
         followTarget.set(pos.x, 0, pos.z);
-        if (interior === diningHall.name) {
-          followTarget.x = THREE.MathUtils.lerp(pos.x, diningHall.x, .6);
-          followTarget.z = THREE.MathUtils.lerp(pos.z, diningHall.z, .75);
+        const room = interior === diningHall.name ? diningHall : interior === READING_PAVILION.name ? READING_PAVILION : null;
+        if (room) {
+          followTarget.x = THREE.MathUtils.lerp(pos.x, room.x, .6);
+          followTarget.z = THREE.MathUtils.lerp(pos.z, room.z, .75);
           followTarget.y = .8;
         }
         const delta = followTarget
@@ -1284,7 +1294,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      worldLabels.show(!conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive && !residentSession);
+      worldLabels.show(interior !== READING_PAVILION.name && !conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive && !residentSession);
       selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);

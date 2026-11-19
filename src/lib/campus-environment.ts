@@ -1,3 +1,4 @@
+import { createReadingRoom } from './reading-room';
 import { createDiningRoom } from './dining-room';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
@@ -434,7 +435,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
       const shell=createRoomShell(b);scene.add(shell);
-      const interior=b.kind==="dining" ? createDiningRoom(b) : undefined;
+      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : undefined;
       if(interior)scene.add(interior);
       roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
@@ -471,7 +472,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       }
       if(b.kind!=="housing")box(2.75, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
       sign(
-        b.name,
+        b.kind === "pavilion" ? "ENGLISH READING ROOM" : b.name,
         b.w * 0.8,
         0.43,
         b.x,
@@ -609,11 +610,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     box(bed.w,.18,bed.d,0x738b54,bed.x,.04,bed.z);
     for(let i=0;i<30;i++)sphere(.14,[0xe1b974,0xc88d98,0xd8d49b][i%3],bed.x+Math.sin(i*8.4)*(bed.w/2-.25),.35,bed.z+Math.cos(i*2.4)*(bed.d/2-.3),scene,6);
   }
-  for (const x of [-4.2, 4.2]) {
-    cylinder(0.17, 0.22, 3.7, 0xd5c79f, x, 1.8, 30);
-    box(0.8, 0.25, 0.8, 0xd9ccab, x, 3.7, 30);
-  }
-  sign("PHÂN HIỆU 1 · CHÀO MỪNG HỌC VIÊN", 8.2, 0.5, 0, 3.5, 30, "#3f6349");
+  // A shallow landing leads from the garden path to the pavilion's open doorway.
+  box(2.55,.13,.8,0xd9ccab,0,.12,29.94);
 
   const trees = createCampusTrees(scene, finish("bark", 0x8c7050), windUniform);
   const tree = (x: number, z: number, scale = 1, flowering = false) => {

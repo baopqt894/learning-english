@@ -1,3 +1,4 @@
+import { READING_PAVILION, READING_APPROACH, READING_TABLES, READING_SEATS, BOOKCASES } from './reading-pavilion.ts';
 import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
@@ -108,16 +109,7 @@ export const EXPANSION_BUILDINGS: Building[] = [
     roof: 0x607f77,
     kind: "hall",
   },
-  {
-    x: 0,
-    z: 26,
-    w: 9,
-    d: 7,
-    h: 3,
-    name: "NHÀ CHÒI ĐỌC SÁCH",
-    roof: 0x5c7750,
-    kind: "pavilion",
-  },
+  READING_PAVILION,
 ];
 export const EXPLORATION_ZONES = [
   ...NEW_DISTRICT_ZONES,
@@ -196,8 +188,7 @@ export const EXPLORATION_ZONES = [
     id: "garden",
     name: "Vườn đọc sách",
     english: "Reading garden",
-    x: 0,
-    z: 21,
+    ...READING_APPROACH,
     icon: "leaf",
     color: "#97b990",
   },
@@ -214,7 +205,7 @@ export const ZONE_ART: Partial<Record<ZoneId, number>> = {
   hall: 5,
 };
 export const isOpenRoom = (b: Building) =>
-  (b.kind !== "housing" || b.z === 0) && b.kind !== "pavilion";
+  b.kind !== "housing" || b.z === 0;
 /** Furniture positions are shared by rendering and navigation. A clear centre aisle connects every room to its door. */
 type Furniture = MapPoint & {
   w: number;
@@ -224,7 +215,7 @@ type Furniture = MapPoint & {
 export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
   isOpenRoom,
 ).flatMap<Furniture>((b) => {
-  if (b.kind === 'housing') return [];
+  if (b.kind === 'housing' || b.kind === 'pavilion') return [];
   if (b.kind === "hall")
     return [
       {
@@ -254,7 +245,7 @@ export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1]
 export const MAP_OBSTACLES = [
   ...SPORTS_OBSTACLES,
   ...CORE_FRONT_FIXTURES, ...ROOM_EXHIBITS,
-  ...ROOM_FIXTURES,
+  ...ROOM_FIXTURES, ...BOOKCASES, ...READING_TABLES, ...READING_SEATS,
   ...DISTRICT_OBSTACLES,
   ...SITE_STATIC_OBSTACLES, ...ADDITIONAL_STATIC_OBSTACLES, ...FIXED_SITE_OBSTACLES,
   ...WORK_OBSTACLES,

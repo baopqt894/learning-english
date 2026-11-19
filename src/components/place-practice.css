@@ -61,3 +61,7 @@
 .practice-feedback[data-correct=false] { background: #f6e8cb; color: #553a1b; border-color: #aa7733; }
 .practice-choices button[data-result=retry] { box-shadow: inset 0 0 0 1px #aa7733; border-color: #aa7733; background: #fbf1de; }
 @media(max-width:600px) { .practice-modal .practice-primary { width: 100%; } }
+
+.practice-modal .reading-passage {padding:14px 16px;background:#f1edda;border-left:3px solid #879767;border-radius:4px;color:#253e30}
+.practice-modal .reading-passage h3 {margin:0 0 6px;font-size:1rem;color:#293f32}
+.practice-modal .reading-passage p {margin:0;line-height:1.55}

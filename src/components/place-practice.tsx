@@ -7,6 +7,7 @@ import { RESIDENT_MISSIONS, type ResidentKind } from '@/lib/resident-missions';
 import { isTypedAnswerCorrect, missionAudioPath } from '@/lib/mission-exercises';
 import { PETS, petStatus, type PetCare, type PetId } from '@/lib/pet-care';
 import { Icon } from './icon';
+import { PAVILION_READINGS } from '@/lib/pavilion-reading';
 import { SpeechRepeat } from './speech-repeat';
 import { matchesSpokenAnswer } from '@/lib/speaking-answer';
 import './place-practice.css';
@@ -15,7 +16,7 @@ type Props = {
   area: string;
   feeding?: PetId;
   care: PetCare;
-  purpose?: 'work' | 'rescue';
+  purpose?: 'work' | 'rescue' | 'reading';
   mission?: LevelMissionId;
   resident?: ResidentKind;
   tier: EnglishTier;
@@ -33,7 +34,8 @@ export function PlacePractice({ area, feeding, care, purpose, mission, resident,
   const lesson = PLACE_PRACTICE[area] ?? PLACE_PRACTICE.courtyard;
   const assignment = mission ? LEVEL_MISSIONS[mission] : null;
   const residentMission = resident ? RESIDENT_MISSIONS[resident] : null;
-  const title = feeding ? `Earn food for your ${PETS[feeding].name.toLowerCase()}` : residentMission?.title ?? assignment?.title ?? lesson.title;
+  const passage = purpose === 'reading' ? PAVILION_READINGS[tier] : null;
+  const title = passage ? 'Reading pavilion' : feeding ? `Earn food for your ${PETS[feeding].name.toLowerCase()}` : residentMission?.title ?? assignment?.title ?? lesson.title;
   const brief = residentMission?.summary ?? assignment?.brief ?? (feeding ? 'Answer all three questions, then feed directly in 3D.'
     : purpose === 'work' ? 'Pass the English quiz to start the 3D assignment.'
     : purpose === 'rescue' ? 'Pass the safety quiz to unlock the rescue throw.'
@@ -44,6 +46,7 @@ export function PlacePractice({ area, feeding, care, purpose, mission, resident,
     : feeding ? 'Your food portion is ready. Walk to the highlighted feeding point and hold E to feed your animals.'
     : purpose === 'work' ? 'Your assignment is ready. Follow the instructions at the work site.'
     : purpose === 'rescue' ? 'Walk to the marked point on the dry deck to throw the ring.'
+    : passage ? 'You finished the reading. Come back to the table for another round.'
     : 'Well done. Use these words while exploring this area.';
 
   useEffect(() => { panel.current?.scrollTo(0, 0); }, [index, showQuiz]);
@@ -59,6 +62,9 @@ export function PlacePractice({ area, feeding, care, purpose, mission, resident,
         </div>
         <button type="button" onClick={onExit} aria-label="Close place practice"><Icon name="close"/></button>
       </header>
+      {passage && question && <article className="reading-passage">
+        <h3>{passage.title}</h3><p>{passage.text}</p>
+      </article>}
       {!showQuiz ? <AnimalCare care={care} onFeed={onFeed} onPractice={() => setShowQuiz(true)}/>
         : question ? <PracticeStep key={index} question={question} index={index} tier={tier} onNext={() => setIndex(index + 1)}/>
         : <div className="practice-complete">
