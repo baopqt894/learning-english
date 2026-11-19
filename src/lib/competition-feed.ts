@@ -4,7 +4,7 @@ import { loadCompetitionRoom, watchCompetitionRoom } from './competition-storage
 
 export type FeedMessage = { room: CompetitionRoom } | { heartbeat: true } | { expired: true };
 
-export function competitionFeed(initial: CompetitionRoom, token: string, accountId: string, requestSignal: AbortSignal) {
+export function competitionFeed(initial: CompetitionRoom, token: string, accountId: string, requestSignal: AbortSignal, lifetimeMs = 25_000) {
   const abort = new AbortController();
   const encoder = new TextEncoder();
   let tick: ReturnType<typeof setTimeout> | undefined;
@@ -21,6 +21,7 @@ export function competitionFeed(initial: CompetitionRoom, token: string, account
         requestSignal.removeEventListener('abort', stop);
         if (controller.desiredSize !== null) controller.close();
       };
+      if (requestSignal.aborted) { stop(); return; }
       requestSignal.addEventListener('abort', stop, { once: true });
       if (requestSignal.aborted) { stop(); return; }
 
@@ -54,7 +55,7 @@ export function competitionFeed(initial: CompetitionRoom, token: string, account
         if (!abort.signal.aborted) tick = setTimeout(maintain, phase === 'racing' ? 1200 : 3000);
       };
 
-      lifetime = setTimeout(stop, 25_000);
+      lifetime = setTimeout(stop, lifetimeMs);
       send(initial);
       tick = setTimeout(maintain, 1000);
       void watchCompetitionRoom(initial.code, token, accountId, abort.signal, send).catch(stop);

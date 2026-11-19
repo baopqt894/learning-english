@@ -1,7 +1,7 @@
 import {createHash,randomBytes} from 'node:crypto';
-import {COMPETITIONS,DIFFICULTIES,RECORD_MIN_CORRECT,competitionQuestions,type CompetitionId,type RaceDifficulty} from './competition-catalog.ts';
-import {freshMember,raceTime,raceDistance,finishTime,raceQuestion,openedAt,makeAnswer,questionSeconds,type CompetitionRoom} from './competition-engine.ts';
-import { drawQuestions } from './question-rotation.ts';
+import {COMPETITIONS,DIFFICULTIES,RECORD_MIN_CORRECT,drawRaceRound,type CompetitionId,type RaceDifficulty} from './competition-catalog.ts';
+import {freshMember,raceTime,raceDistance,finishTime,raceQuestion,openedAt,makeAnswer,questionSeconds,questionsComplete,type CompetitionRoom} from './competition-engine.ts';
+import { isTypedAnswerCorrect } from './mission-exercises.ts';
 import {raceProfile,raceRecords,type RecordStore} from './competition-records.ts';
 export type Room={profile?:string;accountSeats:Map<string,string>;write?:Promise<void>;retryAt?:number;previousQuestions?:string[];view:CompetitionRoom;tokens:Map<string,string>;seen:Map<string,number>;updated:number};
 export const ROOM_IDLE_MS=30*60_000;
@@ -13,9 +13,8 @@ const name=(value:unknown)=>typeof value==='string'?value.normalize('NFKC').repl
 function bump(r:Room,now:number){r.updated=now;r.view.revision++;r.view.serverNow=now;}
 function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const names=['Minh','Linh','An','Nam'];const botName=names.find(n=>!used.has(n))??'Cadet bot';const m=freshMember(id(),botName,'bot',r.view.members.length,botName==='Linh'?1:0);r.view.members.push(m);return m;}
 function startRound(view: CompetitionRoom, now: number, previous: readonly string[] = []) {
- const bank = competitionQuestions(view.mode, view.difficulty);
- const order = drawQuestions(bank, bank.length, question => question.id, previous).map(question => question.id);
- view.round = { id: id(), startedAt: now, order };
+ const order = drawRaceRound(view.mode, view.difficulty, previous);
+ view.round = { id: id(), startedAt: now, order, fixed: true };
  view.phase = 'racing';
  view.members.forEach((member, index) => {
   member.answers = [];
@@ -59,15 +58,16 @@ function advance(r:Room,now:number){
     const delay=3.5+index*.4,step=5.5+index*.25;
     let at=m.answers.length?Math.max(openedAt(m)+2.3,delay+m.answers.length*step):delay;
     if(m.takeoverAt!==undefined)at=Math.max(at,m.takeoverAt+2.3,(m.answers.at(-1)?.at??-10)+3.7);
-    for(let n=0;n<30&&at<=t&&raceDistance(v,m,at)<COMPETITIONS[v.mode].distance;n++){
+    for(let n=0;n<30&&!questionsComplete(v,m)&&at<=t&&raceDistance(v,m,at)<COMPETITIONS[v.mode].distance;n++){
      const miss=(m.answers.length+1)%(4+index)===0,q=raceQuestion(v,m);
      if (!m.connected) m.botAssisted = true;
-     m.answers.push(makeAnswer(v,m,miss?(q.answer+1)%4:q.answer,at));bump(r,now);
+     m.answers.push(makeAnswer(v,m,miss?(q.kind==='fill'?-1:(q.answer+1)%q.choices.length):q.answer,at));bump(r,now);
      at=Math.max(openedAt(m)+2.3,delay+m.answers.length*step);
     }
    }else {
-    const limit = questionSeconds(v);
-    for (let at = openedAt(m) + limit; at <= t && at < finishTime(v,m); at = openedAt(m) + limit) {
+    while (!questionsComplete(v,m)) {
+     const at = openedAt(m) + questionSeconds(v,raceQuestion(v,m).kind);
+     if (at > t || at >= finishTime(v,m)) break;
      m.answers.push(makeAnswer(v,m,null,at));bump(r,now);
     }
    }
@@ -139,10 +139,15 @@ export function createCompetitionEngine(rooms = new Map<string, Room>()) {
    while(v.members.length<4)bot(r);
    startRound(v,now,r.previousQuestions);
   }else if(action==='answer'){
-   if(v.phase!=='racing'||!v.round||input.roundId!==v.round.id||input.questionIndex!==m.answers.length||m.finishedAt!==null)throw new RoomError('That question has changed. Read the current question.',409);
+   if(v.phase!=='racing'||!v.round||input.roundId!==v.round.id||input.questionIndex!==m.answers.length||questionsComplete(v,m)||m.finishedAt!==null)throw new RoomError('That question has changed. Read the current question.',409);
    const t=raceTime(v,now);if(t<openedAt(m)||t<0)throw new RoomError('Wait for the question to open.',409);
-   if(!Number.isInteger(input.choice)||Number(input.choice)<0||Number(input.choice)>3)throw new RoomError('Choose one of the four answers.');
-   m.answers.push(makeAnswer(v,m,Number(input.choice),t));
+   const q=raceQuestion(v,m);
+   let choice=Number(input.choice);
+   if(q.kind==='fill'){
+    if(typeof input.text!=='string'||!input.text.trim()||input.text.length>80)throw new RoomError('Enter a short answer.');
+    choice=isTypedAnswerCorrect({answer:q.choices[q.answer],alternatives:q.alternatives},input.text)?q.answer:-1;
+   }else if(!Number.isInteger(input.choice)||choice<0||choice>=q.choices.length)throw new RoomError('Choose one of the answers.');
+   m.answers.push(makeAnswer(v,m,choice,t));
   }else if(action==='lobby'){
    hostOnly();if(v.format!=='online'||v.phase!=='finished')throw new RoomError('Wait for the race to finish.',409);v.phase='lobby';
    const seen = Math.max(1, ...v.members.filter(member => member.kind === 'human').map(member => member.answers.length + 1));

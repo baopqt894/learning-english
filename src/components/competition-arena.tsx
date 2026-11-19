@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
-import { COMPETITIONS, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
-import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
+import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { followRaceSocket, SocketUnavailable, type SendRoomAnswer } from '@/lib/race-socket-client';
 import type { FeedMessage } from '@/lib/competition-feed';
 import type { DailyEvent } from '@/lib/daily-missions';
 import { SPORTS_VENUES, type SportsVenueId } from '@/lib/sports-layout';
@@ -97,6 +98,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const lastRevision = useRef(-1);
   const offsetRef = useRef(0);
   const calibrated = useRef(false);
+  const socketAnswer = useRef<SendRoomAnswer|null>(null);
   const actionPending = useRef(false);
   const creditedRound = useRef<string | null>(null);
 
@@ -132,7 +134,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   useEffect(() => {
     if (!session) return;
     let timer: ReturnType<typeof setTimeout>;
-    let stop = false, nextStream = 0;
+    let stop = false, nextStream = 0, nextSocket = 0;
     const abort = new AbortController();
     const expireSeat = () => {
       stop = true;
@@ -145,7 +147,18 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
       let delay = 750;
       const sent = Date.now();
       try {
-        const stream = online && sent >= nextStream;
+        if (online && window.isSecureContext && location.protocol === 'https:' && sent >= nextSocket) {
+          const joined = await followRaceSocket(session,abort.signal,receive,send => {
+            if (abort.signal.aborted) return;
+            socketAnswer.current = send;
+            setLive(!!send);
+          });
+          if (abort.signal.aborted) return;
+          socketAnswer.current = null;
+          nextSocket = Date.now() + (joined ? 0 : 30_000);
+          if (joined) { delay=100; return; }
+        }
+        const stream = online && Date.now() >= nextStream;
         const response = await snapshot(session, AbortSignal.any([abort.signal, AbortSignal.timeout(stream ? 32_000 : 6000)]), stream);
         if (abort.signal.aborted) return;
         if (response.status === 401 || response.status === 404) { expireSeat(); return; }
@@ -186,7 +199,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
       }
     };
     timer = setTimeout(sync, 100);
-    return () => { abort.abort(); clearTimeout(timer); };
+    return () => { socketAnswer.current=null; abort.abort(); clearTimeout(timer); };
   }, [session, online, receive]);
 
   const mode = room?.mode ?? selected;
@@ -235,6 +248,10 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const act = useCallback((action: string, extra: Record<string, unknown> = {}) => perform(async () => {
     if (!session) return;
     const sent = Date.now();
+    if (action==='answer' && socketAnswer.current) {
+      try { receive(await socketAnswer.current(extra),sent); return; }
+      catch (reason) { if (!(reason instanceof SocketUnavailable)) throw reason; }
+    }
     receive(await post({ action, code: session.code, token: session.token, ...extra }), sent);
   }), [session, receive, perform]);
 
@@ -294,14 +311,18 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const time = room ? raceTime(room, now) : 0;
   const last = me?.answers.at(-1);
   const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
-  const canAnswer = connected && isRacing && time >= 0 && !feedback && !busy && !help;
+  const completed = !!room && !!me && questionsComplete(room,me);
+  const index = me ? Math.max(0,me.answers.length - (feedback || completed ? 1 : 0)) : 0;
+  const question = room && me && isRacing ? raceQuestion(room,me,index) : null;
+  const limit = room ? questionSeconds(room,question?.kind) : 0;
+  const canAnswer = !completed && connected && isRacing && time >= 0 && !feedback && !busy && !help;
   const sending = pendingAnswer && pendingAnswer.round === roundId && pendingAnswer.index === me?.answers.length
     ? pendingAnswer : null;
-  const submit = (choice: number) => {
+  const submit = (choice: number, text?: string) => {
     if (!canAnswer || actionPending.current || !room || !me || !roundId) return;
     const index = me.answers.length;
-    setPendingAnswer({ round: roundId, index, choice, remaining: Math.max(0, questionSeconds(room) - (time - openedAt(me))) });
-    void act('answer', { choice, questionIndex: index, roundId }).finally(() => setPendingAnswer(null));
+    setPendingAnswer({ round: roundId, index, choice, remaining: Math.max(0, limit - (time - openedAt(me))) });
+    void act('answer', { choice, text, questionIndex: index, roundId }).finally(() => setPendingAnswer(null));
   };
   function closeInvites() {
     setInviteOpen(false);
@@ -315,7 +336,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
         else if (help || room) setHelp(value => !value);
         else void exit();
       }
-      if (!event.repeat && /^[1-4]$/.test(event.key) && canAnswer) {
+      if (!event.repeat && /^[1-4]$/.test(event.key) && canAnswer && question?.kind!=='fill' && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         submit(Number(event.key) - 1);
       }
@@ -338,13 +359,21 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const isPractice = room?.format === 'practice';
   const inLobby = room?.phase === 'lobby';
   const finished = !!me && me.finishedAt !== null;
-  const question = room && me && isRacing ? raceQuestion(room, me, me.answers.length - (feedback ? 1 : 0)) : null;
+  const audioIds = room?.round?.order.join('|');
+  useEffect(() => {
+    if (!audioIds) return;
+    const order=audioIds.split('|');
+    const clips = competitionQuestions(mode,level).filter(q=>q.audio && order.includes(q.id)).map(q=>{
+      const clip = new Audio(); clip.preload='auto'; clip.src=q.audio!; return clip;
+    });
+    return () => { for (const clip of clips) { clip.removeAttribute('src'); clip.load(); } };
+  },[audioIds,mode,level]);
   const practiceOrder = room?.format === 'practice' ? room.round?.order : undefined;
   const practiceSeen = me ? me.answers.length + 1 : 0;
   useEffect(() => {
     if (practiceOrder && practiceSeen) quizHistory.record(raceHistoryKey(mode, tier), practiceOrder.slice(0, practiceSeen));
   }, [practiceOrder, practiceSeen, quizHistory, mode, tier]);
-  const remaining = room && me ? Math.max(0, questionSeconds(room) - (Math.max(0, time) - openedAt(me))) : 0;
+  const remaining = room && me ? Math.max(0, limit - (Math.max(0, time) - openedAt(me))) : 0;
   const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
   const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
 
@@ -401,7 +430,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               })}
             </select>
           </label>
-          <p className="level-note">{DIFFICULTIES[difficulty].topic}. {DIFFICULTIES[difficulty].seconds} seconds per question.</p>
+          <p className="level-note">6 questions per race · 2 listening, 2 multiple choice, 2 word gaps. Listening and typing get extra time.</p>
           <label className="competition-name">Nickname
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
@@ -470,7 +499,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             {me.answers.map((answer, i) => {
               const prompt = raceQuestion(room, me, i);
               return <article key={i}><strong>{answer.correct ? 'Correct' : 'Practise'} · {prompt.sentence}</strong>
-                <p>{answer.choice === null ? 'Time ran out.' : `Your answer: ${prompt.choices[answer.choice]}.`} Correct: {prompt.choices[prompt.answer]}.</p><small>{prompt.explanation}</small>
+                <p>{answer.choice === null ? 'Time ran out.' : answer.choice === -1 ? 'Your entry did not match.' : `Your answer: ${prompt.choices[answer.choice]}.`} Correct: {prompt.choices[prompt.answer]}.</p><small>{prompt.explanation}</small>
               </article>;
             })}
           </details>
@@ -492,19 +521,27 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>Get ready</small></div>}
           <div className="swim-panel swim-question">
             <div className="swim-question-meta">
-              <span>Question {me.answers.length + (feedback ? 0 : 1)}</span>
+              <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {index+1}{room.round?.fixed ? ' / '+room.round.order.length : ''}</span>
               <strong>{last?.streak ? `${last.streak} correct · ×${(1 + Math.min(4, last.streak - 1) * .15).toFixed(2)} combo` : 'Build a correct-answer streak'}</strong>
             </div>
-            <progress max={questionSeconds(room)} value={feedback ? questionSeconds(room) : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
+            <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
             <h3>{question.sentence}</h3>
-            <div className="swim-choices">{question.choices.map((choice, i) => (
+            {question.audio && <audio key={question.id} aria-label="Play the listening question" controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
+            {question.kind==='fill' ? <form className="race-word-gap" key={question.id} onSubmit={e=>{
+              e.preventDefault();
+              const value=String(new FormData(e.currentTarget).get('word')??'').trim();
+              if(value) submit(-1,value);
+            }}>
+              <input name="word" aria-label="Missing English word" placeholder="Type the missing word" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} required disabled={!canAnswer}/>
+              <button type="submit" disabled={!canAnswer}>Check</button>
+            </form> : <div className="swim-choices">{question.choices.map((choice, i) => (
               <button key={`${question.id}-${i}`} disabled={!canAnswer}
                 className={feedback ? (i === question.answer ? 'is-correct' : i === feedback.choice ? 'is-wrong' : '') : sending?.choice === i ? 'is-sending' : ''}
                 onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
-            ))}</div>
+            ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
               ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Combo reset'}</strong><p>{question.explanation}</p></>
-              : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+              : <p>{error || (completed ? 'All six answered. Heading to the finish…' : sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div>
         </>

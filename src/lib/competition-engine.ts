@@ -1,11 +1,15 @@
 import {competitionQuestions,COMPETITIONS,DIFFICULTIES,RACE_COLOURS,type CompetitionId,type RaceQuestion,type RaceDifficulty} from './competition-catalog.ts';
 export type CompetitionAnswer={questionId:string;choice:number|null;correct:boolean;seconds:number;at:number;boost:number;streak:number};
 export type CompetitionMember={id:string;name:string;kind:'human'|'bot';ready:boolean;connected:boolean;avatar:number;colour:string;answers:CompetitionAnswer[];finishedAt:number|null;takeoverAt?:number;botAssisted?:boolean};
-export type CompetitionRound={id:string;startedAt:number;order:string[]};
+export type CompetitionRound={id:string;startedAt:number;order:string[];fixed?:true};
 export type RecordStatus = 'personal-best' | 'kept-best' | 'not-qualified' | 'retrying';
 export type CompetitionRoom={code:string;mode:CompetitionId;difficulty:RaceDifficulty;format:'online'|'practice';record?:RecordStatus;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
 export const FEEDBACK_SECONDS=1.4;
-export function questionSeconds(room: CompetitionRoom) { return DIFFICULTIES[room.difficulty].seconds; }
+export function questionSeconds(room: CompetitionRoom, kind?: RaceQuestion['kind']) {
+ return DIFFICULTIES[room.difficulty].seconds + (kind === 'listen' ? 10 : kind === 'fill' ? 4 : 0);
+}
+export const questionsComplete = (room: CompetitionRoom, member: CompetitionMember) =>
+ !!room.round?.fixed && member.answers.length >= room.round.order.length;
 export function raceTime(room:CompetitionRoom,now:number){return room.round?(now-room.round.startedAt)/1000-3:0;}
 export function raceQuestion(room:CompetitionRoom,member:CompetitionMember,index=member.answers.length):RaceQuestion{
  const bank=competitionQuestions(room.mode,room.difficulty),order=room.round?.order;
@@ -16,15 +20,22 @@ export function raceQuestion(room:CompetitionRoom,member:CompetitionMember,index
 }
 export const openedAt=(member:CompetitionMember)=>member.answers.length?member.answers.at(-1)!.at+FEEDBACK_SECONDS:0;
 export function makeAnswer(room:CompetitionRoom,member:CompetitionMember,choice:number|null,time:number):CompetitionAnswer{
- const limit=questionSeconds(room),q=raceQuestion(room,member),seconds=Math.min(limit,Math.max(0,time-openedAt(member))),correct=choice===q.answer;
+ const q=raceQuestion(room,member),limit=questionSeconds(room,q.kind),seconds=Math.min(limit,Math.max(0,time-openedAt(member))),correct=choice===q.answer;
  const streak=correct?(member.answers.at(-1)?.streak??0)+1:0,multiplier=1+Math.min(4,Math.max(0,streak-1))*.15;
  return {questionId:q.id,choice,correct,seconds,at:time,streak,boost:correct?(1.5+2.7*(1-seconds/limit))*multiplier:0};
 }
 export function raceDistance(room:CompetitionRoom,member:CompetitionMember,time:number){
  let units=Math.max(0,time)*.4;for(const a of member.answers)units+=a.boost*Math.min(1,Math.max(0,(time-a.at)/1.5));
- return Math.min(1,units/25)*COMPETITIONS[room.mode].distance;
+ let fraction = Math.min(1, units/25);
+ if (room.round?.fixed) {
+   const last = member.answers.at(-1);
+   const completion = questionsComplete(room, member) && last ? Math.min(1, Math.max(0, (time-last.at)/1.5)) : 0;
+   fraction = Math.min(fraction, .96 + .04*completion);
+ }
+ return fraction*COMPETITIONS[room.mode].distance;
 }
-export function finishTime(room:CompetitionRoom,member:CompetitionMember){let low=0,high=62.5;for(let i=0;i<32;i++){const mid=(low+high)/2;if(raceDistance(room,member,mid)>=COMPETITIONS[room.mode].distance)high=mid;else low=mid;}return high;}
+export function finishTime(room:CompetitionRoom,member:CompetitionMember){if (room.round?.fixed && !questionsComplete(room,member)) return Infinity;
+ let low=0,high=Math.max(62.5,(member.answers.at(-1)?.at??0)+1.6);for(let i=0;i<32;i++){const mid=(low+high)/2;if(raceDistance(room,member,mid)>=COMPETITIONS[room.mode].distance)high=mid;else low=mid;}return high;}
 export function standings(room:CompetitionRoom,time:number){return room.members.map((m,index)=>({...m,index,metres:raceDistance(room,m,time)})).sort((a,b)=>b.metres-a.metres||((a.finishedAt!==null&&b.finishedAt!==null)?a.finishedAt-b.finishedAt:a.index-b.index));}
 export function freshMember(id:string,name:string,kind:'human'|'bot',index:number,avatar=0):CompetitionMember{return {id,name,kind,ready:kind==='bot'||index===0,connected:true,avatar,colour:RACE_COLOURS[index%4],answers:[],finishedAt:null};}
 

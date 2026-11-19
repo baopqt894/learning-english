@@ -12,11 +12,13 @@
     "models:build": "node scripts/repair-an-motion.mjs && node scripts/build-an-mixamo-preview.mjs && node scripts/build-tripo-character-models.mjs"
   },
   "dependencies": {
+    "@vercel/functions": "^3.11.3",
     "mongodb": "7.9.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "three": "^0.187.0"
+    "three": "^0.187.0",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
@@ -24,12 +26,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.187.0",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "tailwindcss": "4.3.3",
-    "typescript": "^5",
     "meshoptimizer": "1.1.1",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5"
   },
   "overrides": {
     "@typescript-eslint/typescript-estree": {

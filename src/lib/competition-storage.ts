@@ -34,7 +34,7 @@ type Engine = ReturnType<typeof createCompetitionEngine>;
 type Packet = ReturnType<Engine['roomAction']>;
 type RoomAccount = string | Promise<string>;
 
-async function updateRoom(code: unknown, requestedAt: number, account: RoomAccount, run: (engine: Engine, now: number, accountId: string) => Promise<Packet>) {
+async function updateRoom<T>(code: unknown, requestedAt: number, account: RoomAccount, run: (engine: Engine, now: number, accountId: string) => Promise<T>) {
   const _id = typeof code === 'string' && /^[A-F0-9]{6}$/i.test(code) ? code.toUpperCase() : null;
   async function initialRead() {
     if (!_id) return null;
@@ -83,7 +83,59 @@ export async function loadCompetitionRoom(code: unknown, token: string, account:
   })).room;
 }
 
+type AnswerSubmission = {
+  input: Record<string, unknown>; owner: string; arrived: number;
+  resolve: (packet: Packet) => void; reject: (error: unknown) => void;
+};
+const answerQueues = new Map<string, AnswerSubmission[]>();
+
+async function commitAnswers(code: string, batch: AnswerSubmission[]) {
+  batch.sort((a,b) => a.arrived-b.arrived);
+  try {
+    // Retry the entire group on a version conflict across Function instances.
+    // Acknowledge each answer only after its authoritative state has committed.
+    const outcomes = await updateRoom(code,batch[0].arrived,batch[0].owner,async(engine,now) => {
+      const results = [];
+      for (const entry of batch) {
+        try {
+          const packet = engine.roomAction(entry.input,Math.max(now,entry.arrived),entry.owner);
+          packet.room = await engine.recordFinishedPractice(packet.room,Math.max(now,entry.arrived));
+          results.push({packet});
+        } catch (error) {
+          if (!(error instanceof RoomError)) throw error;
+          results.push({error});
+        }
+      }
+      return results;
+    });
+    for (const [index,result] of outcomes.entries()) {
+      if (result.packet) batch[index].resolve(result.packet);
+      else batch[index].reject(result.error);
+    }
+  } catch (error) { for (const entry of batch) entry.reject(error); }
+}
+
+async function queueAnswer(input: Record<string, unknown>, account: RoomAccount, arrived: number) {
+  const owner = await account;
+  if (typeof input.code !== 'string' || !/^[A-F0-9]{6}$/i.test(input.code)) throw missingRoom();
+  const code = input.code.toUpperCase();
+  return new Promise<Packet>((resolve,reject) => {
+    let batch = answerQueues.get(code);
+    if (!batch) {
+      batch = [];
+      answerQueues.set(code,batch);
+      const current = batch;
+      setTimeout(() => {
+        answerQueues.delete(code);
+        void commitAnswers(code,current);
+      },8);
+    }
+    batch.push({input,owner,arrived,resolve,reject});
+  });
+}
+
 export async function changeCompetitionRoom(input: Record<string, unknown>, account: RoomAccount, now = Date.now()) {
+  if (input.action === 'answer') return queueAnswer(input,account,now);
   if (input.action !== 'create' && input.action !== 'practice') {
     return updateRoom(input.code, now, account, async (engine, time, accountId) => {
       const result = engine.roomAction(input, time, accountId);

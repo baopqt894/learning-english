@@ -110,3 +110,8 @@
 .competition-arena .swim-choices kbd {flex:none}
 .competition-arena .swim-question progress {accent-color:#f1ca76}
 .competition-arena .swim-feedback strong {display:block}
+
+.swim-question audio {display:block;width:100%;max-width:26rem;height:38px;margin:0 0 8px}
+.race-word-gap {display:flex;gap:8px}
+.race-word-gap input {flex:1;min-width:0;padding:9px;font:inherit;border-radius:6px;background:#fff;color:#15352b}
+.race-word-gap button {padding:8px 13px;border-radius:6px;background:#efd48f;color:#17392e;font-weight:700}

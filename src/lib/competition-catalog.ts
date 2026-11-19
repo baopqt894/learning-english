@@ -1,3 +1,5 @@
+import { extraRaceQuestions } from './race-question-bank.ts';
+import { drawQuestions, shuffled } from './question-rotation.ts';
 import { SPORTS_VENUES, ATHLETICS_TRACK, FIELD_GAMES_COURSE, STADIUM_LOBBIES, type SportsVenueId } from './sports-layout.ts';
 import { SWIM_QUESTIONS } from './swim-race.ts';
 export type CompetitionId='swimming'|'sprint'|'hurdles'|'sack'|'relay';
@@ -9,7 +11,7 @@ export const DIFFICULTIES = {
 export type RaceDifficulty = keyof typeof DIFFICULTIES;
 export const DIFFICULTY_IDS = Object.keys(DIFFICULTIES) as RaceDifficulty[];
 export const RECORD_MIN_CORRECT = 3;
-export type RaceQuestion={id:string;sentence:string;choices:string[];answer:number;explanation:string};
+export type RaceQuestion={id:string;sentence:string;choices:string[];answer:number;explanation:string;kind?:'listen'|'choice'|'fill';audio?:string;alternatives?:string[]};
 const q=(id:string,sentence:string,choices:string[],answer:string,explanation:string):RaceQuestion=>({id,sentence,choices,answer:choices.indexOf(answer),explanation});
 export const COMPETITIONS={
  swimming:{id:'swimming',title:'Swim & solve',subtitle:'25 m freestyle',zone:'swimming',station:'pool',venue:SPORTS_VENUES.pool.name,distance:25,x:75,z:-51,w:29,d:21,axis:'x',start:62.5,lobby:{x:58,z:-51},arrival:SPORTS_VENUES.pool.approach,verb:'swim'},
@@ -121,7 +123,21 @@ const questionBanks = {
   },
 };
 
-export function competitionQuestions(id: CompetitionId, difficulty: RaceDifficulty = 'beginner') {
+for (const bank of Object.values(questionBanks)) {
+  for (const level of DIFFICULTY_IDS) bank[level].push(...extraRaceQuestions[level]);
+}
+
+export function drawRaceRound(mode: CompetitionId, difficulty: RaceDifficulty, previous: readonly string[]) {
+  const bank = competitionQuestions(mode, difficulty);
+  const draw = (kind: NonNullable<RaceQuestion['kind']>) => drawQuestions(
+    bank.filter(q => (q.kind ?? 'choice') === kind), 2, q => q.id, previous,
+  );
+  const [choices, clips, words] = [draw('choice'), draw('listen'), draw('fill')];
+  // Opening with a written choice gives phones time to preload the first recording.
+  return [choices[0], ...shuffled([clips[0], words[0]]), ...shuffled([choices[1], clips[1], words[1]])].map(q => q.id);
+}
+
+export function competitionQuestions(id: CompetitionId, difficulty: RaceDifficulty = 'beginner'): RaceQuestion[] {
   return questionBanks[COMPETITIONS[id].station][difficulty];
 }
 

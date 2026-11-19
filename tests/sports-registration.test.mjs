@@ -35,12 +35,13 @@ function practice(mode, difficulty, at, correct, delay, identity = profile) {
   assert.throws(() => roomSnapshot(code, undefined, at), /practice seat/);
   assert.throws(() => roomAction({ action: 'join', code }, at), /not an online room/);
   let room = seat.room;
-  for (let i = 0; i < correct; i++) {
+  for (let i = 0; i < room.round.order.length; i++) {
     const me = room.members[0];
+    const q = raceQuestion(room, me);
     room = roomAction({
       action: 'answer', code, token: seat.token, roundId: room.round.id, questionIndex: i,
-      choice: raceQuestion(room, me).answer,
-    }, at + 3000 + openedAt(me) * 1000 + delay).room;
+      ...(q.kind === 'fill' ? { text: i<correct?q.choices[q.answer]:'incorrect' } : { choice: i<correct?q.answer:(q.answer+1)%q.choices.length }),
+    }, at + 3000 + openedAt(me) * 1000 + Math.max(50,delay)).room;
   }
   return recordFinishedPractice(roomSnapshot(code, seat.token, at + 67_000), at + 67_000, recordStore);
 }
@@ -99,7 +100,7 @@ test('pool and track difficulty levels use distinct valid English questions and 
       assert.ok(bank.length >= 10);
       for (const question of bank) {
         assert.ok(!tested.has(question.id) && question.answer >= 0 && question.answer < 4);
-        assert.equal(new Set(question.choices).size, 4);
+        assert.equal(new Set(question.choices).size, question.kind==='fill'?1:4);
         tested.add(question.id);
       }
     }
