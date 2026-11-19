@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMPUS_RESIDENTS } from '../src/lib/campus-residents.ts';
+import { canWalkSegment, findCampusPath } from '../src/lib/campus-map.ts';
+import { CAMPUS_RESIDENTS, residentApproaches, residentMeetingPoint } from '../src/lib/campus-residents.ts';
 import { RESIDENT_MISSIONS, matchResidentProof, startResidentMission } from '../src/lib/resident-missions.ts';
 import { completeChallenge } from '../src/lib/challenge-xp.ts';
 import { earnedXP, freshProgress, restoreProgress } from '../src/lib/game.ts';
@@ -39,4 +40,17 @@ test('only matching work done after accepting a mission is eligible to report', 
     residentMissions: { ...accepted, khoa: 'ready', invalid: 'ready', mai: true } }));
   assert.deepEqual(restored.residentMissions, { ...accepted, khoa: 'ready' });
   assert.equal(earnedXP(restored), 0);
+});
+
+test('each patrol has a reachable standing spot within talking distance of both ends', () => {
+  const spawn = {x:0,z:6};
+  for (const resident of CAMPUS_RESIDENTS) {
+    const spot = residentApproaches(resident, spawn).find(point =>
+      canWalkSegment(point, residentMeetingPoint(resident)) && findCampusPath(spawn, point).length);
+    assert.ok(spot, resident.kind);
+    for (const [x,z] of resident.route) {
+      const distance = Math.hypot(x - spot.x, z - spot.z);
+      assert.ok(distance >= 1.24 && distance < 2.35, resident.kind);
+    }
+  }
 });

@@ -43,3 +43,15 @@ export function residentMeetingPoint(resident: CampusResident) {
   const [start, end = start] = resident.route;
   return { x: (start[0] + end[0]) / 2, z: (start[1] + end[1]) / 2 };
 }
+
+/** Stop beside the patrol so the cadet and resident can face each other. */
+export function residentApproaches(resident: CampusResident, player: {x:number; z:number}) {
+  const center = residentMeetingPoint(resident);
+  const [start, end] = resident.route;
+  const angle = end ? Math.atan2(end[1] - start[1], start[0] - end[0]) : resident.facing;
+  const dx = 1.25 * Math.sin(angle), dz = 1.25 * Math.cos(angle);
+  return [
+    {x:center.x+dx, z:center.z+dz},
+    {x:center.x-dx, z:center.z-dz},
+  ].sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z) - Math.hypot(b.x-player.x,b.z-player.z));
+}

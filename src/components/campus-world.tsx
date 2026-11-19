@@ -20,7 +20,7 @@ import { FARM_LAYOUT } from "@/lib/campus-spaces";
 import { createFieldworkScene } from "@/lib/fieldwork-scene";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
 import { ResidentPrompt } from "./resident-prompt";
-import { CAMPUS_RESIDENTS, residentMeetingPoint, type CampusResident } from "@/lib/campus-residents";
+import { CAMPUS_RESIDENTS, residentApproaches, residentMeetingPoint, type CampusResident } from "@/lib/campus-residents";
 import type { ResidentKind, ResidentMissionProgress } from '@/lib/resident-missions';
 import { animateCharacter, setRunningGrip, updateCharacterDetail } from "@/lib/campus-character";
 import {fieldworkMotion, loadAnMotion, playAnMotion} from '@/lib/an-game-motion';
@@ -35,7 +35,7 @@ import { PHOTO_LIGHTS, photoCrop, type PhotoAdjustment, type PhotoCapture, type 
 import {
   EXPANSION_BUILDINGS, MAP_BOUNDS, STUDY_POSITION,
   EXPLORATION_ZONES,
-  canWalkCampus,
+  canWalkCampus, canWalkSegment,
   campusAreaName,
   campusFloorHeight,
   findCampusPath,
@@ -359,11 +359,11 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     let residentNear: CampusResident | null = null, residentSession: CampusResident | null = null;
     let requestedResident: ResidentKind | null = null;
     let residentSpeaking = false;
-    let greetRemaining=0,photoPose='Idle';
+    let photoPose='Idle';
     residentAction.current = {
       open() {
         if (!residentNear || !callbacks.current.enabled) return;
-        residentSession = residentNear;greetRemaining=1;
+        residentSession = residentNear;
         keys.clear();
         route = [];
         destination.visible = false;
@@ -371,7 +371,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       },
       close() {
         if (!residentSession) return;
-        residentSession = null;greetRemaining=0;
+        residentSession = null;
         residentSpeaking = false;
         setTalkingResident(null);
         renderer.domElement.focus({ preventScroll: true });
@@ -458,12 +458,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     };
     const walkTo = (x: number, z: number, resident: ResidentKind | null = null) => {
       const path = findCampusPath(player.group.position, { x, z });
-      if (!path.length) return;
+      if (!path.length) return false;
       requestedResident = resident;
       resumeFollowing();
       route = path;
       destination.position.set(x, campusFloorHeight({x,z})+.02, z);
       destination.visible = true;
+      return true;
     };
     districtTravelRef.current=id=>{const s=DISTRICT_STATIONS.find(s=>s.id===id);if(s){renderer.domElement.focus({preventScroll:true});walkTo(s.x,s.z);}};
     const frameCampus = () => {
@@ -617,8 +618,11 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       goToResident(id) {
         const person = environment.residents.find(({ resident }) => resident.kind === id);
         if (!person) return;
-        const meeting = residentMeetingPoint(person.resident);
         renderer.domElement.focus({ preventScroll: true });
+        const meeting = residentMeetingPoint(person.resident);
+        for (const point of residentApproaches(person.resident, player.group.position)) {
+          if (canWalkSegment(point, meeting) && walkTo(point.x, point.z, id)) return;
+        }
         walkTo(meeting.x, meeting.z, id);
       },
       fieldworkAvailable: () => !renderer.getContext().isContextLost(),
@@ -912,14 +916,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           // Aim above the subtitle area, with a slightly offset, face-to-face view.
           focusTarget.set(npcPosition.x - 2, 0.8, npcPosition.z);
           focusPosition.set(npcPosition.x + 21.4, 19.52, npcPosition.z + 33.8);
-          environment.npcs[activeConversation].group.rotation.y = 0.11;
-          greetRemaining=1;
-          player.group.rotation.y=Math.atan2(npcPosition.x-player.group.position.x,npcPosition.z-player.group.position.z);
-          player.group.visible = player.kind==='cadet';
+          player.group.rotation.y = Math.atan2(npcPosition.x - player.group.position.x, npcPosition.z - player.group.position.z);
+          environment.npcs[activeConversation].group.rotation.y = player.group.rotation.y + Math.PI;
           returningFromConversation = false;
         } else {
           player.group.visible = true;
-          greetRemaining=0;returningFromConversation = true;
+          returningFromConversation = true;
         }
         conversationPlace = activeConversation;
       }
@@ -1038,18 +1040,18 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       let motion:string|null=moving?(running?'Running':'Standard Walk'):'Idle';
       let phase:number|undefined;
-      if(holdingWork){motion=workClip;phase=actionPercent;}
+      if (residentSession || conversationPlace) {
+        // The full-body Talking take is seated. Stand throughout both dialogue turns.
+        motion = 'Idle';
+        if (residentSession) {
+          const npc = environment.residents.find(p => p.resident === residentSession);
+          if (npc) player.group.rotation.y = Math.atan2(npc.rig.group.position.x - pos.x, npc.rig.group.position.z - pos.z);
+        }
+      } else if(holdingWork){motion=workClip;phase=actionPercent;}
       else if(workKind==='duty'&&localWork.duty.books===1)motion=moving?'holding walk':'holding idle';
       else if(studying)motion=studyElapsed<1.3?'Standard Walk':'Sitting Idle';
       else if(districtActive)motion=null; // keep balance, feeding and rescue poses fitted to the station
       else if(photoSession)motion=photoPose;
-      else if(residentSession||conversationPlace){
-        motion=greetRemaining>0?'Waving':(residentSpeaking||callbacks.current.speaking?'Thoughtful Head Nod':'Talking');
-        if(greetRemaining>0)phase=1-greetRemaining;
-        greetRemaining=Math.max(0,greetRemaining-dt);
-        if(residentSession){const npc=environment.residents.find(p=>p.resident===residentSession);
-         if(npc)player.group.rotation.y=Math.atan2(npc.rig.group.position.x-pos.x,npc.rig.group.position.z-pos.z);}
-      }
       workScene.update(localWork,workKind,callbacks.current.workTool||'hands',actionPercent,holdingWork,time/1000,reducedMotion.matches,dt,()=>{
         playAnMotion(player,motion,dt,reducedMotion.matches,phase);
         const playing=player.group.userData.activeMotion??'';
