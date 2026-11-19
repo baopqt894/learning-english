@@ -544,11 +544,11 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               <button type="submit" disabled={!canAnswer}>Check</button>
             </form> : <div className="swim-choices">{question.choices.map((choice, i) => (
               <button key={`${question.id}-${i}`} disabled={!canAnswer}
-                className={feedback ? (i === question.answer ? 'is-correct' : i === feedback.choice ? 'is-wrong' : '') : sending?.choice === i ? 'is-sending' : ''}
+                className={sending?.choice === i ? 'is-sending' : feedback && !feedback.correct && feedback.choice === i ? 'is-wrong' : ''}
                 onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
-              ? <><strong>{feedback.correct && earnedDistance ? `+${segmentMetres} m · ${feedback.streak} in a row` : feedback.correct ? `Speed boost · ${feedback.streak} in a row` : earnedDistance ? 'Stay here · retry this question later' : 'Streak reset · normal pace'}</strong><p>{question.explanation}</p></>
+              ? <strong>{feedback.correct && earnedDistance ? `+${segmentMetres} m · ${feedback.streak} in a row` : feedback.correct ? `Speed boost · ${feedback.streak} in a row` : feedback.choice === null && earnedDistance ? 'Time’s up · retry this question later' : earnedDistance ? 'Stay here · retry this question later' : 'Streak reset · normal pace'}</strong>
               : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div> : <div className="swim-panel swim-question" role="status">

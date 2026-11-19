@@ -38,7 +38,7 @@ Open **Friends** in the campus HUD, search for a classmate's exact username, and
 
 ## Solo practice and campus records
 
-Choose **Solo practice** at a registration desk. The race uses one lane and no bots. **Beginner (A1)** allows 12 seconds per question, **Intermediate (A2)** allows 10, and **Advanced (B1)** allows 8. Each level has its own questions. The timer, answer explanations and combo rules also apply to solo practices.
+Choose **Solo practice** at a registration desk. The race uses one lane and no bots. **Beginner (A1)** allows 12 seconds per question, **Intermediate (A2)** allows 10, and **Advanced (B1)** allows 8. Each level has its own questions. During a race, feedback shows progress or a missed attempt. After crossing the finish line, open **Review your answers** to see the correct answers and explanations for each attempt.
 
 Complete all ten segments to qualify. The leaderboard compares times earned under the same rules. The server calculates the time and keeps the fastest result per account, event and level. **Campus records** shows the ten fastest cadets for the selected event and level along with your personal rank. Change either filter to browse the entire campus. The chosen nickname appears with qualifying records. Online results appear in the room.
 
