@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, MIXED_RACE_SETS, RACE_QUESTION_COUNT, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
-import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
 import { followRaceSocket, SocketUnavailable, type SendRoomAnswer } from '@/lib/race-socket-client';
 import type { FeedMessage } from '@/lib/competition-feed';
 import type { DailyEvent } from '@/lib/daily-missions';
@@ -310,6 +310,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
 
   const time = room ? raceTime(room, now) : 0;
   const last = me?.answers.at(-1);
+  const pace = room ? racePaceMultiplier(room,last?.streak ?? 0) : 1;
   const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
   const completed = !!room && !!me && questionsComplete(room,me);
   const index = me ? Math.max(0,me.answers.length - (feedback || completed ? 1 : 0)) : 0;
@@ -400,7 +401,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             <li>In solo practice, you have the course to yourself. Get at least {RECORD_MIN_CORRECT} answers right to post a time. The board keeps your fastest time for each event and level.</li>
             <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
             <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
-            <li>Tap a choice or press keys 1–4. Quick correct answers make you faster. Consecutive correct answers build a combo up to ×1.6.</li>
+            <li>Tap a choice or press keys 1–4. Quick correct answers make you faster. Two correct in a row increase your pace. Keep answering correctly to reach ×2 at five. A mistake or timeout resets your pace.</li>
           </ol>
           <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
         </div>
@@ -522,7 +523,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           <div className="swim-panel swim-question">
             <div className="swim-question-meta">
               <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {index+1}{room.round?.fixed ? ' / '+room.round.order.length : ''}</span>
-              <strong>{last?.streak ? `${last.streak} correct · ×${(1 + Math.min(4, last.streak - 1) * .15).toFixed(2)} combo` : 'Build a correct-answer streak'}</strong>
+              <strong className={pace>1?'race-pace-active':undefined}>{pace>1 ? `${last!.streak} in a row · ×${pace} pace` : '2 in a row to speed up'}</strong>
             </div>
             <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
             <h3>{question.sentence}</h3>
@@ -540,7 +541,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
                 onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
-              ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Combo reset'}</strong><p>{question.explanation}</p></>
+              ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Streak reset · normal pace'}</strong><p>{question.explanation}</p></>
               : <p>{error || (completed ? 'All questions complete. Heading to the finish…' : sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div>

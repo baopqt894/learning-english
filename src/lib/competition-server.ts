@@ -14,7 +14,7 @@ function bump(r:Room,now:number){r.updated=now;r.view.revision++;r.view.serverNo
 function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const names=['Minh','Linh','An','Nam'];const botName=names.find(n=>!used.has(n))??'Cadet bot';const m=freshMember(id(),botName,'bot',r.view.members.length,botName==='Linh'?1:0);r.view.members.push(m);return m;}
 function startRound(view: CompetitionRoom, now: number, previous: readonly string[] = []) {
  const order = drawRaceRound(view.mode, view.difficulty, previous);
- view.round = { id: id(), startedAt: now, order, fixed: true };
+ view.round = { id: id(), startedAt: now, order, fixed: true, streakPace: true };
  view.phase = 'racing';
  view.members.forEach((member, index) => {
   member.answers = [];

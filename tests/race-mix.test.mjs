@@ -3,7 +3,7 @@ import test from 'node:test';
 import { statSync } from 'node:fs';
 import { competitionQuestions, COMPETITION_IDS, DIFFICULTY_IDS } from '../src/lib/competition-catalog.ts';
 import { createCompetitionEngine } from '../src/lib/competition-server.ts';
-import { raceQuestion, openedAt, raceDistance } from '../src/lib/competition-engine.ts';
+import { raceQuestion, openedAt, raceDistance, makeAnswer, racePaceMultiplier } from '../src/lib/competition-engine.ts';
 
 test('every event and difficulty assigns both humans the same ten items, audio, and options even when one times out',()=>{
   for (const mode of COMPETITION_IDS) for(const difficulty of DIFFICULTY_IDS) {
@@ -33,5 +33,32 @@ test('every event and difficulty assigns both humans the same ten items, audio, 
     assert.equal(room.phase,'finished');
     for(const member of room.members)assert.deepEqual(member.answers.map(a=>a.questionId),order);
     assert.ok(room.members.find(m=>m.id===guest.playerId).answers.every(a=>a.choice===null));
+  }
+});
+
+test('a streak raises cruising speed between answers and a miss or timeout resets it',()=>{
+  for(const mode of COMPETITION_IDS){
+    const {roomAction}=createCompetitionEngine();
+    const {room}=roomAction({action:'practice',mode,profile:'a'.repeat(32)},1800000000000);
+    const me=room.members[0];
+    for(const [i,expected] of [1,1.25,1.5,1.75,2,2].entries()){
+      const q=raceQuestion(room,me), at=2+3*i;
+      me.answers.push(makeAnswer(room,me,q.answer,at));
+      assert.equal(racePaceMultiplier(room,me.answers.at(-1).streak),expected);
+    }
+    const last=me.answers.at(-1), t=last.at+2;
+    // Same boosts and position at the answer; change only the cruising streak.
+    const normal={...me,answers:[...me.answers.slice(0,-1),{...last,streak:1}]};
+    const travel=(m,start)=>raceDistance(room,m,start+1)-raceDistance(room,m,start);
+    assert.ok(travel(me,t)>travel(normal,t));
+    for(const choice of [null,-1]){
+      const broken={...me,answers:[...me.answers,makeAnswer(room,me,choice,t+1)]};
+      assert.equal(broken.answers.at(-1).streak,0);
+      assert.equal(broken.answers.at(-1).boost,0);
+      assert.ok(travel(broken,t+3)<travel(me,t+3));
+      const next=makeAnswer(room,broken,raceQuestion(room,broken).answer,t+5);
+      assert.equal(next.streak,1);
+      assert.equal(racePaceMultiplier(room,next.streak),1);
+    }
   }
 });

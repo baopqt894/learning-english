@@ -43,7 +43,8 @@ function practice(mode, difficulty, at, correct, delay, identity = profile) {
       ...(q.kind === 'fill' ? { text: i<correct?q.choices[q.answer]:'incorrect' } : { choice: i<correct?q.answer:(q.answer+1)%q.choices.length }),
     }, at + 3000 + openedAt(me) * 1000 + Math.max(50,delay)).room;
   }
-  return recordFinishedPractice(roomSnapshot(code, seat.token, at + 67_000), at + 67_000, recordStore);
+  const settledAt = at + 130_000;
+  return recordFinishedPractice(roomSnapshot(code, seat.token, settledAt), settledAt, recordStore);
 }
 
 test('solo swim keeps the fastest qualified time per browser profile and level', async () => {

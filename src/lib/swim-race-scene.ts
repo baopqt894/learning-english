@@ -59,7 +59,7 @@ export function createSwimRaceScene(scene:THREE.Scene){
  const finish=new THREE.Mesh(new THREE.PlaneGeometry(.18,pool.d),new THREE.MeshStandardMaterial({color:white}));finish.rotation.x=-Math.PI/2;finish.position.set(startX+SWIM_DISTANCE,.245,pool.z);root.add(finish);
  let currentRound: string|undefined;
  return {
-  update(visible:boolean,distances:number[],delta:number,reduced:boolean,count:number,roundId?:string,characterLanes:readonly boolean[]=[]){
+  update(visible:boolean,distances:number[],delta:number,reduced:boolean,count:number,roundId?:string,characterLanes:readonly boolean[]=[],lanePaces:readonly number[]=[]){
    root.visible=visible;
    if(!visible){currentRound=undefined;return;}
    let partIndex=0;
@@ -92,8 +92,9 @@ export function createSwimRaceScene(scene:THREE.Scene){
     s.ripples.forEach((ring,n)=>{
      const p=(cycle/(Math.PI*2)+n/2)%1;
      ring.visible=s.blend>.05&&distance>0;
-     ring.position.set(-.58-p*1.15,0,0);ring.scale.set(.65+p,.43+p*.45,1);
-     (ring.material as THREE.MeshBasicMaterial).opacity=(1-p)*.42*s.blend;
+     const pace=lanePaces[i]??1;
+     ring.position.set(-.58-p*(1.15+.65*(pace-1)),0,0);ring.scale.set((.65+p)*(1+.25*(pace-1)),.43+p*.45,1);
+     (ring.material as THREE.MeshBasicMaterial).opacity=(1-p)*(.42+.22*(pace-1))*s.blend;
     });
    });
    bodies.count=partIndex;

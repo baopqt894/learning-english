@@ -6,7 +6,7 @@ import {ATHLETICS_TRACK,COMPETITIONS,RACE_COLOURS,type CompetitionId} from './co
 import {buildSportsVenues,venueSign} from './sports-venue-scene.ts';
 import { SWIMMING_POOL } from './campus-districts-layout.ts';
 import { STADIUM_FLOORS } from './sports-layout.ts';
-import {raceDistance,raceTime,smoothRaceDistance,type CompetitionRoom} from './competition-engine.ts';
+import {raceDistance,racePaceMultiplier,raceTime,smoothRaceDistance,type CompetitionRoom} from './competition-engine.ts';
 export function createCompetitionScene(scene:THREE.Scene){
  const root=new THREE.Group();scene.add(root);
  let pool: ReturnType<typeof createSwimRaceScene> | null = null;
@@ -22,6 +22,7 @@ export function createCompetitionScene(scene:THREE.Scene){
   const baton=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.42,12),new THREE.MeshStandardMaterial({color:RACE_COLOURS[i],roughness:.6}));baton.rotation.z=Math.PI/2;baton.position.set(0,-.25,.11);rig.elbows[1].add(baton);baton.visible=false;
   return {rig,sack,baton,tag,label:''};};
  const seats=Array.from({length:4},()=>new Map<number,ReturnType<typeof makeSeat>>());
+ const lanePaces=[1,1,1,1], gaitPhases=[0,0,0,0];
  const characterLanes=[false,false,false,false];
  const swimmerHead=new THREE.Vector3();
  const distances=[0,0,0,0], positions=[0,0,0,0];
@@ -38,7 +39,9 @@ export function createCompetitionScene(scene:THREE.Scene){
     const member=room?.members[lane];
     const target=room&&member?raceDistance(room,member,elapsed):0;
     positions[lane]=nextRound===roundId&&member?smoothRaceDistance(positions[lane],target,delta):target;
-    if(nextRound!==roundId)distances[lane]=positions[lane];
+    lanePaces[lane] = room?.round?.streakPace && member?.finishedAt===null ? racePaceMultiplier(room,member.answers.at(-1)?.streak??0) : 1;
+    if(nextRound!==roundId) { distances[lane]=positions[lane];gaitPhases[lane]=lane*1.7; }
+    if(!reduced) gaitPhases[lane]+=delta*11*(1+(lanePaces[lane]-1)*.45);
    }
    roundId=nextRound;
    const swimming = !!view && mode === 'swimming' && !lobby;
@@ -59,7 +62,7 @@ export function createCompetitionScene(scene:THREE.Scene){
     rig.body.rotation.x=0;
     if(swimming){
      const moving=room!.phase==='racing'&&member!.finishedAt===null&&positions[i]>distances[i]+.00001;
-     characterLanes[i]=playAnMotion(rig,moving?'Swimming':'Treading Water',delta,reduced);
+     characterLanes[i]=playAnMotion(rig,moving?'Swimming':'Treading Water',moving?delta*(1+(lanePaces[i]-1)*.45):delta,reduced);
      rig.group.visible=characterLanes[i];
      if(rig.group.visible){
       rig.group.rotation.y=Math.PI/2;
@@ -70,7 +73,7 @@ export function createCompetitionScene(scene:THREE.Scene){
      distances[i]=positions[i];
     }else if(lobby){if(mode==='swimming'){rig.group.position.set(58.7,.13,SWIMMING_POOL.z-6.75+i*4.5);rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(definition.lobby.x+(i-1.5)*3.4,.09,definition.lobby.z);rig.group.rotation.y=0;}rig.leftLeg.rotation.x=rig.rightLeg.rotation.x=0;rig.knees.forEach(k=>k.rotation.x=0);playAnMotion(rig,'Idle',delta,reduced);}
     else{
-     const d=positions[i]??0,moving=room!.phase!=='finished'&&member!.finishedAt===null&&d>distances[i]+.00001,cycle=reduced?0:elapsed*11+i*1.7;
+     const d=positions[i]??0,moving=room!.phase!=='finished'&&member!.finishedAt===null&&d>distances[i]+.00001,cycle=reduced?0:gaitPhases[i];
      if(definition.axis==='x'){rig.group.position.set(definition.start+d,STADIUM_FLOORS.running,trackLane(i));rig.group.rotation.y=Math.PI/2;}else{rig.group.position.set(definition.x+(i-1.5)*4.3,STADIUM_FLOORS.pitch,definition.start-d);rig.group.rotation.y=Math.PI;}
      let jump=0;if(mode==='hurdles'){const nearest=[8,16,24,32].find(at=>Math.abs(d-at)<1.2);if(nearest!==undefined)jump=Math.sin((d-nearest+1.2)/2.4*Math.PI)*.8;}
      setRunningGrip(rig,moving&&!reduced&&mode!=='sack'?1:0,reduced?undefined:delta);
@@ -81,14 +84,14 @@ export function createCompetitionScene(scene:THREE.Scene){
      const take=!moving?'Idle':jumping?'Standing Jump':mode==='relay'?'Sprint':'Running';
      const nearest=jump>0&&mode==='hurdles'?Math.round(d/8)*8:null;
      const phase=nearest!==null?(d-nearest+1.2)/2.4:undefined;
-     const mixed=playAnMotion(rig,take,delta,reduced,phase);
+     const mixed=playAnMotion(rig,take,moving?delta*(1+(lanePaces[i]-1)*.45):delta,reduced,phase);
      if(!mixed&&!reduced)rig.group.position.y+=jump;
      distances[i]=d;
     }
     tag.rotation.y=-rig.group.rotation.y;
     tag.position.y=swimming?(2-rig.group.position.y)/rig.group.scale.y:2.65;
    });
-   pool?.update(swimming,positions,delta,reduced,room?.members.length??0,nextRound,characterLanes);
+   pool?.update(swimming,positions,delta,reduced,room?.members.length??0,nextRound,characterLanes,lanePaces);
   },
   dispose(){pool?.dispose();const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>{if('map'in m){const texture=m.map as THREE.Texture|null;if(texture&&!texture.userData.sharedCharacterAtlas)texture.dispose();}m.dispose();});root.removeFromParent();}
  };
