@@ -33,7 +33,7 @@ export function CompetitionRecordBoard({ mode, difficulty, avatar, nickname, onV
       </div>
     </div>
     <RecordedTimes key={`${event}-${level}`} mode={event} difficulty={level} avatar={avatar} nickname={nickname} onVenue={onVenue}/>
-    <p className="rank-rule">Solo practice · At least {RECORD_MIN_CORRECT} correct answers to qualify.</p>
+    <p className="rank-rule">Solo practice · {event === 'swimming' ? 'Finish all 10 swim questions correctly to qualify.' : `At least ${RECORD_MIN_CORRECT} correct answers to qualify.`}</p>
     {onBack && <button onClick={onBack}>Back</button>}
   </div>;
 }

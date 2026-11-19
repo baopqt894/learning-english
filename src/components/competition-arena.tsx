@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, MIXED_RACE_SETS, RACE_QUESTION_COUNT, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
-import { raceTime, raceDistance, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { raceTime, raceDistance, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
 import { followRaceSocket, SocketUnavailable, type SendRoomAnswer } from '@/lib/race-socket-client';
 import type { FeedMessage } from '@/lib/competition-feed';
 import type { DailyEvent } from '@/lib/daily-missions';
@@ -311,10 +311,11 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const time = room ? raceTime(room, now) : 0;
   const last = me?.answers.at(-1);
   const pace = room ? racePaceMultiplier(room,last?.streak ?? 0) : 1;
-  const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
+  const feedback = last && room && me && time < openedAt(me,room) ? last : null;
   const completed = !!room && !!me && questionsComplete(room,me);
   const index = me ? Math.max(0,me.answers.length - (feedback || completed ? 1 : 0)) : 0;
   const atFinish = !!room && !!me && isRacing && raceDistance(room,me,time) >= definition.distance;
+  const stepSwim = room?.round ? room.round.swimPacing === 3 : mode === 'swimming';
   const coasting = completed && !feedback;
   const question = room && me && isRacing && !atFinish && !coasting ? raceQuestion(room,me,index) : null;
   const limit = room ? questionSeconds(room,question?.kind) : 0;
@@ -324,7 +325,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const submit = (choice: number, text?: string) => {
     if (!canAnswer || actionPending.current || !room || !me || !roundId) return;
     const index = me.answers.length;
-    setPendingAnswer({ round: roundId, index, choice, remaining: Math.max(0, limit - (time - openedAt(me))) });
+    setPendingAnswer({ round: roundId, index, choice, remaining: Math.max(0, limit - (time - openedAt(me,room))) });
     void act('answer', { choice, text, questionIndex: index, roundId }).finally(() => setPendingAnswer(null));
   };
   function closeInvites() {
@@ -376,7 +377,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   useEffect(() => {
     if (practiceOrder && practiceSeen) quizHistory.record(raceHistoryKey(mode, tier), practiceOrder.slice(0, practiceSeen));
   }, [practiceOrder, practiceSeen, quizHistory, mode, tier]);
-  const remaining = room && me ? Math.max(0, limit - (Math.max(0, time) - openedAt(me))) : 0;
+  const remaining = room && me ? Math.max(0, limit - (Math.max(0, time) - openedAt(me,room))) : 0;
   const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
   const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
 
@@ -400,11 +401,11 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           <h3>How to play</h3>
           <ol>
             <li>Pick an event and a difficulty at the desk. Harder levels ask different questions and give you less time.</li>
-            <li>In solo practice, you have the course to yourself. Get at least {RECORD_MIN_CORRECT} answers right to post a time. The board keeps your fastest time for each event and level.</li>
+            <li>In solo practice, you have the course to yourself. {stepSwim ? 'Get all 10 questions right to post a swim time.' : `Get at least ${RECORD_MIN_CORRECT} answers right to post a time.`} The board keeps your fastest time for each event and level.</li>
             <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
             <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
             <li>Tap an answer or use keys 1–4. For listening questions, play the clip and choose an answer. For word gaps, type the missing word and press Check.</li>
-            <li>Cross the finish line to end your race. Quick correct answers give you a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.</li>
+            <li>{stepSwim ? 'Each correct answer swims 2.5 m. Missed questions come back after the first ten. A streak makes each stroke faster. Answer all ten correctly to reach the wall.' : 'Cross the finish line to end your race. Quick correct answers give you a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.'}</li>
           </ol>
           <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
         </div>
@@ -434,7 +435,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               })}
             </select>
           </label>
-          <p className="level-note">Up to {RACE_QUESTION_COUNT} questions per race · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
+          <p className="level-note">{stepSwim ? '10 correct answers to swim 25 m' : `Up to ${RACE_QUESTION_COUNT} questions per race`} · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
           <label className="competition-name">Nickname
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
@@ -525,15 +526,15 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
           {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>Get ready</small></div>}
           {question ? <div className="swim-panel swim-question">
             <div className="swim-question-meta">
-              <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {index+1}{room.round?.fixed ? ' / '+room.round.order.length : ''}</span>
+              <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {stepSwim ? `${correctCount}/${room.round!.order.length} correct` : `${index+1}${room.round?.fixed ? ' / '+room.round.order.length : ''}`}</span>
               <strong className={pace>1?'race-pace-active':undefined}>
                 {pace>1 ? `${last!.streak} in a row · ×${pace} pace` : last?.streak===1 ? '1 more to speed up' : '2 in a row to speed up'}
               </strong>
             </div>
             <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
             <h3>{question.sentence}</h3>
-            {question.audio && <audio key={question.id} aria-label="Play the listening question" controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
-            {question.kind==='fill' ? <form className="race-word-gap" key={question.id} onSubmit={e=>{
+            {question.audio && <audio key={index} aria-label="Play the listening question" controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
+            {question.kind==='fill' ? <form className="race-word-gap" key={index} onSubmit={e=>{
               e.preventDefault();
               const value=String(new FormData(e.currentTarget).get('word')??'').trim();
               if(value) submit(-1,value);
@@ -546,7 +547,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
                 onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
-              ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Streak reset · normal pace'}</strong><p>{question.explanation}</p></>
+              ? <><strong>{feedback.correct && stepSwim ? `+2.5 m · ${feedback.streak} in a row` : feedback.correct ? `Speed boost · ${feedback.streak} in a row` : stepSwim ? 'Stay here · retry this question later' : 'Streak reset · normal pace'}</strong><p>{question.explanation}</p></>
               : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div> : <div className="swim-panel swim-question" role="status">

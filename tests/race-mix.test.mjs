@@ -20,6 +20,7 @@ test('every event and difficulty assigns both humans the same ten items, audio, 
     for(const q of competitionQuestions(mode,difficulty)){
       if(q.kind==='listen')assert.ok(statSync(new URL('../public'+q.audio,import.meta.url)).size>1000);
     }
+    if(mode==='swimming')continue; // Swimming has its own distance and retry checks below.
     const human=()=>room.members.find(m=>m.id===host.playerId);
     for(let i=0;i<7;i++){
       const q=questions[i], time=openedAt(human())+.5;
@@ -47,7 +48,7 @@ test('every event and difficulty assigns both humans the same ten items, audio, 
 });
 
 test('a streak raises cruising speed between answers and a miss or timeout resets it',()=>{
-  for(const mode of COMPETITION_IDS){
+  for(const mode of COMPETITION_IDS.filter(mode=>mode!=='swimming')){
     const {roomAction}=createCompetitionEngine();
     const {room}=roomAction({action:'practice',mode,profile:'a'.repeat(32)},1800000000000);
     const me=room.members[0];
@@ -74,36 +75,48 @@ test('a streak raises cruising speed between answers and a miss or timeout reset
   }
 });
 
-test('ten wrong answers provide no distance and the swimmer coasts to the wall with no eleventh question',()=>{
-  const start=1800000000000, {roomAction,roomSnapshot}=createCompetitionEngine();
-  const seat=roomAction({action:'practice',mode:'swimming',profile:'a'.repeat(32)},start);
-  let room=seat.room;
-  const auth={code:room.code,token:seat.token,roundId:room.round.id};
-  for(let i=0;i<10;i++){
-    const member=room.members[0],q=raceQuestion(room,member),at=openedAt(member)+.5;
-    room=roomAction({action:'answer',...auth,questionIndex:i,...(q.kind==='fill'?{text:'wrong'}:{choice:(q.answer+1)%q.choices.length})},start+3000+Math.round(at*1000)).room;
-    assert.equal(room.members[0].answers[i].boost,0);
+for(const format of ['practice','online']){
+ test(format+' swim earns exactly 2.5 m per distinct correct answer and retries mistakes and timeouts',()=>{
+  const start=1800000000000,{roomAction,roomSnapshot}=createCompetitionEngine();
+  const seat=roomAction({action:format==='practice'?'practice':'create',mode:'swimming',profile:'a'.repeat(32)},start);
+  const auth={code:seat.room.code,token:seat.token};
+  let room=format==='practice'?seat.room:roomAction({action:'start',...auth},start).room;
+  const clock=t=>start+3000+Math.round(t*1000);
+  const me=()=>room.members[0];
+  const answer=(correct)=>{
+    const m=me(),q=raceQuestion(room,m),at=openedAt(m,room)+.5;
+    const payload=q.kind==='fill'?{text:correct?q.choices[q.answer]:'wrong'}:{choice:correct?q.answer:(q.answer+1)%q.choices.length};
+    room=roomAction({action:'answer',...auth,roundId:room.round.id,questionIndex:m.answers.length,...payload},clock(at)).room;
+    return q.id;
+  };
+  const deck=room.round.order;
+  room=roomSnapshot(room.code,auth.token,clock(12.1)); // The written opener times out.
+  assert.equal(me().answers[0].choice,null);
+  assert.equal(raceDistance(room,me(),12.1),0);
+  assert.equal(answer(false),deck[1]);
+  for(let i=2;i<10;i++){
+    assert.equal(answer(true),deck[i]);
+    const a=me().answers.at(-1);
+    assert.ok(raceDistance(room,me(),a.at+.4)>(i-2)*2.5);
+    assert.equal(raceDistance(room,me(),a.at+3),(i-1)*2.5);
   }
-  const member=room.members[0], at=member.answers[9].at;
-  assert.equal(member.finishedAt,null);
-  assert.ok(Math.abs(raceDistance(room,member,at)-25*at/62.5)<1e-8);
-  assert.throws(()=>roomAction({action:'answer',...auth,questionIndex:10,choice:0},start+25000),/changed/);
-  assert.equal(roomSnapshot(auth.code,auth.token,start+65499).phase,'racing');
-  const finished=roomSnapshot(auth.code,auth.token,start+65500);
-  assert.equal(finished.members[0].finishedAt,62.5);
-  assert.equal(finished.members[0].answers.length,10);
-});
-
-test('five quick correct swim answers leave over half the pool to swim while preserving double cruising pace',()=>{
-  const {room}=createCompetitionEngine().roomAction({action:'practice',mode:'swimming',profile:'a'.repeat(32)});
-  const swimmer=room.members[0];
-  for(let i=0;i<5;i++){
-    const at=openedAt(swimmer)+.5;
-    swimmer.answers.push(makeAnswer(room,swimmer,raceQuestion(room,swimmer).answer,at));
-  }
-  const afterBoost=swimmer.answers[4].at+1.5;
-  const distance=raceDistance(room,swimmer,afterBoost);
-  assert.ok(distance>25*afterBoost/62.5 && distance<12.5);
-  assert.ok(Math.abs(raceDistance(room,swimmer,afterBoost+1)-distance-.8)<1e-8);
-  assert.ok(raceDistance(room,swimmer,25)<25);
-});
+  assert.equal(raceDistance(room,me(),1000),20);
+  assert.equal(me().finishedAt,null);
+  assert.equal(answer(false),deck[0]);
+  assert.equal(answer(true),deck[1]);
+  assert.equal(raceDistance(room,me(),1000),22.5);
+  assert.equal(answer(true),deck[0]);
+  const last=me().answers.at(-1),wall=openedAt(me(),room);
+  assert.ok(raceDistance(room,me(),last.at+.1)<25);
+  room=roomSnapshot(room.code,auth.token,clock(wall+.01));
+  assert.equal(me().finishedAt,wall);
+  assert.equal(raceDistance(room,me(),wall),25);
+  assert.equal(new Set(me().answers.filter(a=>a.correct).map(a=>a.questionId)).size,10);
+  assert.throws(()=>roomAction({action:'answer',...auth,roundId:room.round.id,questionIndex:me().answers.length,choice:0},clock(wall+.02)),/question has changed/);
+  if(format==='online'){
+    room=roomSnapshot(room.code,auth.token,clock(180));
+    assert.equal(room.phase,'finished');
+    assert.ok(room.members.every(m=>m.answers.filter(a=>a.correct).length===10));
+  }else assert.equal(room.phase,'finished');
+ });
+}

@@ -51,12 +51,12 @@ function practice(mode, difficulty, at, correct, delay, identity = profile) {
 }
 
 test('solo swim keeps the fastest qualified time per browser profile and level', async () => {
-  const first = await practice('swimming', 'advanced', now, 4, 1700);
+  const first = await practice('swimming', 'advanced', now, 10, 1700);
   assert.equal(first.record, 'personal-best');
   assert.equal(first.members[0].kind, 'human');
   const firstMs = (await boardFor('swimming', 'advanced', profile)).personal.milliseconds;
-  assert.equal((await practice('swimming', 'advanced', now + 70_000, 3, 4600)).record, 'kept-best');
-  const fastest = await practice('swimming', 'advanced', now + 140_000, 5, 500);
+  assert.equal((await practice('swimming', 'advanced', now + 70_000, 10, 4600)).record, 'kept-best');
+  const fastest = await practice('swimming', 'advanced', now + 140_000, 10, 500);
   assert.equal(fastest.record, 'personal-best');
   const board = await boardFor('swimming', 'advanced', profile);
   assert.equal(board.entries.length, 1);

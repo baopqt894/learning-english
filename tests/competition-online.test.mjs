@@ -33,7 +33,7 @@ test('leaving and disconnected racers are replaced by bots without changing comp
  const v=roomSnapshot(a.room.code,a.token,now+20000);for(const m of v.members)for(let i=1;i<m.answers.length;i++)assert.ok(m.answers[i].at>m.answers[i-1].at);
 });
 test('every mode uses the same fair answer mechanics and finishes in its physical course distance',()=>{
- for(const mode of ['swimming','sprint','hurdles','sack','relay']){const a=create(mode),r=roomAction({action:'start',code:a.room.code,token:a.token},now).room,m=r.members[0];const first=makeAnswer(r,m,raceQuestion(r,m).answer,1);m.answers.push(first);assert.ok(raceDistance(r,m,2)>raceDistance(r,{...m,answers:[]},2));const result=roomSnapshot(a.room.code,a.token,now+200000);assert.equal(result.phase,'finished');assert.ok(result.members.every(m=>m.finishedAt!==null));}
+ for(const mode of ['sprint','hurdles','sack','relay']){const a=create(mode),r=roomAction({action:'start',code:a.room.code,token:a.token},now).room,m=r.members[0];const first=makeAnswer(r,m,raceQuestion(r,m).answer,1);m.answers.push(first);assert.ok(raceDistance(r,m,2)>raceDistance(r,{...m,answers:[]},2));const result=roomSnapshot(a.room.code,a.token,now+200000);assert.equal(result.phase,'finished');assert.ok(result.members.every(m=>m.finishedAt!==null));}
 });
 
 test('a new human can host an abandoned waiting room instead of leaving it permanently without a host',()=>{

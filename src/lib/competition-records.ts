@@ -10,7 +10,7 @@ export type RaceRecord = {
   correct: number;
   achievedAt: number;
 };
-export type StoredRecord = RaceRecord & { profile: string; mode: CompetitionId; difficulty: RaceDifficulty };
+export type StoredRecord = RaceRecord & { swimPacing?: 3; profile: string; mode: CompetitionId; difficulty: RaceDifficulty };
 export type RaceBoard = { entries: RaceRecord[]; personal: (RaceRecord & { rank: number }) | null };
 export type RecordStore = {
   save(record: StoredRecord): Promise<boolean>;
@@ -19,7 +19,7 @@ export type RecordStore = {
 
 type RecordRow = StoredRecord & { _id: string };
 const byTime = { milliseconds: 1, correct: -1, achievedAt: 1, _id: 1 } as const;
-const key = (mode: CompetitionId, difficulty: RaceDifficulty, profile: string) => `${mode}:${difficulty}:${profile}`;
+const key = (mode: CompetitionId, difficulty: RaceDifficulty, profile: string, swimPacing?: 3) => `${mode}:${difficulty}:${profile}${swimPacing ? ":ten-correct" : ""}`;
 let index: Promise<string> | undefined;
 
 async function records() {
@@ -44,10 +44,10 @@ function publicRecord({ name, avatar, milliseconds, correct, achievedAt }: Recor
 
 export const raceRecords: RecordStore = {
   async board(mode, difficulty, profile) {
-    const collection = await records(), event = { mode, difficulty };
+    const collection = await records(), event = { mode, difficulty, ...(mode === 'swimming' && {swimPacing: 3 as const}) };
     const [rows, mine] = await Promise.all([
       collection.find(event).sort(byTime).limit(10).toArray(),
-      profile ? collection.findOne({ _id: key(mode, difficulty, profile) }) : null,
+      profile ? collection.findOne({ _id: key(mode, difficulty, profile,event.swimPacing) }) : null,
     ]);
     if (!mine) return { entries: rows.map(publicRecord), personal: null };
     const { milliseconds, correct, achievedAt } = mine;
@@ -62,7 +62,7 @@ export const raceRecords: RecordStore = {
   async save(record) {
     const collection = await records();
     const { mode, difficulty, profile, milliseconds, correct, achievedAt } = record;
-    const _id = key(mode, difficulty, profile), row = { ...record, _id };
+    const _id = key(mode, difficulty, profile,record.swimPacing), row = { ...record, _id };
     const faster: Filter<RecordRow> = { _id, $or: [
       { milliseconds: { $gt: milliseconds } },
       { milliseconds, correct: { $lt: correct } },

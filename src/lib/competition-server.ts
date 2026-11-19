@@ -15,7 +15,7 @@ function bot(r:Room){const used=new Set(r.view.members.map(m=>m.name));const nam
 function startRound(view: CompetitionRoom, now: number, previous: readonly string[] = []) {
  const order = drawRaceRound(view.mode, view.difficulty, previous);
  view.round = { id: id(), startedAt: now, order, fixed: true, streakPace: true };
- if (view.mode === 'swimming') view.round.swimPacing = 2;
+ if (view.mode === 'swimming') view.round.swimPacing = 3;
  view.phase = 'racing';
  view.members.forEach((member, index) => {
   member.answers = [];
@@ -35,7 +35,7 @@ async function savePractice(r: Room, now: number, store: RecordStore) {
  }
  const milliseconds = Math.round(member.finishedAt * 1000);
  try {
-  const best = await store.save({ profile: r.profile, mode: v.mode, difficulty: v.difficulty, name: member.name, avatar: member.avatar, milliseconds, correct, achievedAt: v.round.startedAt + 3000 + milliseconds });
+  const best = await store.save({ profile: r.profile, mode: v.mode, ...(v.round.swimPacing === 3 && { swimPacing: 3 as const }), difficulty: v.difficulty, name: member.name, avatar: member.avatar, milliseconds, correct, achievedAt: v.round.startedAt + 3000 + milliseconds });
   v.record = best ? 'personal-best' : 'kept-best';
  } catch {
   r.retryAt = now + 3000;
@@ -57,17 +57,17 @@ function advance(r:Room,now:number){
    if(v.format==='online'&&m.kind==='human'&&now-(r.seen.get(m.id)??now)>15_000){m.kind='bot';m.connected=false;m.takeoverAt=t;bump(r,now);}
    if(m.kind==='bot'){
     const delay=3.5+index*.4,step=5.5+index*.25;
-    let at=m.answers.length?Math.max(openedAt(m)+2.3,delay+m.answers.length*step):delay;
+    let at=m.answers.length?Math.max(openedAt(m,v)+2.3,delay+m.answers.length*step):delay;
     if(m.takeoverAt!==undefined)at=Math.max(at,m.takeoverAt+2.3,(m.answers.at(-1)?.at??-10)+3.7);
     for(let n=0;n<30&&!questionsComplete(v,m)&&at<=t&&raceDistance(v,m,at)<COMPETITIONS[v.mode].distance;n++){
      const miss=(m.answers.length+1)%(4+index)===0,q=raceQuestion(v,m);
      if (!m.connected) m.botAssisted = true;
      m.answers.push(makeAnswer(v,m,miss?(q.kind==='fill'?-1:(q.answer+1)%q.choices.length):q.answer,at));bump(r,now);
-     at=Math.max(openedAt(m)+2.3,delay+m.answers.length*step);
+     at=Math.max(openedAt(m,v)+2.3,delay+m.answers.length*step);
     }
    }else {
     while (!questionsComplete(v,m)) {
-     const at = openedAt(m) + questionSeconds(v,raceQuestion(v,m).kind);
+     const at = openedAt(m,v) + questionSeconds(v,raceQuestion(v,m).kind);
      if (at > t || raceDistance(v,m,at) >= COMPETITIONS[v.mode].distance) break;
      m.answers.push(makeAnswer(v,m,null,at));bump(r,now);
     }
@@ -141,7 +141,7 @@ export function createCompetitionEngine(rooms = new Map<string, Room>()) {
    startRound(v,now,r.previousQuestions);
   }else if(action==='answer'){
    if(v.phase!=='racing'||!v.round||input.roundId!==v.round.id||input.questionIndex!==m.answers.length||questionsComplete(v,m)||m.finishedAt!==null)throw new RoomError('That question has changed. Read the current question.',409);
-   const t=raceTime(v,now);if(t<openedAt(m)||t<0)throw new RoomError('Wait for the question to open.',409);
+   const t=raceTime(v,now);if(t<openedAt(m,v)||t<0)throw new RoomError('Wait for the question to open.',409);
    const q=raceQuestion(v,m);
    let choice=Number(input.choice);
    if(q.kind==='fill'){
