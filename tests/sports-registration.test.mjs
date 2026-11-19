@@ -37,11 +37,14 @@ function practice(mode, difficulty, at, correct, delay, identity = profile) {
   let room = seat.room;
   for (let i = 0; i < room.round.order.length; i++) {
     const me = room.members[0];
+    const submittedAt = at + 3000 + openedAt(me) * 1000 + Math.max(50,delay);
+    room = roomSnapshot(code,seat.token,submittedAt);
+    if (room.members[0].finishedAt !== null) break;
     const q = raceQuestion(room, me);
     room = roomAction({
       action: 'answer', code, token: seat.token, roundId: room.round.id, questionIndex: i,
       ...(q.kind === 'fill' ? { text: i<correct?q.choices[q.answer]:'incorrect' } : { choice: i<correct?q.answer:(q.answer+1)%q.choices.length }),
-    }, at + 3000 + openedAt(me) * 1000 + Math.max(50,delay)).room;
+    }, submittedAt).room;
   }
   const settledAt = at + 130_000;
   return recordFinishedPractice(roomSnapshot(code, seat.token, settledAt), settledAt, recordStore);

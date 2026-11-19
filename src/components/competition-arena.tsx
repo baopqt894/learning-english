@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, MIXED_RACE_SETS, RACE_QUESTION_COUNT, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
-import { raceTime, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
+import { raceTime, raceDistance, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, FEEDBACK_SECONDS, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
 import { followRaceSocket, SocketUnavailable, type SendRoomAnswer } from '@/lib/race-socket-client';
 import type { FeedMessage } from '@/lib/competition-feed';
 import type { DailyEvent } from '@/lib/daily-missions';
@@ -314,9 +314,11 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const feedback = last && time < last.at + FEEDBACK_SECONDS ? last : null;
   const completed = !!room && !!me && questionsComplete(room,me);
   const index = me ? Math.max(0,me.answers.length - (feedback || completed ? 1 : 0)) : 0;
-  const question = room && me && isRacing ? raceQuestion(room,me,index) : null;
+  const atFinish = !!room && !!me && isRacing && raceDistance(room,me,time) >= definition.distance;
+  const coasting = completed && !feedback;
+  const question = room && me && isRacing && !atFinish && !coasting ? raceQuestion(room,me,index) : null;
   const limit = room ? questionSeconds(room,question?.kind) : 0;
-  const canAnswer = !completed && connected && isRacing && time >= 0 && !feedback && !busy && !help;
+  const canAnswer = !!question && !completed && connected && isRacing && time >= 0 && !feedback && !busy && !help;
   const sending = pendingAnswer && pendingAnswer.round === roundId && pendingAnswer.index === me?.answers.length
     ? pendingAnswer : null;
   const submit = (choice: number, text?: string) => {
@@ -402,7 +404,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
             <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
             <li>Tap an answer or use keys 1–4. For listening questions, play the clip and choose an answer. For word gaps, type the missing word and press Check.</li>
-            <li>Answer quickly for a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.</li>
+            <li>Cross the finish line to end your race. Quick correct answers give you a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.</li>
           </ol>
           <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
         </div>
@@ -432,7 +434,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               })}
             </select>
           </label>
-          <p className="level-note">{RACE_QUESTION_COUNT} questions per race · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
+          <p className="level-note">Up to {RACE_QUESTION_COUNT} questions per race · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
           <label className="competition-name">Nickname
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
@@ -513,7 +515,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             ? (isHost ? <button className="swim-primary" disabled={busy} onClick={() => void act('lobby')}>Return everyone to lobby</button> : <p>Waiting for the host to open the next lobby.</p>)
             : <p>Other players are still racing. You can review your answers.</p>}
         </div>
-      ) : question && me ? (
+      ) : isRacing && me ? (
         <>
           <ol className="swim-standings" aria-label="Live race positions">{ranking.map((member, index) => (
             <li key={member.id} style={{ '--swim-color': member.colour } as React.CSSProperties}>
@@ -521,7 +523,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             </li>
           ))}</ol>
           {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>Get ready</small></div>}
-          <div className="swim-panel swim-question">
+          {question ? <div className="swim-panel swim-question">
             <div className="swim-question-meta">
               <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {index+1}{room.round?.fixed ? ' / '+room.round.order.length : ''}</span>
               <strong className={pace>1?'race-pace-active':undefined}>
@@ -545,9 +547,12 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
               ? <><strong>{feedback.correct ? `Speed boost · ${feedback.streak} in a row` : 'Streak reset · normal pace'}</strong><p>{question.explanation}</p></>
-              : <p>{error || (completed ? 'All questions complete. Heading to the finish…' : sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+              : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
-          </div>
+          </div> : <div className="swim-panel swim-question" role="status">
+            <h3>{atFinish ? 'Finish line reached!' : 'Final stretch'}</h3>
+            <p>{atFinish ? 'Recording your time…' : 'All questions answered. Your racer will keep moving at the current pace until the finish.'}</p>
+          </div>}
         </>
       ) : null}
     </section>

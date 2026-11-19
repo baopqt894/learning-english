@@ -29,39 +29,38 @@ export function makeAnswer(room:CompetitionRoom,member:CompetitionMember,choice:
  const streak=correct?(member.answers.at(-1)?.streak??0)+1:0,multiplier=racePaceMultiplier(room,streak);
  return {questionId:q.id,choice,correct,seconds,at:time,streak,boost:correct?(1.5+2.7*(1-seconds/limit))*multiplier:0};
 }
-export function raceDistance(room:CompetitionRoom,member:CompetitionMember,time:number){
- let units = Math.max(0,time)*.4, resolved = 0;
- for (const [index,answer] of member.answers.entries()) {
-   if (room.round?.streakPace && answer.streak > 1) {
-     const until = Math.min(time, member.answers[index+1]?.at ?? time);
-     units += .4*(racePaceMultiplier(room,answer.streak)-1)*Math.max(0,until-answer.at);
-   }
-   const progress = Math.min(1, Math.max(0, (time-answer.at)/1.5));
-   units += answer.boost*progress;
-   resolved += progress;
+// A racer moving at normal pace covers one course in this many seconds.
+const BASE_COURSE_SECONDS = 62.5;
+const BOOST_DURATION_SECONDS = 1.5;
+const BOOST_SECONDS_PER_POINT = 1.25;
+
+export function raceDistance(room: CompetitionRoom, member: CompetitionMember, time: number) {
+ const distance = COMPETITIONS[room.mode].distance;
+ if (member.finishedAt !== null && time >= member.finishedAt) return distance;
+
+ let travelSeconds = Math.max(0, time);
+ for (const [index, answer] of member.answers.entries()) {
+   const age = time - answer.at;
+   if (age <= 0) break;
+   const interval = Math.min(time, member.answers[index + 1]?.at ?? time) - answer.at;
+   const pace = racePaceMultiplier(room, answer.streak);
+   travelSeconds += interval * (pace - 1);
+   travelSeconds += answer.boost * BOOST_SECONDS_PER_POINT * Math.min(1, age / BOOST_DURATION_SECONDS);
  }
- let fraction = Math.min(1, units/25);
- if (room.round?.fixed) {
-   if (room.round.streakPace) {
-     // Leave open water for a sustained streak even late in a long question.
-     const last = member.answers.at(-1);
-     const glide = last && questionsComplete(room,member)
-       ? Math.max(0,time-last.at)*racePaceMultiplier(room,last.streak)/62.5 : 0;
-     fraction = Math.min(1,.6*(1-Math.exp(-units/25)) + .4*resolved/room.round.order.length + glide);
-   } else if (room.round.order.length > 6) {
-     // Reserve part of the course for the remaining questions. A fast start
-     // should not leave a racer parked beside the finish for several turns.
-     fraction = .6*fraction + .4*resolved/room.round.order.length;
-   } else {
-     const last = member.answers.at(-1);
-     const completion = questionsComplete(room,member) && last ? Math.min(1, Math.max(0, (time-last.at)/1.5)) : 0;
-     fraction = Math.min(fraction, .96 + .04*completion);
-   }
- }
- return fraction*COMPETITIONS[room.mode].distance;
+ return distance * Math.min(1, travelSeconds / BASE_COURSE_SECONDS);
 }
-export function finishTime(room:CompetitionRoom,member:CompetitionMember){if (room.round?.fixed && !questionsComplete(room,member)) return Infinity;
- let low=0,high=Math.max(62.5,(member.answers.at(-1)?.at??0)+(room.round?.streakPace ? 62.5 : 1.6));for(let i=0;i<32;i++){const mid=(low+high)/2;if(raceDistance(room,member,mid)>=COMPETITIONS[room.mode].distance)high=mid;else low=mid;}return high;}
+
+export function finishTime(room: CompetitionRoom, member: CompetitionMember) {
+ if (member.finishedAt !== null) return member.finishedAt;
+ let low = 0, high = BASE_COURSE_SECONDS;
+ const distance = COMPETITIONS[room.mode].distance;
+ for (let i = 0; i < 32; i++) {
+   const mid = (low + high) / 2;
+   if (raceDistance(room, member, mid) >= distance) high = mid;
+   else low = mid;
+ }
+ return high;
+}
 export function standings(room:CompetitionRoom,time:number){return room.members.map((m,index)=>({...m,index,metres:raceDistance(room,m,time)})).sort((a,b)=>b.metres-a.metres||((a.finishedAt!==null&&b.finishedAt!==null)?a.finishedAt-b.finishedAt:a.index-b.index));}
 export function freshMember(id:string,name:string,kind:'human'|'bot',index:number,avatar=0):CompetitionMember{return {id,name,kind,ready:kind==='bot'||index===0,connected:true,avatar,colour:RACE_COLOURS[index%4],answers:[],finishedAt:null};}
 

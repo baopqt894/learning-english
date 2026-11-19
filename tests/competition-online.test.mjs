@@ -50,10 +50,10 @@ test('a rematch and a new practice draw unseen race questions first when the ban
  const auth={code:seat.room.code,token:seat.token};
  const first=act({action:'start',...auth},start+1).room;
  let race=first;
- // Finish the assigned questions so the rematch excludes this deck.
+ // Exhaust the deck at base pace so the rematch excludes every question.
  for(let index=0;index<first.round.order.length;index++){
   const member=race.members[0], time=openedAt(member)+1;
-  race=act({action:'answer',...auth,roundId:first.round.id,questionIndex:index,...reply(raceQuestion(race,member))},start+3001+Math.round(time*1000)).room;
+  race=act({action:'answer',...auth,roundId:first.round.id,questionIndex:index,...reply(raceQuestion(race,member),false)},start+3001+Math.round(time*1000)).room;
  }
  const done=snapshot(auth.code,auth.token,start+70_000);
  assert.equal(done.phase,'finished');

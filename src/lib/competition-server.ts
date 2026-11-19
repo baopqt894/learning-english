@@ -67,7 +67,7 @@ function advance(r:Room,now:number){
    }else {
     while (!questionsComplete(v,m)) {
      const at = openedAt(m) + questionSeconds(v,raceQuestion(v,m).kind);
-     if (at > t || at >= finishTime(v,m)) break;
+     if (at > t || raceDistance(v,m,at) >= COMPETITIONS[v.mode].distance) break;
      m.answers.push(makeAnswer(v,m,null,at));bump(r,now);
     }
    }

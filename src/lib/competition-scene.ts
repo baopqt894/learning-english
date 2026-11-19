@@ -38,7 +38,7 @@ export function createCompetitionScene(scene:THREE.Scene){
    for(let lane=0;lane<4;lane++){
     const member=room?.members[lane];
     const target=room&&member?raceDistance(room,member,elapsed):0;
-    positions[lane]=nextRound===roundId&&member?smoothRaceDistance(positions[lane],target,delta):target;
+    positions[lane]=nextRound===roundId&&member?.finishedAt===null?smoothRaceDistance(positions[lane],target,delta):target;
     lanePaces[lane] = room?.round?.streakPace && member?.finishedAt===null ? racePaceMultiplier(room,member.answers.at(-1)?.streak??0) : 1;
     if(nextRound!==roundId) { distances[lane]=positions[lane];gaitPhases[lane]=lane*1.7; }
     if(!reduced) gaitPhases[lane]+=delta*11*(1+(lanePaces[lane]-1)*.45);
