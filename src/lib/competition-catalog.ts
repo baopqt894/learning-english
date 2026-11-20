@@ -1,3 +1,5 @@
+import { basicRaceExercises } from './race-questions-basic.ts';
+import { elementaryRaceExercises } from './race-questions-elementary.ts';
 import { beginnerRaceExercises } from './race-questions-beginner.ts';
 import { intermediateRaceExercises } from './race-questions-intermediate.ts';
 import { advancedRaceExercises } from './race-questions-advanced.ts';
@@ -7,9 +9,11 @@ import { SPORTS_VENUES, ATHLETICS_TRACK, FIELD_GAMES_COURSE, STADIUM_LOBBIES, ty
 import { SWIM_QUESTIONS } from './swim-race.ts';
 export type CompetitionId='swimming'|'sprint'|'hurdles'|'sack'|'relay';
 export const DIFFICULTIES = {
-  beginner: { label: 'Beginner', level: 'A1', seconds: 12, topic: 'Everyday words and short instructions' },
-  intermediate: { label: 'Intermediate', level: 'A2', seconds: 10, topic: 'Past events, comparisons and advice' },
-  advanced: { label: 'Advanced', level: 'B1', seconds: 8, topic: 'Conditionals, reported speech and race strategy' },
+  basic: { label: 'Basic', level: 'A1', seconds: 24, topic: 'First words, colours and numbers' },
+  elementary: { label: 'Elementary', level: 'A1', seconds: 21, topic: 'Short messages and everyday routines' },
+  beginner: { label: 'Beginner', level: 'A1', seconds: 18, topic: 'Everyday words and short instructions' },
+  intermediate: { label: 'Intermediate', level: 'A2', seconds: 15, topic: 'Past events, comparisons and advice' },
+  advanced: { label: 'Advanced', level: 'B1', seconds: 13, topic: 'Conditionals, reported speech and race strategy' },
 } as const;
 export type RaceDifficulty = keyof typeof DIFFICULTIES;
 export const DIFFICULTY_IDS = Object.keys(DIFFICULTIES) as RaceDifficulty[];
@@ -133,7 +137,7 @@ const campusExercises = {
 };
 
 for (const bank of Object.values(questionBanks)) {
-  for (const level of DIFFICULTY_IDS) bank[level].push(...extraRaceQuestions[level], ...campusExercises[level]);
+  for (const level of ['beginner', 'intermediate', 'advanced'] as const) bank[level].push(...extraRaceQuestions[level], ...campusExercises[level]);
 }
 
 // One written opener, then three mixed sets of one question per skill.
@@ -166,6 +170,8 @@ export function drawRaceRound(mode: CompetitionId, difficulty: RaceDifficulty, p
 }
 
 export function competitionQuestions(id: CompetitionId, difficulty: RaceDifficulty = 'beginner'): RaceQuestion[] {
+  if (difficulty === 'basic') return basicRaceExercises;
+  if (difficulty === 'elementary') return elementaryRaceExercises;
   return questionBanks[COMPETITIONS[id].station][difficulty];
 }
 

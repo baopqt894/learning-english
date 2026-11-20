@@ -90,15 +90,21 @@ test('friends register at the matching desk and inherit the host’s timed diffi
   roomAction({ action: 'ready', code: guest.room.code, token: guest.token, ready: true }, at + 100);
   const room = roomAction({ action: 'start', ...auth }, at + 500).room;
   assert.equal(room.members.length, 4);
-  assert.equal(questionSeconds(room), 8);
-  const updated = roomSnapshot(room.code, host.token, at + 11_501);
+  assert.equal(questionSeconds(room), 13);
+  assert.equal(roomSnapshot(room.code, host.token, at + 16_499).members[0].answers.length, 0);
+  const updated = roomSnapshot(room.code, host.token, at + 16_501);
   assert.equal(updated.members[0].answers[0].choice, null);
-  assert.equal(updated.members[0].answers[0].seconds, 8);
+  assert.equal(updated.members[0].answers[0].seconds, 13);
   assert.equal((await boardFor('sprint', 'advanced', profile)).entries.length, 0);
 });
 
 test('pool and track difficulty levels use distinct valid English questions and decreasing time limits', () => {
-  assert.deepEqual(Object.values(DIFFICULTIES).map(level => level.seconds), [12, 10, 8]);
+  assert.deepEqual(Object.values(DIFFICULTIES).map(level => level.seconds), [24, 21, 18, 15, 13]);
+  for (const difficulty of Object.keys(DIFFICULTIES)) {
+    const reading = questionSeconds({difficulty});
+    assert.equal(questionSeconds({difficulty}, 'fill'), reading + 6);
+    assert.equal(questionSeconds({difficulty}, 'listen'), reading + 12);
+  }
   for (const mode of ['swimming', 'sprint']) {
     const tested = new Set();
     for (const difficulty of Object.keys(DIFFICULTIES)) {

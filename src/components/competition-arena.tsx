@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { TIER_LEVEL, type EnglishTier } from '@/lib/cadet-tiers';
+import { TIER_LEVEL } from '@/lib/cadet-tiers';
 import type { QuizHistory } from '@/lib/browser-quiz-history';
 import { COMPETITIONS, competitionQuestions, DIFFICULTIES, DIFFICULTY_IDS, MIXED_RACE_SETS, RACE_QUESTION_COUNT, RECORD_MIN_CORRECT, venueCompetitions, type CompetitionId, type RaceDifficulty } from '@/lib/competition-catalog';
 import { raceTime, raceDistance, raceQuestion, raceTeamProgress, openedAt, standings, racePaceMultiplier, questionsComplete, questionSeconds, type CompetitionRoom, type CompetitionMember } from '@/lib/competition-engine';
@@ -56,7 +56,13 @@ const recordMessages = {
   retrying: 'The server is retrying your record save. Stay here to see the result.',
 };
 
-const raceHistoryKey = (mode: CompetitionId, tier: EnglishTier) => `race/${mode}/${tier}`;
+const raceHistoryKey = (mode: CompetitionId, difficulty: RaceDifficulty) =>
+  `race/${mode}/${difficulty === 'basic' || difficulty === 'elementary' ? difficulty : DIFFICULTIES[difficulty].level}`;
+
+function difficultyLabel(id: RaceDifficulty) {
+  const item = DIFFICULTIES[id];
+  return id === 'basic' || id === 'elementary' ? item.label : `${item.label} (${item.level})`;
+}
 
 export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress, quizHistory, invitation, onInvitationJoined, onView, onExit, onFinish }: {
   name: string;
@@ -206,6 +212,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const level = room?.difficulty ?? difficulty;
   const tier = DIFFICULTIES[level].level;
   const unlocked = cadetRank >= TIER_LEVEL[DIFFICULTIES[difficulty].level];
+  const timingNote = `${questionSeconds({difficulty: level})}s reading · ${questionSeconds({difficulty: level}, 'listen')}s listening · ${questionSeconds({difficulty: level}, 'fill')}s word gaps`;
   const definition = COMPETITIONS[mode];
   const me = room?.members.find(m => m.id === session?.playerId);
   const isRacing = room?.phase === 'racing' && !!me && me.finishedAt === null;
@@ -258,7 +265,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const enter = (action: 'practice' | 'create' | 'join') => perform(async () => {
     if (action !== 'join' && !unlocked) throw new Error(`Reach Level ${TIER_LEVEL[tier]} to unlock ${tier} racing.`);
     if (action !== 'join' && tier !== 'A1' && !await syncProgress()) throw new Error('Save your cadet progress before opening this race.');
-    const previous = action === 'practice' ? quizHistory.previous(raceHistoryKey(selected, tier)) : undefined;
+    const previous = action === 'practice' ? quizHistory.previous(raceHistoryKey(selected, difficulty)) : undefined;
     const sent = Date.now();
     lastRevision.current = -1;
     calibrated.current = false;
@@ -376,8 +383,8 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   const practiceOrder = room?.format === 'practice' ? room.round?.order : undefined;
   const practiceSeen = me ? me.answers.length + 1 : 0;
   useEffect(() => {
-    if (practiceOrder && practiceSeen) quizHistory.record(raceHistoryKey(mode, tier), practiceOrder.slice(0, practiceSeen));
-  }, [practiceOrder, practiceSeen, quizHistory, mode, tier]);
+    if (practiceOrder && practiceSeen) quizHistory.record(raceHistoryKey(mode, level), practiceOrder.slice(0, practiceSeen));
+  }, [practiceOrder, practiceSeen, quizHistory, mode, level]);
   const remaining = room && me ? Math.max(0, limit - (Math.max(0, time) - openedAt(me,room))) : 0;
   const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
   const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
@@ -431,12 +438,12 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               {DIFFICULTY_IDS.map(id => {
                 const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
                 return <option value={id} key={id} disabled={cadetRank < required}>
-                  {item.label} ({item.level}){cadetRank < required ? ` · Level ${required} required` : ''}
+                  {difficultyLabel(id)}{cadetRank < required ? ` · Level ${required} required` : ''}
                 </option>;
               })}
             </select>
           </label>
-          <p className="level-note">{RACE_QUESTION_COUNT} correct answers to finish {definition.distance} m · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. Listening and typing get extra time.</p>
+          <p className="level-note">{RACE_QUESTION_COUNT} correct answers to finish {definition.distance} m · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. {timingNote}.</p>
           <label className="competition-name">Nickname
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
@@ -474,11 +481,12 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               {DIFFICULTY_IDS.map(id => {
                 const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
                 return <option key={id} value={id} disabled={isHost && cadetRank < required}>
-                  {item.label} ({item.level}){isHost && cadetRank < required ? ` · Level ${required} required` : ''}
+                  {difficultyLabel(id)}{isHost && cadetRank < required ? ` · Level ${required} required` : ''}
                 </option>;
               })}
             </select>
           </label>
+          <p className="level-note">{DIFFICULTIES[level].topic} · {timingNote}</p>
           <div className="competition-seats">
             {slots.map((member, index) => member ? (
               <div key={member.id} className="competition-seat">

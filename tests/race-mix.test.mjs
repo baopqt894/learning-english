@@ -93,9 +93,9 @@ for(const mode of COMPETITION_IDS) for(const format of ['practice','online']){
     return q.id;
   };
   const deck=room.round.order, distance=COMPETITIONS[mode].distance, segment=distance/deck.length;
-  room=roomSnapshot(room.code,auth.token,clock(12.1)); // The written opener times out.
+  room=roomSnapshot(room.code,auth.token,clock(18.1)); // The written opener times out.
   assert.equal(me().answers[0].choice,null);
-  assert.equal(raceDistance(room,me(),12.1),0);
+  assert.equal(raceDistance(room,me(),18.1),0);
   assert.equal(answer(false),deck[1]);
   for(let i=2;i<10;i++){
     assert.equal(answer(true),deck[i]);

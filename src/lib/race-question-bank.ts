@@ -12,7 +12,7 @@ function fill(id: string, sentence: string, answer: string, alternatives: string
   return { id, kind: 'fill', sentence, choices: [answer], answer: 0, alternatives, explanation: sentence.split(' (')[0].replace('___', answer) };
 }
 
-export const extraRaceQuestions: Record<RaceDifficulty, RaceQuestion[]> = {
+export const extraRaceQuestions: Record<Exclude<RaceDifficulty, 'basic' | 'elementary'>, RaceQuestion[]> = {
   beginner: [
     listen("beginner-listen-01", "My bag is on the blue bench.", "Where is the bag?", ["On the blue bench", "Under the blue bench", "On a red chair", "By the gate"]),
     listen("beginner-listen-02", "Bring a spoon for your soup.", "What should you bring?", ["A spoon", "A fork", "A cup", "A plate"]),

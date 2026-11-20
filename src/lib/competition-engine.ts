@@ -6,8 +6,8 @@ export type CompetitionRound={id:string;startedAt:number;order:string[];fixed?:t
 export type RecordStatus = 'personal-best' | 'kept-best' | 'not-qualified' | 'retrying';
 export type CompetitionRoom={code:string;mode:CompetitionId;difficulty:RaceDifficulty;format:'online'|'practice';record?:RecordStatus;hostId:string;phase:'lobby'|'racing'|'finished';members:CompetitionMember[];round:CompetitionRound|null;revision:number;serverNow:number};
 export const FEEDBACK_SECONDS=1.4;
-export function questionSeconds(room: CompetitionRoom, kind?: RaceQuestion['kind']) {
- return DIFFICULTIES[room.difficulty].seconds + (kind === 'listen' ? 10 : kind === 'fill' ? 4 : 0);
+export function questionSeconds(room: Pick<CompetitionRoom, 'difficulty'>, kind?: RaceQuestion['kind']) {
+ return DIFFICULTIES[room.difficulty].seconds + (kind === 'listen' ? 12 : kind === 'fill' ? 6 : 0);
 }
 export function questionsComplete(room: CompetitionRoom, member: CompetitionMember) {
  if (room.round?.swimPacing === 3) return member.answers.filter(a => a.correct).length >= room.round.order.length;
