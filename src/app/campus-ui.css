@@ -793,3 +793,11 @@
 .student-extras { margin-block: 12px; }
 .student-extras summary { padding-block: 10px; cursor: pointer; font-weight: 600; }
 .book-search { width: 100%; background: white; color: #193a2d; border: 1px solid #8a9b83; padding: 10px; border-radius: 6px; }
+@media (hover:hover) and (pointer:fine) {
+  .campus-shell :is(.resident-open,.interact-button:not(.sports-register),.map-label[data-place]) {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cpath d='M3 3h19v13H11l-6 5v-5H3z' stroke='%23283930' stroke-width='2' stroke-linejoin='round' fill='%23fff4cc'/%3E%3Cpath d='M7 8h11M7 12h7' stroke='%23283930' stroke-width='2'/%3E%3C/svg%3E") 4 3, pointer;
+  }
+  .campus-shell :is(.quest-heading,.journal-route,.field-atlas-pin,.map-label[data-zone]) {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cpath d='M6 22V3l15 3-4 4 4 4-15-3' stroke='%23283930' stroke-width='2' stroke-linejoin='round' fill='%23ffdc87'/%3E%3C/svg%3E") 6 22, pointer;
+  }
+}

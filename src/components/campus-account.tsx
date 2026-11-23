@@ -103,7 +103,7 @@ function AccountEntry() {
           <p>{t("Phiêu lưu học đường bằng tiếng Anh")}</p>
         </div>
       </div>
-      <div className="cadet-entry-panel"><div className="entry-language"><LanguageSelect/></div>
+      <div className="cadet-entry-panel"><div className="entry-language"><LanguageSelect disabled={session === undefined && !error}/></div>
         {session === undefined ? (
           <div className="cadet-entry-form" role="status">
             <p>{error ? t(error) : t('Đang kiểm tra tài khoản…')}</p>

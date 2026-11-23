@@ -15,10 +15,10 @@ export function useStudent() {
   return { ...context, t: (text: string) => translate(context.settings.language, text) };
 }
 
-export function LanguageSelect() {
+export function LanguageSelect({disabled = false}: {disabled?: boolean}) {
   const { settings, change, t } = useStudent();
   return <label className="student-select">{t('Language')}
-    <select value={settings.language} onChange={e => change({...settings, language: e.target.value as Language})}>
+    <select disabled={disabled} value={settings.language} onChange={e => change({...settings, language: e.target.value as Language})}>
       <option lang="vi" value="vi">Tiếng Việt</option><option lang="en" value="en">English</option>
     </select>
   </label>;
