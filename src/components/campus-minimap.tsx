@@ -1,3 +1,4 @@
+import { useStudent } from './student-support';
 import { memo, useId } from "react";
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, MAP_BOUNDS, type MapPoint } from "@/lib/campus-map";
 import { DISTRICT_PATHS, FISH_POND, LIVESTOCK_PENS, SWIMMING_POOL, TRAINING_GROUND } from "@/lib/campus-districts-layout";
@@ -18,6 +19,7 @@ function footprint({ x, z, w, d }: Footprint) {
 }
 
 export const CampusTerrain = memo(function CampusTerrain() {
+  const {t} = useStudent();
   const grid = useId();
   const farm = FARM_LAYOUT.bounds;
   return (
@@ -70,9 +72,9 @@ export const CampusTerrain = memo(function CampusTerrain() {
       </g>
       <g className="mini-place-labels" fontSize="2.8" fontWeight="700" textAnchor="middle" fill="#294637" stroke="#e5ebd8" strokeWidth=".8" paintOrder="stroke">
         <text x="-9" y="-24">A1</text><text x="11" y="-24">A2</text>
-        <text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+1}>Pool</text>
-        <text x={STADIUM.x} y={STADIUM.z+1}>Stadium</text>
-        <text x={FARM_LAYOUT.center.x} y={farm.maxZ+3.7}>Garden</text>
+        <text x={SWIMMING_POOL.x} y={SWIMMING_POOL.z+1}>{t('Pool')}</text>
+        <text x={STADIUM.x} y={STADIUM.z+1}>{t('Stadium')}</text>
+        <text x={FARM_LAYOUT.center.x} y={farm.maxZ+3.7}>{t('Garden')}</text>
       </g>
     </>
   );
@@ -86,6 +88,7 @@ export function CampusMinimap({player, target, missionName, area, onOpen, waypoi
   area: string;
   onOpen: () => void;
 }) {
+  const { t } = useStudent();
   const dx = target ? target.x-player.x : 0;
   const dz = target ? target.z-player.z : 0;
   const distance = Math.hypot(dx,dz);
@@ -114,8 +117,8 @@ export function CampusMinimap({player, target, missionName, area, onOpen, waypoi
           </svg>
         </span>
       </span>
-      <span className="mini-caption"><strong>{area}</strong><span className="mini-north" aria-hidden="true">▴ N</span><Icon name="fullscreen" size={13}/></span>
-      <span className="mini-key" aria-hidden="true"><span className="mini-you">You</span>{target && <span className="mini-goal"><span>{destinationName}</span><b>{Math.round(distance)} m</b></span>}</span>
+      <span className="mini-caption"><strong>{t(area)}</strong><span className="mini-north" aria-hidden="true">▴ N</span><Icon name="fullscreen" size={13}/></span>
+      <span className="mini-key" aria-hidden="true"><span className="mini-you">{t("You")}</span>{target && <span className="mini-goal"><span>{t(destinationName)}</span><b>{Math.round(distance)} m</b></span>}</span>
     </button>
   );
 }

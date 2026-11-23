@@ -1,6 +1,7 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { MongoServerError } from 'mongodb';
 import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type Account, type AccountSession, type PositionCheckpoint, type SavedProgress } from './account.ts';
+import { defaultStudent, type StudentSettings } from './student-support.ts';
 import { freshProgress, restoreProgress } from './game.ts';
 import { restoreCampusPosition, type CampusPosition } from './campus-map.ts';
 import { MAX_VISIBLE_PEERS, PRESENCE_RADIUS, PRESENCE_TTL, type CampusPeer } from './campus-presence.ts';
@@ -79,7 +80,8 @@ export async function registerAccount(input: Record<string, unknown>, now = Date
   const digest = (await passwordDigest(password, salt)).toString('hex');
   const id = randomBytes(16).toString('hex');
   const previous = input.previous ? restoreProgress(JSON.stringify(input.previous)) : freshProgress();
-  const save = { revision: 0, progress: { ...previous, name: nickname, avatar: input.avatar === 1 ? 1 : 0 } };
+  const student: StudentSettings = {...(previous.student ?? defaultStudent), language: input.language === 'en' ? 'en' : 'vi'};
+  const save = { revision: 0, progress: { ...previous, student, name: nickname, avatar: input.avatar === 1 ? 1 : 0 } };
   const { cookie, entry } = newSession(username, now);
   try {
     await accounts().insertOne({ _id: username, id, salt, digest, sessions: [entry], save });

@@ -1,4 +1,5 @@
 'use client';
+import { useStudent } from './student-support';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PLACE_PRACTICE, type PlaceQuestion } from '@/lib/place-practice';
@@ -27,6 +28,7 @@ type Props = {
 };
 
 export function PlacePractice({ area, feeding, care, purpose, mission, resident, tier, questions, onFeed, onComplete, onExit }: Props) {
+  const { t } = useStudent();
   const [index, setIndex] = useState(0);
   const [showQuiz, setShowQuiz] = useState(!!feeding || !!mission || area !== 'livestock');
   const panel = useRef<HTMLElement>(null);
@@ -52,13 +54,13 @@ export function PlacePractice({ area, feeding, care, purpose, mission, resident,
   useEffect(() => { panel.current?.scrollTo(0, 0); }, [index, showQuiz]);
 
   return <div className="practice-backdrop">
-    <section ref={panel} className="practice-modal" role="dialog" aria-modal="true" aria-labelledby="place-practice-title" lang="en">
+    <section ref={panel} className="practice-modal" role="dialog" aria-modal="true" aria-labelledby="place-practice-title">
       <header>
-        <div><h2 id="place-practice-title">{title}</h2>
+        <div><h2 id="place-practice-title">{t(title)}</h2>
           {question && showQuiz ? <div className="practice-header-progress">
-            <span>Question {index + 1} of {questions.length}</span>
-            <progress value={index} max={questions.length} aria-label="Questions answered"/>
-          </div> : <p>{brief}</p>}
+            <span>{t("Question")} {index + 1} {t("of")} {questions.length}</span>
+            <progress value={index} max={questions.length} aria-label={t("Questions answered")}/>
+          </div> : <p>{t(brief)}</p>}
         </div>
         <button type="button" onClick={onExit} aria-label="Close place practice"><Icon name="close"/></button>
       </header>
@@ -68,22 +70,23 @@ export function PlacePractice({ area, feeding, care, purpose, mission, resident,
       {!showQuiz ? <AnimalCare care={care} onFeed={onFeed} onPractice={() => setShowQuiz(true)}/>
         : question ? <PracticeStep key={index} question={question} index={index} tier={tier} onNext={() => setIndex(index + 1)}/>
         : <div className="practice-complete">
-          <Icon name="check" size={32}/><h3>{residentMission ? 'Ready to report' : assignment ? 'Mission complete' : 'All three solved!'}</h3>
-          <p>{result}</p>
-          <button type="button" className="practice-primary" onClick={onComplete}>{nextAction}</button>
+          <Icon name="check" size={32}/><h3>{residentMission ? t('Ready to report') : assignment ? t('Mission complete') : t('All three solved!')}</h3>
+          <p>{t(result)}</p>
+          <button type="button" className="practice-primary" onClick={onComplete}>{t(nextAction)}</button>
         </div>}
     </section>
   </div>;
 }
 
 function AnimalCare({ care, onFeed, onPractice }: { care: PetCare; onFeed: Props['onFeed']; onPractice: () => void }) {
+  const { t } = useStudent();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
   return <>
-    <h3>Your animal care</h3>
+    <h3>{t("Your animal care")}</h3>
     <p className="care-explanation">Food and care help your animals grow. They become hungry after 6 hours and weak after 12 hours. Even a very weak animal can recover with care. Meals are spaced at least one minute apart in this game.</p>
     <div className="pet-care-list">{(Object.keys(PETS) as PetId[]).map(id => {
       const status = petStatus(care, id, now);
@@ -95,17 +98,18 @@ function AnimalCare({ care, onFeed, onPractice }: { care: PetCare; onFeed: Props
         </div>
         <button type="button" aria-label={`Earn food for ${PETS[id].name.toLowerCase()}`}
           disabled={status.nextMealIn > 0} onClick={() => onFeed(id)}>
-          {status.nextMealIn > 0 ? `Next meal ${Math.ceil(status.nextMealIn / 1000)} s` : 'Earn food'}
+          {status.nextMealIn > 0 ? `Next meal ${Math.ceil(status.nextMealIn / 1000)} s` : t('Earn food')}
         </button>
       </article>;
     })}</div>
-    <button type="button" className="practice-primary" onClick={onPractice}>Practise animal vocabulary</button>
+    <button type="button" className="practice-primary" onClick={onPractice}>{t("Practise animal vocabulary")}</button>
   </>;
 }
 
 function PracticeStep({ question, index, tier, onNext }: {
   question: PlaceQuestion; index: number; tier: EnglishTier; onNext: () => void;
 }) {
+  const { t, settings } = useStudent();
   const [value, setValue] = useState('');
   const [words, setWords] = useState<number[]>([]);
   const [checked, setChecked] = useState(false);
@@ -137,6 +141,7 @@ function PracticeStep({ question, index, tier, onNext }: {
     if (!player) return;
     if (!player.paused) { player.pause(); return; }
     if (player.error) player.load();
+    player.playbackRate = settings.pace === 'slow' ? .82 : 1;
     player.currentTime = 0;
     setAudioError(false);
     void player.play().catch(error => {
@@ -159,31 +164,31 @@ function PracticeStep({ question, index, tier, onNext }: {
         onError={() => { setPlaying(false); setAudioError(true); }}/>
       <div className="practice-listen-actions">
         <button type="button" className={isRepeat && ready && !playing ? 'practice-secondary-audio' : 'practice-audio-button'} disabled={micInUse} onClick={playAudio}>
-          <Icon name="sound" size={17}/> {playing ? 'Pause audio' : heard ? 'Listen again' : 'Listen'}
+          <Icon name="sound" size={17}/> {playing ? t('Pause audio') : heard ? t('Listen again') : t('Listen')}
         </button>
         <button type="button" className="practice-text-action" aria-expanded={showTranscript} onClick={() => {
           if (!showTranscript) setHeard(true);
           setShowTranscript(!showTranscript);
-        }}>{showTranscript ? 'Hide transcript' : 'Read transcript'}</button>
+        }}>{showTranscript ? t('Hide transcript') : t('Read transcript')}</button>
       </div>
-      {audioError && <p role="status">Audio couldn’t play. Try again or read the transcript to continue.</p>}
+      {audioError && <p role="status">{t("Audio couldn’t play. Try again or read the transcript to continue.")}</p>}
       {showTranscript && <blockquote>{question.transcript}</blockquote>}
-      {!ready && !audioError && <p>Play the recording or read the transcript before answering.</p>}
+      {!ready && !audioError && <p>{t("Play the recording or read the transcript before answering.")}</p>}
     </div>}
     {isRepeat ? <SpeechRepeat expected={question.answer} ready={ready} playback={playing} passed={correct}
       onAnswer={text => { setValue(text); setChecked(true); }} onMicrophone={setMicInUse}/>
       : isTyped ? <form className="practice-fill" onSubmit={checkTyped}>
-      <label htmlFor="practice-missing-word">Missing word</label>
+      <label htmlFor="practice-missing-word">{t("Missing word")}</label>
       <input id="practice-missing-word" type="text" value={value} disabled={!ready} readOnly={correct} maxLength={64}
         autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done"
         onChange={event => { setValue(event.target.value); setChecked(false); }}/>
-      <button type="submit" className="practice-primary" disabled={!ready || !value.trim() || correct}>Check answer</button>
+      <button type="submit" className="practice-primary" disabled={!ready || !value.trim() || correct}>{t("Check answer")}</button>
     </form> : question.kind === 'order' ? <>
       <div className="practice-sentence" aria-live="polite">{words.length ? answer : 'Tap the words in the correct order.'}</div>
       <div className="practice-word-bank">{question.options.map((word, i) => <button key={i} type="button"
         disabled={words.includes(i) || correct} onClick={() => { setChecked(false); setWords([...words, i]); }}>{word}</button>)}</div>
-      <button type="button" disabled={correct} onClick={() => { setWords([]); setChecked(false); }}>Reset words</button>
-      <button type="button" className="practice-primary" disabled={correct || words.length !== question.options.length} onClick={() => setChecked(true)}>Check sentence</button>
+      <button type="button" disabled={correct} onClick={() => { setWords([]); setChecked(false); }}>{t("Reset words")}</button>
+      <button type="button" className="practice-primary" disabled={correct || words.length !== question.options.length} onClick={() => setChecked(true)}>{t("Check sentence")}</button>
     </> : 'options' in question && <>
       <div className="practice-choices">{question.options.map((option, i) =>
         <button key={option} type="button" aria-pressed={value === option}
@@ -192,14 +197,14 @@ function PracticeStep({ question, index, tier, onNext }: {
           <span className="answer-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>{option}
         </button>)}</div>
       {!correct && <button type="button" className="practice-primary" disabled={!ready || !value || checked}
-        onClick={() => setChecked(true)}>Check answer</button>}
+        onClick={() => setChecked(true)}>{t("Check answer")}</button>}
     </>}
     {checked && <div className="practice-feedback" data-correct={correct} role="status">
-      <strong>{correct ? 'Correct!' : 'Try again'}</strong>
-      <p>{correct ? question.explanation : isRepeat ? 'Listen again and repeat the whole message in order.'
-        : isSpoken ? 'Listen again for the detail in the question.' : isTyped ? 'Check your spelling and the words around the blank.'
-        : question.kind === 'order' ? 'Reset the words and try a different order.' : 'Read the question again and choose another answer.'}</p>
+      <strong>{correct ? t('Correct!') : t('Try again')}</strong>
+      <p>{correct ? question.explanation : isRepeat ? t('Listen again and repeat the whole message in order.')
+        : isSpoken ? t('Listen again for the detail in the question.') : isTyped ? t('Check your spelling and the words around the blank.')
+        : question.kind === 'order' ? t('Reset the words and try a different order.') : t('Read the question again and choose another answer.')}</p>
     </div>}
-    {correct && <button type="button" className="practice-primary" onClick={onNext}>Next <Icon name="arrow" size={16}/></button>}
+    {correct && <button type="button" className="practice-primary" onClick={onNext}>{t("Next")} <Icon name="arrow" size={16}/></button>}
   </>;
 }

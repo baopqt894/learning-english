@@ -1,3 +1,5 @@
+import { conversationClue } from './conversation-support.ts';
+import { restoreStudent, type StudentSettings } from './student-support.ts';
 import { restoreCampusPosition, type CampusPosition } from './campus-map.ts';
 import { restoreResidentMissions, type ResidentMissionProgress } from './resident-missions.ts';
 import { challengeXP, restoreChallenges } from './challenge-xp.ts';
@@ -10,7 +12,7 @@ export type Place = "courtyard" | "library" | "canteen";
 export type Goal = { id: string; label: string; hint: string; place: Place };
 export type Quest = { title: string; description: string; minutes: string; xp: number; badge: string; goals: Goal[] };
 export type Message = { role: "student" | "npc"; text: string; place: Place };
-export type Progress = { version: 1; position?: CampusPosition; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[]; activities?: ActivityRecords; fieldwork?: Fieldwork; campaign?: CampaignProgress; pets?: PetCare; daily?: DailyProgress; challenges?: string[]; residentMissions?: ResidentMissionProgress };
+export type Progress = { version: 1; student?: StudentSettings; position?: CampusPosition; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[]; activities?: ActivityRecords; fieldwork?: Fieldwork; campaign?: CampaignProgress; pets?: PetCare; daily?: DailyProgress; challenges?: string[]; residentMissions?: ResidentMissionProgress };
 
 export const SCHOOL = "Phân hiệu 1 – Trường Thiếu sinh quân miền Trung";
 export const STORAGE_KEY = "campusquest-phan-hieu-1-v1";
@@ -70,7 +72,7 @@ export function restoreProgress(raw: string | null): Progress {
     const active = Math.min(completed.length, QUESTS.length - 1);
     const validGoals = QUESTS[active].goals.map(g => g.id);
     return {
-      version: 1, position: restoreCampusPosition(value.position), residentMissions: restoreResidentMissions(value.residentMissions), challenges: restoreChallenges(value.challenges), daily:restoreDaily(value.daily), pets:normalizePetCare(value.pets), name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0, campaign:restoreCampaign(value.campaign), activities: normalizeActivities(value.activities), fieldwork: restoreFieldwork(value.fieldwork),
+      version: 1, student: restoreStudent(value.student), position: restoreCampusPosition(value.position), residentMissions: restoreResidentMissions(value.residentMissions), challenges: restoreChallenges(value.challenges), daily:restoreDaily(value.daily), pets:normalizePetCare(value.pets), name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0, campaign:restoreCampaign(value.campaign), activities: normalizeActivities(value.activities), fieldwork: restoreFieldwork(value.fieldwork),
       mode: value.mode === "independent" ? "independent" : "guided", active, completed,
       goals: Array.isArray(value.goals) ? [...new Set<string>(value.goals.filter((id: unknown) => typeof id === "string" && validGoals.includes(id)))] : [],
       messages: Array.isArray(value.messages) ? value.messages.filter((m: Message) => m && (m.role === "student" || m.role === "npc") && typeof m.text === "string" && m.text.length <= 600 && Object.hasOwn(PLACES, m.place)).slice(-80) : [],
@@ -93,7 +95,7 @@ export function evaluateTurn(progress: Progress, place: Place, input: string): {
   if (!goal) reply = "Great work! This mission is complete. Collect your reward to continue.";
   else if (goal.place !== place) reply = place === "courtyard" ? "Let's visit the library on the left, or the canteen on the right. Check your mission for the next stop." : "Your next objective is at " + PLACES[goal.place].english.toLowerCase() + ". Come back when you're ready!";
   else if (/\b(repeat|say that again|pardon|slower)\b/.test(text)) reply = conversationPrompt(progress,place);
-  else if (/^help[.!?]*$|can you help|help me|need help|don.t understand|what should|explain/.test(text)) reply = `${LESSONS[progress.active].tip} Try: ${goal.hint}`;
+  else if (/^help[.!?]*$|can you help|help me|need help|don.t understand|what should|explain/.test(text)) reply = conversationClue(goal.id, 'en');
   else {
     switch (goal.id) {
       case "intro":
@@ -104,7 +106,7 @@ export function evaluateTurn(progress: Progress, place: Place, input: string): {
         reply = matched ? "Welcome to the team! Our first job is to find a story for the reading corner." : "Tell me that you would like to help our team."; break;
       case "event-report":
         matched = /book|story/.test(text) && /sandwich|snack|picnic/.test(text) && /water|drink/.test(text) && /ready|have|got|prepared/.test(text) && !/not ready|don.t have|do not have/.test(text);
-        reply = matched ? "You did it! The story and picnic are ready. You introduced yourself, solved a problem and organised our supplies in English. Welcome to Discovery Day, teammate!" : "Tell me which book and picnic supplies are ready. Use a sentence such as: We have the book, a sandwich and water."; break;
+        reply = matched ? "You did it! The story and picnic are ready. You introduced yourself, solved a problem and organised our supplies in English. Welcome to Discovery Day, teammate!" : "Tell me which book and picnic supplies are ready."; break;
       case "name":
         matched = /your name|what (?:are you called|should i call you)|who are you|may i know your name/.test(text);
         reply = matched ? "My name is Minh. Welcome to our school! Let's explore together." : "What would you like to know about me? Try asking my name."; break;
@@ -115,7 +117,7 @@ export function evaluateTurn(progress: Progress, place: Place, input: string): {
         matched = /left/.test(text) && /turn|go|walk|head/.test(text);
         reply = matched ? "That's right! Turn left. Now walk to the library and say hello to the librarian." : "Remember: turn left at the courtyard. Can you confirm that?"; break;
       case "arrive":
-        matched = /hello|hi\b|good (?:morning|afternoon)|found|arrived/.test(text);
+        matched = /\b(?:hello|hi|good (?:morning|afternoon)|found|arrived)\b/.test(text);
         reply = matched ? "Hello! You found the library. Well done!" : "Welcome! Say hello when you arrive."; break;
       case "book":
         matched = /adventure/.test(text) && choosing;

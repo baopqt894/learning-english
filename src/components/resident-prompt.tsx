@@ -1,4 +1,6 @@
 'use client';
+import { englishLine } from '@/lib/student-support';
+import { useStudent } from './student-support';
 
 import { useEffect, useRef, useState } from 'react';
 import { CHARACTER_PROFILES } from '@/lib/campus-character-profiles';
@@ -17,6 +19,7 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
   onStart: () => void;
   onClaim: () => void;
 }) {
+  const { t, settings, remember } = useStudent();
   const [step, setStep] = useState(0);
   const [answer, setAnswer] = useState<string>();
   const [review, setReview] = useState(false);
@@ -49,9 +52,7 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
       return;
     }
     speechSynthesis.cancel();
-    const line = new SpeechSynthesisUtterance(prompt);
-    line.lang = 'en-US';
-    line.rate = .86;
+    const line = englishLine(prompt, settings.pace);
     line.onstart = () => onVoice(true);
     line.onend = () => onVoice(false);
     line.onerror = event => {
@@ -84,10 +85,10 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
     const action = reporting ? 'Turn in mission' : !status ? 'Accept mission'
       : status === 'active' ? 'Continue mission' : 'Talk';
     return <button type="button" className="resident-open" data-mission-state={status ?? 'new'}
-      aria-label={`${action} · ${name} · ${mission.title}`} onClick={onOpen}>
+      aria-label={`${action} · ${name} · ${t(mission.title)}`} onClick={onOpen}>
       {reporting || !status ? <b className="resident-quest-sign" aria-hidden="true">!</b>
         : <Icon name={status === 'active' ? 'clock' : 'chat'} size={20}/>}
-      <span><strong lang="en">{action}</strong><small>{name} · {mission.title}</small></span>
+      <span><strong lang="en">{t(action)}</strong><small>{name} · {t(mission.title)}</small></span>
       <kbd>E</kbd><Icon name="chevron" size={16}/>
     </button>;
   }
@@ -95,37 +96,37 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
   return <aside className="resident-card" aria-label={`Trò chuyện với ${name}`}>
     <div className="resident-card-heading">
       <span><strong>{name}</strong><small>{resident.role}</small></span>
-      <button type="button" className="resident-close" ref={closeButton} onClick={onClose} aria-label="Đóng trò chuyện"><Icon name="close" size={19}/></button>
+      <button type="button" className="resident-close" ref={closeButton} onClick={onClose} aria-label={t("Đóng trò chuyện")}><Icon name="close" size={19}/></button>
     </div>
     <div className="resident-mission-heading">
-      <h3 lang="en">{mission.title}</h3>
-      <span>{reporting ? 'Báo cáo' : status === 'active' ? 'Đang làm' : status === 'complete' && !review ? 'Đã hoàn thành' : `${step + 1}/2`}</span>
+      <h3 lang="en">{t(mission.title)}</h3>
+      <span>{reporting ? t('Báo cáo') : status === 'active' ? t('Đang làm') : status === 'complete' && !review ? t('Đã hoàn thành') : `${step + 1}/2`}</span>
     </div>
     {dialogue || status === 'active' ? <>
       <blockquote lang="en">{prompt}</blockquote>
       {translation && <p>{meaning}</p>}
       {audioStatus && <p role="status">{audioStatus}</p>}
       <div className="resident-actions">
-        <button type="button" onClick={listen}><Icon name="sound" size={17}/> Nghe</button>
-        <button type="button" aria-expanded={translation} onClick={() => setTranslation(!translation)}>
-          {translation ? 'Ẩn nghĩa' : 'Xem nghĩa'}
+        <button type="button" onClick={listen}><Icon name="sound" size={17}/> {t("Nghe")}</button>
+        <button type="button" aria-expanded={translation} onClick={() => {if (!translation) remember({en:prompt,vi:meaning});setTranslation(!translation);}}>
+          {translation ? t('Ẩn nghĩa') : t('Xem nghĩa')}
         </button>
       </div>
     </> : <p lang="en">Thanks for your help!</p>}
     {dialogue && <>
-      <div className="resident-replies" lang="en" aria-label="Chọn câu trả lời">
+      <div className="resident-replies" lang="en" aria-label={t("Chọn câu trả lời")}>
         {options.map(option => <button key={option} type="button" aria-pressed={answer === option} disabled={correct}
           onClick={() => setAnswer(option)}>{option}</button>)}
       </div>
-      {answer && <p className="resident-feedback" role="status">{correct ? 'Đúng rồi.' : 'Thử lại. Câu trả lời cần khớp với lời của nhân vật.'}</p>}
+      {answer && <p className="resident-feedback" role="status">{correct ? t('Đúng rồi.') : t('Thử lại. Câu trả lời cần khớp với lời của nhân vật.')}</p>}
       {correct && <button type="button" className="resident-primary" onClick={next}>
-        {reporting ? `Nhận ${mission.xp} XP` : step === 0 ? 'Tiếp tục' : review ? 'Kết thúc ôn tập' : 'Nhận nhiệm vụ'}
+        {reporting ? `Nhận ${mission.xp} XP` : step === 0 ? t('Tiếp tục') : review ? t('Kết thúc ôn tập') : t('Nhận nhiệm vụ')}
       </button>}
     </>}
     {status === 'active' && <>
-      <p className="resident-task">{mission.summary}</p>
-      <button type="button" className="resident-primary" onClick={onStart}>{mission.action}<Icon name="arrow" size={17}/></button>
+      <p className="resident-task">{t(mission.summary)}</p>
+      <button type="button" className="resident-primary" onClick={onStart}>{t(mission.action)}<Icon name="arrow" size={17}/></button>
     </>}
-    {status === 'complete' && !review && <button type="button" className="resident-primary" onClick={() => { clearTurn(); setStep(0); setReview(true); }}>Ôn hội thoại</button>}
+    {status === 'complete' && !review && <button type="button" className="resident-primary" onClick={() => { clearTurn(); setStep(0); setReview(true); }}>{t("Ôn hội thoại")}</button>}
   </aside>;
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { StudentContext, LanguageSelect, useStudent } from './student-support';
+import { defaultStudent, type StudentSettings } from '@/lib/student-support';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
@@ -41,6 +43,24 @@ function clearRoomSeat() {
 }
 
 export function CampusAccount() {
+  const [settings, setSettings] = useState(defaultStudent);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('campus-interface-language') === 'en') {
+        const frame = requestAnimationFrame(() => setSettings({...defaultStudent,language:'en'}));
+        return () => cancelAnimationFrame(frame);
+      }
+    } catch { /* The language selector also works without device storage. */ }
+  }, []);
+  function change(value: StudentSettings) {
+    setSettings(value);
+    try { localStorage.setItem('campus-interface-language', value.language); } catch { /* Optional device default. */ }
+  }
+  return <StudentContext.Provider value={{settings, change, remember:()=>{}}}><AccountEntry/></StudentContext.Provider>;
+}
+
+function AccountEntry() {
+  const { t, settings } = useStudent();
   const [session, setSession] = useState<AccountSession | null | undefined>(undefined);
   const [previous, setPrevious] = useState<Progress | null>(null);
   const [error, setError] = useState('');
@@ -69,6 +89,9 @@ export function CampusAccount() {
     setError('');
   }, []);
 
+  useEffect(() => {
+    if (!session) document.documentElement.lang = settings.language;
+  }, [settings.language, session]);
   if (session) return <Game key={session.id} account={session} onExpired={expire} onLogout={logout}/>;
   return (
     <main className="cadet-entry">
@@ -77,14 +100,14 @@ export function CampusAccount() {
         <div className="cadet-entry-brand">
           <Icon name="compass" size={36}/>
           <h1>CampusQuest <span>AI</span></h1>
-          <p>Phiêu lưu học đường bằng tiếng Anh</p>
+          <p>{t("Phiêu lưu học đường bằng tiếng Anh")}</p>
         </div>
       </div>
-      <div className="cadet-entry-panel">
+      <div className="cadet-entry-panel"><div className="entry-language"><LanguageSelect/></div>
         {session === undefined ? (
           <div className="cadet-entry-form" role="status">
-            <p>{error || 'Đang kiểm tra tài khoản…'}</p>
-            {!!error && <button className="cadet-submit" onClick={() => { setError(''); setAttempt(attempt + 1); }}>Thử lại</button>}
+            <p>{error ? t(error) : t('Đang kiểm tra tài khoản…')}</p>
+            {!!error && <button className="cadet-submit" onClick={() => { setError(''); setAttempt(attempt + 1); }}>{t("Thử lại")}</button>}
           </div>
         ) : (
           <AccountForm previous={previous} notice={error} onSession={(account, imported) => {
@@ -106,6 +129,7 @@ function AccountForm({ previous, notice, onSession }: {
   notice: string;
   onSession: (account: AccountSession, imported: boolean) => void;
 }) {
+  const { t, settings } = useStudent();
   const [mode, setMode] = useState<'register' | 'login'>(notice ? 'login' : 'register');
   const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState(previous?.name ?? '');
@@ -128,7 +152,7 @@ function AccountForm({ previous, notice, onSession }: {
     setError('');
     try {
       const account = await accountRequest(creating
-        ? { action: mode, username: key, nickname, password, avatar, previous: importPrevious ? previous : undefined }
+        ? { action: mode, username: key, nickname, password, avatar, language: settings.language, previous: importPrevious ? previous : undefined }
         : { action: mode, username: key, password });
       if (!account) throw new Error('Không mở được tài khoản.');
       onSession(account, creating && importPrevious && !!previous);
@@ -138,40 +162,40 @@ function AccountForm({ previous, notice, onSession }: {
   }
 
   return <form className="cadet-entry-form" onSubmit={submit}>
-    <div className="cadet-entry-switch" role="group" aria-label="Chọn cách vào game">
-      <button type="button" aria-pressed={creating} disabled={busy} onClick={() => { setMode('register'); setPassword(''); setError(''); }}>Tạo tài khoản</button>
-      <button type="button" aria-pressed={!creating} disabled={busy} onClick={() => { setMode('login'); setPassword(''); setError(''); }}>Đăng nhập</button>
+    <div className="cadet-entry-switch" role="group" aria-label={t("Chọn cách vào game")}>
+      <button type="button" aria-pressed={creating} disabled={busy} onClick={() => { setMode('register'); setPassword(''); setError(''); }}>{t("Tạo tài khoản")}</button>
+      <button type="button" aria-pressed={!creating} disabled={busy} onClick={() => { setMode('login'); setPassword(''); setError(''); }}>{t("Đăng nhập")}</button>
     </div>
-    <h2>{creating ? 'Tạo hồ sơ học viên' : 'Chào mừng trở lại'}</h2>
+    <h2>{creating ? t('Tạo hồ sơ học viên') : t('Chào mừng trở lại')}</h2>
     {creating && <div className="cadet-entry-field">
-      <label htmlFor="account-nickname">Biệt danh trong game</label>
+      <label htmlFor="account-nickname">{t("Biệt danh trong game")}</label>
       <input id="account-nickname" autoComplete="nickname" value={nickname} maxLength={24} required disabled={busy} onChange={event => setNickname(event.target.value)}/>
     </div>}
     <div className="cadet-entry-field">
-      <label htmlFor="account-username">Tên đăng nhập</label>
+      <label htmlFor="account-username">{t("Tên đăng nhập")}</label>
       <input id="account-username" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} maxLength={24} required disabled={busy} onChange={event => setUsername(event.target.value)}/>
-      {creating && <small>3–24 ký tự, dùng chữ cái không dấu, số hoặc dấu gạch dưới.</small>}
+      {creating && <small>{t("3–24 ký tự, dùng chữ cái không dấu, số hoặc dấu gạch dưới.")}</small>}
     </div>
     <div className="cadet-entry-field">
-      <label htmlFor="account-password">Mật khẩu</label>
+      <label htmlFor="account-password">{t("Mật khẩu")}</label>
       <input key={mode} id="account-password" type="password" autoComplete={creating ? 'new-password' : 'current-password'} value={password} minLength={MIN_PASSWORD_LENGTH} maxLength={MAX_PASSWORD_LENGTH} required disabled={busy} onChange={event => setPassword(event.target.value)}/>
-      {creating && <small>Ít nhất {MIN_PASSWORD_LENGTH} ký tự.</small>}
+      {creating && <small>{t("Ít nhất")} {MIN_PASSWORD_LENGTH} {t("ký tự.")}</small>}
     </div>
     {creating && <fieldset className="cadet-entry-avatars" disabled={busy}>
-      <legend>Chọn nhân vật</legend>
+      <legend>{t("Chọn nhân vật")}</legend>
       {[0, 1].map((variant) => <label key={variant}>
         <input type="radio" name="avatar" checked={avatar === variant} onChange={() => setAvatar(variant)}/>
         <span className={`cadet-portrait avatar-${variant}`} aria-hidden="true"/>
-        <span>{variant === 0 ? 'Học viên An' : 'Học viên Linh'}</span>
+        <span>{variant === 0 ? t('Học viên An') : t('Học viên Linh')}</span>
       </label>)}
     </fieldset>}
     {creating && previous && <label className="cadet-entry-import">
       <input type="checkbox" checked={importPrevious} disabled={busy} onChange={event => setImportPrevious(event.target.checked)}/>
-      <span>Chuyển tiến độ của <strong>{previous.name}</strong> từ trình duyệt này</span>
+      <span>{t("Chuyển tiến độ của")} <strong>{previous.name}</strong> {t("từ trình duyệt này")}</span>
     </label>}
-    {error && <p className="cadet-entry-error" role="alert">{error}</p>}
+    {error && <p className="cadet-entry-error" role="alert">{t(error)}</p>}
     <button className="cadet-submit" disabled={busy || (creating && !nickname.trim())} type="submit">
-      {busy ? 'Đang kết nối…' : creating ? 'Tạo tài khoản và chơi' : 'Vào khuôn viên'} <Icon name="arrow" size={18}/>
+      {busy ? t('Đang kết nối…') : creating ? t('Tạo tài khoản và chơi') : t('Vào khuôn viên')} <Icon name="arrow" size={18}/>
     </button>
   </form>;
 }

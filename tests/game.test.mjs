@@ -82,7 +82,8 @@ test("asking for repetition or help teaches without granting progress", () => {
   assert.match(repeated.reply,/Turn left/);
   const helped=evaluateTurn(progress,"courtyard","I don't understand. Can you help?");
   assert.equal(helped.achieved,false);
-  assert.match(helped.reply,/Try:/);
+  assert.notEqual(helped.reply, nextGoal(progress).hint);
+  assert.equal(evaluateTurn(progress, "courtyard", helped.reply).achieved, false);
   assert.deepEqual(helped.progress.goals,["directions"]);
 });
 

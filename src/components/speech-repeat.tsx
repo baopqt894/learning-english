@@ -1,4 +1,5 @@
 'use client';
+import { useStudent } from './student-support';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { matchesSpokenAnswer } from '@/lib/speaking-answer';
@@ -39,6 +40,7 @@ export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMi
   expected: string; ready: boolean; playback: boolean; passed: boolean;
   onAnswer: (transcript: string) => void; onMicrophone: (active: boolean) => void;
 }) {
+  const { t } = useStudent();
   const [phase, setPhase] = useState<'idle' | 'starting' | 'listening' | 'checking'>('idle');
   const [message, setMessage] = useState('');
   const [typed, setTyped] = useState(false);
@@ -124,23 +126,23 @@ export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMi
         disabled={(!ready || playback) || phase === 'checking'}
         onClick={phase === 'idle' ? start : stop}>
         <Icon name="mic" size={18}/>
-        {phase === 'starting' ? 'Cancel mic' : phase === 'listening' ? 'Finish speaking' : phase === 'checking' ? 'Checking…' : 'Use microphone'}
+        {phase === 'starting' ? t('Cancel mic') : phase === 'listening' ? t('Finish speaking') : phase === 'checking' ? t('Checking…') : t('Use microphone')}
       </button>
       <button className="practice-text-action" type="button" disabled={!ready}
         aria-expanded={typed} onClick={() => {
           if (active.current) finish(active.current, undefined, true);
           setTyped(!typed);
-        }}>{typed ? 'Hide typing' : 'Type instead'}</button>
+        }}>{typed ? t('Hide typing') : t('Type instead')}</button>
     </div>}
-    {phase !== 'idle' && <p role="status">{phase === 'listening' ? 'Listening… repeat the whole message.' : phase === 'checking' ? 'Checking the words you said…' : 'Waiting for microphone access…'}</p>}
+    {phase !== 'idle' && <p role="status">{phase === 'listening' ? t('Listening… repeat the whole message.') : phase === 'checking' ? t('Checking the words you said…') : t('Waiting for microphone access…')}</p>}
     {message && <p className="practice-mic-error" role="status">{message}</p>}
     {heard && <p className="practice-heard">Heard: <span>{heard}</span></p>}
-    {!typed && !passed && phase === 'idle' && !message && !heard && <p className="practice-mic-note">Your browser may use an online service to recognise your voice.</p>}
+    {!typed && !passed && phase === 'idle' && !message && !heard && <p className="practice-mic-note">{t("Your browser may use an online service to recognise your voice.")}</p>}
     {typed && !passed && <form className="practice-fill" onSubmit={submit}>
-      <label htmlFor="practice-repeat-text">Repeat the message in writing</label>
+      <label htmlFor="practice-repeat-text">{t("Repeat the message in writing")}</label>
       <textarea id="practice-repeat-text" value={draft} onChange={event => setDraft(event.target.value)}
         rows={3} maxLength={350} autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="done"/>
-      <button type="submit" className="practice-primary" disabled={!ready || !draft.trim()}>Check answer</button>
+      <button type="submit" className="practice-primary" disabled={!ready || !draft.trim()}>{t("Check answer")}</button>
     </form>}
   </div>;
 }

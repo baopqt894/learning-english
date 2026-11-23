@@ -1,4 +1,5 @@
 'use client';
+import { useStudent } from './student-support';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { COMPETITIONS } from '@/lib/competition-catalog';
@@ -39,6 +40,7 @@ function FriendRow({ profile, detail, children }: { profile: FriendProfile; deta
 }
 
 export function FriendsButton({ onOpen, muted }: { onOpen: () => void; muted: boolean }) {
+  const { t } = useStudent();
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (muted) return;
@@ -59,7 +61,7 @@ export function FriendsButton({ onOpen, muted }: { onOpen: () => void; muted: bo
   }, [muted]);
 
   return <button className="hud-button friends-launch" lang="en" onClick={onOpen}
-    aria-label={count ? `Friends (${count} pending)` : 'Friends'} title="Friends">
+    aria-label={count ? `Friends (${count} pending)` : t('Friends')} title={t("Friends")}>
     <Icon name="users" size={20}/>
     {count > 0 && <span className="friends-badge" aria-hidden="true">{count > 9 ? '9+' : count}</span>}
   </button>;
@@ -68,6 +70,7 @@ export function FriendsButton({ onOpen, muted }: { onOpen: () => void; muted: bo
 export function FriendsPanel({ username, onClose, onRace }: {
   username: string; onClose: () => void; onRace: (race: InvitedRace) => void;
 }) {
+  const { t } = useStudent();
   const [list, setList] = useState<FriendsList | null>(null);
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<Lookup | null>(null);
@@ -143,12 +146,12 @@ export function FriendsPanel({ username, onClose, onRace }: {
   }}>
     <section className="sports-journal friends-ledger" role="dialog" aria-modal="true" aria-labelledby="friends-title" lang="en">
       <header>
-        <div><h2 id="friends-title">Friends</h2><p>Your username is <strong>@{username}</strong></p></div>
-        <button type="button" className="sports-journal-close" aria-label="Close" onClick={onClose}><Icon name="close" size={20}/></button>
+        <div><h2 id="friends-title">{t("Friends")}</h2><p>{t("Your username is")} <strong>@{username}</strong></p></div>
+        <button type="button" className="sports-journal-close" aria-label={t("Close")} onClick={onClose}><Icon name="close" size={20}/></button>
       </header>
       <div className="friends-tabs" role="group" aria-label="Friends sections">
-        <button aria-pressed={tab === 'friends'} onClick={() => { setTab('friends'); setRemove(null); }}>Friends {list && <small>{list.friends.length}</small>}</button>
-        <button aria-pressed={tab === 'inbox'} onClick={() => { setTab('inbox'); setRemove(null); }}>Inbox {inboxCount > 0 && <small>{inboxCount}</small>}</button>
+        <button aria-pressed={tab === 'friends'} onClick={() => { setTab('friends'); setRemove(null); }}>{t("Friends")} {list && <small>{list.friends.length}</small>}</button>
+        <button aria-pressed={tab === 'inbox'} onClick={() => { setTab('inbox'); setRemove(null); }}>{t("Inbox")} {inboxCount > 0 && <small>{inboxCount}</small>}</button>
       </div>
       {tab === 'friends' && <>
         <form className="friends-search" onSubmit={event => {
@@ -158,57 +161,57 @@ export function FriendsPanel({ username, onClose, onRace }: {
             setFound(await friendsFetch<Lookup>(`?username=${encodeURIComponent(query.trim())}`));
           });
         }}>
-          <label>Find by username
+          <label>{t("Find by username")}
             <input maxLength={24} value={query} onChange={event => { setQuery(event.target.value); setFound(null); setError(''); }}
               placeholder="e.g. minh_08" autoCapitalize="none" autoComplete="off" spellCheck={false}
               disabled={busy}/>
           </label>
-          <button className="friends-primary" disabled={busy || query.trim().length < 3}>Search</button>
+          <button className="friends-primary" disabled={busy || query.trim().length < 3}>{t("Search")}</button>
         </form>
-        {found && <ul className="friend-list friends-search-result" aria-label="Search result">
+        {found && <ul className="friend-list friends-search-result" aria-label={t("Search result")}>
           <FriendRow profile={found.profile}>
             {found.relationship === 'none' ? <button className="friends-primary" disabled={busy}
-              onClick={() => mutate('request', found.profile.username, 'Friend request sent.')}>Add friend</button>
-              : found.relationship === 'friends' ? <span className="friend-status"><Icon name="check" size={15}/> Friends</span>
-              : <button onClick={() => setTab('inbox')}>View request</button>}
+              onClick={() => mutate('request', found.profile.username, 'Friend request sent.')}>{t("Add friend")}</button>
+              : found.relationship === 'friends' ? <span className="friend-status"><Icon name="check" size={15}/> {t("Friends")}</span>
+              : <button onClick={() => setTab('inbox')}>{t("View request")}</button>}
           </FriendRow>
         </ul>}
       </>}
-      {error && <p className="friends-error" role="alert">{error}{!list && <button onClick={() => void run(async () => setList(await friendsFetch<FriendsList>()))}>Try again</button>}</p>}
+      {error && <p className="friends-error" role="alert">{error}{!list && <button onClick={() => void run(async () => setList(await friendsFetch<FriendsList>()))}>{t("Try again")}</button>}</p>}
       {message && <p className="friends-message" role="status">{message}</p>}
-      {!list && !error && <p role="status" className="friends-empty">Loading your friends…</p>}
+      {!list && !error && <p role="status" className="friends-empty">{t("Loading your friends…")}</p>}
       {list && (tab === 'friends' ? (
-        list.friends.length ? <ul className="friend-list" aria-label="Friends list">
+        list.friends.length ? <ul className="friend-list" aria-label={t("Friends list")}>
           {list.friends.map(friend => <FriendRow profile={friend} key={friend.username}>
             {remove === friend.username ? <>
               <button className="friends-danger" disabled={busy} onClick={() => mutate('remove', friend.username, 'Friend removed.')}>Confirm removal</button>
-              <button disabled={busy} onClick={() => setRemove(null)}>Keep friend</button>
-            </> : <button aria-label={`Remove @${friend.username} from friends`} onClick={() => setRemove(friend.username)}>Remove</button>}
+              <button disabled={busy} onClick={() => setRemove(null)}>{t("Keep friend")}</button>
+            </> : <button aria-label={`Remove @${friend.username} from friends`} onClick={() => setRemove(friend.username)}>{t("Remove")}</button>}
           </FriendRow>)}
         </ul> : <p className="friends-empty">Find a classmate by username to add your first friend.</p>
       ) : (
         <>
           {list.invitations.length > 0 && <section className="friends-group">
-            <h3>Race invitations</h3>
+            <h3>{t("Race invitations")}</h3>
             <ul className="friend-list">{list.invitations.map(invite => {
               const race = COMPETITIONS[invite.mode];
               return <FriendRow key={invite.id} profile={invite.from} detail={`${race.title} at ${race.venue}`}>
-                <button className="friends-primary" disabled={busy} onClick={() => openRace(invite.id)}>Walk there</button>
-                <button disabled={busy} onClick={() => dismiss(invite.id)}>Dismiss</button>
+                <button className="friends-primary" disabled={busy} onClick={() => openRace(invite.id)}>{t("Walk there")}</button>
+                <button disabled={busy} onClick={() => dismiss(invite.id)}>{t("Dismiss")}</button>
               </FriendRow>;
             })}</ul>
           </section>}
           {list.incoming.length > 0 && <section className="friends-group">
-            <h3>Friend requests</h3>
+            <h3>{t("Friend requests")}</h3>
             <ul className="friend-list">{list.incoming.map(friend => <FriendRow profile={friend} key={friend.username}>
-              <button className="friends-primary" disabled={busy} onClick={() => mutate('accept', friend.username, `You and ${friend.nickname} are now friends.`)}>Accept</button>
-              <button disabled={busy} onClick={() => mutate('decline', friend.username)}>Decline</button>
+              <button className="friends-primary" disabled={busy} onClick={() => mutate('accept', friend.username, `You and ${friend.nickname} are now friends.`)}>{t("Accept")}</button>
+              <button disabled={busy} onClick={() => mutate('decline', friend.username)}>{t("Decline")}</button>
             </FriendRow>)}</ul>
           </section>}
           {list.outgoing.length > 0 && <section className="friends-group">
-            <h3>Sent requests</h3>
+            <h3>{t("Sent requests")}</h3>
             <ul className="friend-list">{list.outgoing.map(friend => <FriendRow profile={friend} key={friend.username} detail="Waiting for reply">
-              <button disabled={busy} onClick={() => mutate('cancel', friend.username)}>Cancel</button>
+              <button disabled={busy} onClick={() => mutate('cancel', friend.username)}>{t("Cancel")}</button>
             </FriendRow>)}</ul>
           </section>}
           {!inboxCount && list.outgoing.length === 0 && <p className="friends-empty">You have no pending requests or race invitations.</p>}
@@ -219,6 +222,7 @@ export function FriendsPanel({ username, onClose, onRace }: {
 }
 
 export function RaceFriendInvites({ code, onClose }: { code: string; onClose: () => void }) {
+  const { t } = useStudent();
   const [list, setList] = useState<FriendProfile[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -245,12 +249,12 @@ export function RaceFriendInvites({ code, onClose }: { code: string; onClose: ()
   }
 
   return <div className="swim-panel competition-lobby race-friend-invites">
-    <div className="race-friends-heading"><h3 ref={heading} tabIndex={-1}>Invite friends</h3><button onClick={onClose}>Back to lobby</button></div>
+    <div className="race-friends-heading"><h3 ref={heading} tabIndex={-1}>{t("Invite friends")}</h3><button onClick={onClose}>{t("Back to lobby")}</button></div>
     {error && <p className="race-inline-error" role="alert">{error}</p>}
-    {!list && !error && <p role="status">Loading your friends…</p>}
-    {list && (list.length ? <ul className="friend-list" aria-label="Friends to invite">
+    {!list && !error && <p role="status">{t("Loading your friends…")}</p>}
+    {list && (list.length ? <ul className="friend-list" aria-label={t("Friends to invite")}>
       {list.map(friend => <FriendRow key={friend.username} profile={friend}>
-        {sent.includes(friend.username) ? <span className="friend-status" role="status"><Icon name="check" size={15}/> Invited</span>
+        {sent.includes(friend.username) ? <span className="friend-status" role="status"><Icon name="check" size={15}/> {t("Invited")}</span>
           : <button disabled={!!busy} onClick={() => void invite(friend.username)}>{busy === friend.username ? 'Sending…' : 'Invite'}</button>}
       </FriendRow>)}
     </ul> : <p>Add a classmate in Friends on the campus HUD. You can also share the room code from the lobby.</p>)}

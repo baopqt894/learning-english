@@ -1,5 +1,6 @@
 "use client";
 
+import { useStudent } from './student-support';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -72,6 +73,7 @@ export type WorldHandle = {
   capturePhoto: (format: PhotoFormat) => Promise<PhotoCapture | null>;
 };
 type Props = {
+  onNavigationReady: (world: WorldHandle | null) => void;
   initialPosition?: CampusPosition;
   pets?:PetCare;
   residentMissions?: ResidentMissionProgress;
@@ -127,7 +129,7 @@ const emptyActions = (): WorldHandle => ({
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
     pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
-    avatar, initialPosition,
+    avatar, initialPosition, onNavigationReady,
     cadetRank, quizHistory, residentMissions, completedChallenges, onResidentAccept, onResidentStart, onResidentClaim,
     enabled,
     objective,
@@ -272,7 +274,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return true;
       };
       residentAction.current = { open: () => setTalkingResident(visitor), close: () => setTalkingResident(null), voice: () => {} };
+      onNavigationReady(actionRef.current);
       return () => {
+        onNavigationReady(null);
         residentAction.current = { open: () => {}, close: () => {}, voice: () => {} };
         fallback.remove();
         actionRef.current = emptyActions();
@@ -461,6 +465,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const focusTarget = new THREE.Vector3();
     let gait = 0, movementBlend = 0, runBlend = 0;
     let route: MapPoint[] = [];
+    let runToDestination = false;
     let nearest: Place | null = null;
     let lastTime = 0;
     let frames = 0;
@@ -481,12 +486,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         resetCamera(player.group.position.x, player.group.position.z);
       }
     };
-    const walkTo = (x: number, z: number, resident: ResidentKind | null = null) => {
+    const walkTo = (x: number, z: number, resident: ResidentKind | null = null, run = true) => {
       const path = findCampusPath(player.group.position, { x, z });
       if (!path.length) return false;
       requestedResident = resident;
       resumeFollowing();
       route = path;
+      runToDestination = run;
       destination.position.set(x, campusFloorHeight({x,z})+.02, z);
       destination.visible = true;
       return true;
@@ -798,7 +804,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       if(!callbacks.current.workKind){const picked=raycaster.intersectObjects(districts.picks,false)[0];if(picked){districtTravelRef.current(picked.object.userData.district);return;}}
       const hit = raycaster.intersectObject(floor)[0];
-      if (hit) walkTo(hit.point.x, hit.point.z);
+      if (hit) walkTo(hit.point.x, hit.point.z, null, false);
     };
     const resize = () => {
       const { width, height } = host.getBoundingClientRect();
@@ -868,7 +874,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return;
       }
       if (time - lastTime < (callbacks.current.enabled || callbacks.current.swimOpen || callbacks.current.conversation || callbacks.current.studying || photoSession ? 15 : 66)) return;
-      const dt = Math.min((time - lastTime) / 1000, 0.08);
+      const frameSeconds = (time - lastTime) / 1000;
+      const dt = Math.min(frameSeconds, 0.08);
       lastTime = time;
       const swimming=!!callbacks.current.swimOpen;
       if(swimming&&!wasSwimming){
@@ -1001,7 +1008,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
           if (canWalk(nextX, nextZ)) { pos.x = nextX; pos.z = nextZ; }
           else if (canWalk(nextX, pos.z)) pos.x = nextX;
           else if (canWalk(pos.x, nextZ)) pos.z = nextZ;
-        } else if (route.length) advanceCampusRoute(pos, route, dt * (keys.has("shift") ? 9 : 6));
+        } else if (route.length) advanceCampusRoute(pos, route, Math.min(frameSeconds, .35) * (runToDestination || keys.has("shift") ? 9 : 6));
       }
       const moving = pos.x !== lastX || pos.z !== lastZ;
       if (moving) {
@@ -1012,7 +1019,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       pos.y = campusFloorHeight(pos);
       movementBlend = THREE.MathUtils.lerp(movementBlend, moving ? 1 : 0, 1 - Math.exp(-dt * 12));
-      const running = keys.has("shift");
+      const running = keys.has("shift") || (runToDestination && route.length > 0);
       animateCharacter(player,time/1000,false,reducedMotion.matches);
       runBlend = reducedMotion.matches ? 0 : THREE.MathUtils.damp(runBlend, running ? movementBlend : 0, 12, dt);
       if (!workKind) setRunningGrip(player, runBlend);
@@ -1331,7 +1338,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderFrame(time);
     });
 
+    onNavigationReady(actionRef.current);
     return () => {
+      onNavigationReady(null);
       renderer.setAnimationLoop(null);
       window.removeEventListener('pointerup',releaseActions);window.removeEventListener('pointercancel',releaseActions);window.removeEventListener('blur',releaseActions);document.removeEventListener('visibilitychange',visibilityWork);
       observer.disconnect();
@@ -1372,21 +1381,22 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       actionRef.current = emptyActions();
       districtHoldRef.current=()=>{};districtTravelRef.current=()=>{};balanceAnswerRef.current=()=>{};balanceCancelRef.current=()=>{};
     };
-  }, [avatar, charactersReady, initialPosition]);
+  }, [avatar, charactersReady, initialPosition, onNavigationReady]);
   useEffect(() => {
     actionRef.current.setQuality(highQuality);
   }, [highQuality, avatar, charactersReady]);
 
+  const { t } = useStudent();
   const presentResident = talkingResident ?? nearResident;
   const residentStatus = presentResident ? completedChallenges?.includes(`resident/${presentResident.kind}`)
     ? 'complete' : residentMissions?.[presentResident.kind] : undefined;
   return (
     <div className="campus-world">
       <div className="world-canvas" ref={hostRef} aria-busy={!charactersReady} />
-      {!charactersReady && <div className="world-fallback" role="status">Preparing your campus…</div>}
+      {!charactersReady && <div className="world-fallback" role="status">{t('Preparing your campus…')}</div>}
       <div className="world-labels" ref={labelsRef} inert={!!conversation || photoMode}>
-        {DISTRICT_STATIONS.map(s=><button key={s.id} data-station={s.id} className="map-label district-world-label" onClick={()=>districtTravelRef.current(s.id)}>{s.title}<small>Walk here to practise</small></button>)}
-        {SPORTS_VENUE_IDS.map(id=><button key={id} className="map-label zone-world-label competition-world-label" data-competition={id} onClick={()=>actionRef.current.goToRegistration(id)}>{SPORTS_VENUES[id].name}<small>Walk to registration</small></button>)}
+        {DISTRICT_STATIONS.map(s=><button key={s.id} data-station={s.id} className="map-label district-world-label" onClick={()=>districtTravelRef.current(s.id)}>{s.title}<small>{t('Walk here to practise')}</small></button>)}
+        {SPORTS_VENUE_IDS.map(id=><button key={id} className="map-label zone-world-label competition-world-label" data-competition={id} onClick={()=>actionRef.current.goToRegistration(id)}>{t(SPORTS_VENUES[id].name)}<small>{t('Walk to registration')}</small></button>)}
         {EXPLORATION_ZONES.map((zone) => (
           <button
             key={zone.id}
@@ -1394,8 +1404,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
             className="map-label zone-world-label"
             onClick={() => actionRef.current.goToZone(zone.id)}
           >
-            {zone.name}
-            <small>Khám phá khuôn viên</small>
+            {t(zone.english)}
+            <small>{t('Explore campus')}</small>
           </button>
         ))}
         {(Object.keys(PLACES) as Place[]).map((id) => (
@@ -1406,7 +1416,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
             className={`map-label label-${id} ${objective === id ? "label-objective" : ""}`}
           >
             {objective === id && <span className="quest-dot" aria-hidden="true" />}
-            {PLACES[id].name}
+            {t(PLACES[id].english)}
             <small>{PLACES[id].npc}</small>
           </button>
         ))}

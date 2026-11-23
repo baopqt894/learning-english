@@ -1,5 +1,8 @@
 "use client";
 
+import { LanguageSelect, Phrasebook, StudentContext, useStudent } from './student-support';
+import { dialogueMeaning, englishLine, rememberPhrase, translate, type Phrase, type StudentSettings } from '@/lib/student-support';
+import { conversationClue } from '@/lib/conversation-support';
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -7,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   useState,
   type FormEvent,
 } from "react";
@@ -25,7 +29,7 @@ import {
   type Progress,
 } from "@/lib/game";
 import {CampaignJournal,CampaignTracker} from './campaign-journal';
-import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,hintStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
+import {STORY_CHAPTERS,freshCampaign,storyChapterIndex,answerStory,retryStory,finishStory,recordStoryEvent,type StoryLocation,type StoryChapter} from '@/lib/campaign';
 import {nearStoryLocation,storyPosition} from '@/lib/campaign-locations';
 import { campusPositionTracker } from '@/lib/position-checkpoint';
 import { useProgress } from "@/lib/progress-store";
@@ -94,7 +98,7 @@ type SpeechWindow = Window & {
   SpeechRecognition?: new () => Recognition;
   webkitSpeechRecognition?: new () => Recognition;
 };
-type Tab = "explore" | "journey" | "teacher" | "menu";
+type Tab = "explore" | "journey" | "teacher" | "menu" | "phrasebook";
 
 function Cadet({
   variant = 0,
@@ -126,6 +130,25 @@ export function CampusGame({ account, onExpired, onLogout }: {
   onLogout: () => Promise<void>;
 }) {
   const { progress, saveProgress, saveAvailable, sync, flush, resolveConflict } = useProgress(account, onExpired);
+  const {settings: deviceSettings, change: changeDevice} = useStudent();
+  const settings = progress.student ?? deviceSettings;
+  const t = (text: string) => translate(settings.language, text);
+  const studentContext = useMemo(() => {
+    function change(value: StudentSettings) {
+      if (value.language !== deviceSettings.language) changeDevice({...deviceSettings, language:value.language});
+      saveProgress({...progress, student:value});
+    }
+    function remember(phrase: Phrase) {
+      const phrases = rememberPhrase(settings.phrases, phrase);
+      if (phrases !== settings.phrases) change({...settings, phrases});
+    }
+    return {settings, change, remember};
+  }, [settings, deviceSettings, changeDevice, progress, saveProgress]);
+  const {remember} = studentContext;
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+    window.speechSynthesis?.getVoices();
+  }, [settings.language]);
   const [logoutBusy, setLogoutBusy] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   const [tab, setTab] = useState<Tab>("explore");
@@ -221,6 +244,19 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [areaName, setAreaName] = useState("Khu trung tâm");
   const worldRef = useRef<WorldHandle>(null);
+  const navigation = useRef<WorldHandle | null>(null);
+  const pendingWalk = useRef<StoryLocation | null>(null);
+  const walkToMission = useCallback((location: StoryLocation) => {
+    const world = navigation.current;
+    if (!world) { pendingWalk.current = location; return; }
+    pendingWalk.current = null;
+    if (Object.hasOwn(PLACES,location)) world.goTo(location as Place);
+    else world.goToZone(location as ZoneId);
+  }, []);
+  const onNavigationReady = useCallback((world: WorldHandle | null) => {
+    navigation.current = world;
+    if (world && pendingWalk.current) walkToMission(pendingWalk.current);
+  }, [walkToMission]);
   useEffect(() => {
     const saveLocation = () => {
       positionTracker.observe(worldRef.current?.currentPosition());
@@ -543,7 +579,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setHint(false);
     recognitionRef.current?.abort();
     stopSpeech();
-    worldRef.current?.goToZone(zoneId);
+    requestAnimationFrame(()=>worldRef.current?.goToZone(zoneId));
     setNotice(
       zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
@@ -569,8 +605,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
   const travelStory=(location:StoryLocation)=>{
     setMobileHudOpen(false);setStoryOpen(false);setAtlasOpen(false);setTalking(null);setTab('explore');stopSpeech();
-    requestAnimationFrame(()=>{if(Object.hasOwn(PLACES,location))worldRef.current?.goTo(location as Place);else worldRef.current?.goToZone(location as ZoneId);});
-    setNotice(`Follow the gold marker. Your English clue is at ${STORY_CHAPTERS.find(c=>c.location===location)?.place||location}.`);
+    requestAnimationFrame(()=>walkToMission(location));
+    setNotice(t("Walk to mission") + " · " + t(STORY_CHAPTERS.find(c=>c.location===location)?.place||location));
   };
   const openStory=()=>{stopSpeech();setTalking(null);setTab('explore');setStoryOpen(true);};
   const practicalStory=(chapter:StoryChapter)=>{
@@ -600,12 +636,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const token=++speechToken.current;
     window.speechSynthesis.cancel();
     setSpeaking(null);
-    const utterance=new SpeechSynthesisUtterance(text);
+    const utterance=englishLine(text, settings.pace);
     utteranceRef.current=utterance;
-    utterance.lang="en-US";
-    utterance.rate=place === "library" ? .8:.9;
-    const voice=window.speechSynthesis.getVoices().find(v=>v.lang === "en-US" && v.localService);
-    if(voice) utterance.voice=voice;
     utterance.onstart=()=>{if(speechToken.current===token)setSpeaking(place);};
     utterance.onend=()=>{if(speechToken.current===token){setSpeaking(null);utteranceRef.current=null;}};
     utterance.onerror=(event)=>{
@@ -614,7 +646,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       if(event.error!=="interrupted"&&event.error!=="canceled")setNotice("Voice playback failed. You can still read the dialogue.");
     };
     window.speechSynthesis.speak(utterance);
-  }, [autoVoiceMuted]);
+  }, [autoVoiceMuted, settings.pace]);
 
   const openConversation = useCallback(() => {
     if (!near) return;
@@ -648,9 +680,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setHint(false);
     recognitionRef.current?.abort();
     stopSpeech();
-    worldRef.current?.goTo(place);
+    requestAnimationFrame(()=>walkToMission(place));
     setNotice(
-      `Đang đến ${PLACES[place].name.toLowerCase()}. Khi đến gần, chọn “Trò chuyện”.`,
+      t("Walk to mission") + " · " + t(PLACES[place].english),
     );
   };
 
@@ -755,7 +787,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const reset = () => {
     recognitionRef.current?.abort();
     stopSpeech();
-    saveProgress({ ...freshProgress(), name: progress.name, avatar: progress.avatar });
+    saveProgress({ ...freshProgress(), name: progress.name, avatar: progress.avatar, student: settings });
     setRetryReset(false);
     setTalking(null);
     setTab("explore");
@@ -811,14 +843,18 @@ export function CampusGame({ account, onExpired, onLogout }: {
     return () => { document.removeEventListener("keydown", escape); cancelAnimationFrame(frame); };
   }, [talking, modalOpen, stopSpeech]);
 
+  const npcLine = talking ? conversationMessages.findLast(m => m.role === "npc")?.text || conversationPrompt(progress,talking) : '';
+  const lineMeaning = dialogueMeaning(npcLine);
   const questTitle = quest.title.split(" · ")[1] || quest.title;
 
   return (
+    <StudentContext.Provider value={studentContext}>
     <div className={`campus-shell${talking ? " conversation-open" : ""}`}>
-      <main className="campus-stage" aria-label="Khám phá khuôn viên">
+      <main className="campus-stage" aria-label={t("Khám phá khuôn viên")}>
         <div className="scene-layer" inert={(modalOpen && !photoOpen) || !!talking || swimOpen}>
           <World
             ref={worldRef}
+            onNavigationReady={onNavigationReady}
             initialPosition={initialPosition}
             swimOpen={!!competitionView}
             competitionView={competitionView}
@@ -857,41 +893,42 @@ export function CampusGame({ account, onExpired, onLogout }: {
         {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && !placePractice && (
           <div className={`campus-hud${mapVisible ? " hud-has-map" : ""}`} inert={modalOpen}>
             <div className="hud-left">
-              <button className="player-badge" onClick={() => navigate("journey")} aria-label="Mở nhật ký và xem tiến độ">
+              <button className="player-badge" onClick={() => navigate("journey")} aria-label={t("Mở nhật ký và xem tiến độ")}>
                 <Cadet variant={progress.avatar} small />
                 <span className="player-identity">
                   <strong>{progress.name}</strong>
-                  <small>Cấp {level.level} <span>·</span> {xp} XP</small>
+                  <small>{t("Cấp")} {level.level} <span>·</span> {xp} XP</small>
                   <progress className="player-level-progress" max={level.perLevel} value={level.earned} aria-label={`Còn ${level.remaining} XP để lên cấp ${level.level + 1}`}/>
                 </span>
                 <span className="player-journal" aria-hidden="true"><Icon name="book" size={16} /></span>
               </button>
-              <button ref={mobileHudTrigger} className="mobile-hud-toggle" lang="en"
+                <CampaignTracker nearby={storyNearby} state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
+              <button ref={mobileHudTrigger} className="mobile-hud-toggle"
                 aria-expanded={mobileHudOpen} aria-controls="campus-hud-activities"
                 onClick={() => setMobileHudOpen(open => !open)}>
-                <Icon name="book" size={17}/> Missions &amp; activities <Icon name="chevron" size={15}/>
+                <Icon name="book" size={17}/> {t("Missions & activities")} <Icon name="chevron" size={15}/>
               </button>
               <div className="hud-activities" id="campus-hud-activities" data-expanded={mobileHudOpen}>
-                <CampaignTracker state={progress.campaign} onOpen={openStory} onTravel={travelStory}/>
-                <button className="activities-launch" lang="en" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> Cadet activities <Icon name="arrow" size={16}/></button>
-                <button className="activities-launch" lang="en" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>Daily missions <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small></button>
-                <button className="activities-launch" lang="en" onClick={()=>setRankingsOpen(true)}><Icon name="trophy" size={18}/>Leaderboards</button>
-                <details className="hud-more-practice" lang="en">
-                  <summary><Icon name="chevron" size={15}/>More practice</summary>
-                  <button className="activities-launch" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={16}/>Practise English here</button>
-                  <button className="activities-launch swim-race-launch" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={16}/>English competitions</button>
-                  <button className="activities-launch" onClick={()=>navigate('journey')}><Icon name="chat" size={16}/>Conversation practice</button>
+                <button className="activities-launch" onClick={()=>navigate('phrasebook')}><Icon name="book" size={18}/>{t('My phrasebook')}</button>
+                <button className="activities-launch" onClick={()=>openActivities()}><Icon name="leaf" size={18}/> {t("Cadet activities")} <Icon name="arrow" size={16}/></button>
+                <button className="activities-launch" onClick={()=>setSportsJournal('daily')}><Icon name="clock" size={18}/>{t("Daily missions")} <small>{currentDaily(progress.daily,day).completed.length}/{dailyMissions(day).length}</small></button>
+                <button className="activities-launch" onClick={()=>setRankingsOpen(true)}><Icon name="trophy" size={18}/>{t("Leaderboards")}</button>
+                <details className="hud-more-practice">
+                  <summary><Icon name="chevron" size={15}/>{t("More practice")}</summary>
+                  <button className="activities-launch" onClick={()=>openPlacePractice({area:near??EXPLORATION_ZONES.find(z=>z.name===areaName)?.id??'courtyard'})}><Icon name="book" size={16}/>{t("Practise English here")}</button>
+                  <button className="activities-launch swim-race-launch" onClick={()=>setSportsJournal('venues')}><Icon name="trophy" size={16}/>{t("English competitions")}</button>
+                  <button className="activities-launch" onClick={()=>navigate('journey')}><Icon name="chat" size={16}/>{t("Conversation practice")}</button>
                   {ACTIVITY_IDS.filter(id=>EXPLORATION_ZONES.find(z=>z.id===ACTIVITIES[id].zone)?.name===areaName).map(id=><button key={id} className="activities-launch" onClick={()=>openActivities(id)}><Icon name={ACTIVITIES[id].icon} size={16}/>{ACTIVITIES[id].title}</button>)}
                 </details>
               </div>
             </div>
 
             <div className="hud-right">
-              <div className="hud-actions" aria-label="Công cụ khuôn viên">
+              <div className="hud-actions" aria-label={t("Công cụ khuôn viên")}>
                 <FriendsButton muted={modalOpen} onOpen={() => setFriendsOpen(true)}/>
-                <button className="hud-button photo-launch" ref={photoTrigger} onClick={openPhoto} aria-label="Mở máy ảnh" title="Máy ảnh"><Icon name="camera" size={20} /></button>
-                <button className="hud-button" onClick={() => setAtlasOpen(true)} aria-label="Mở bản đồ toàn trường" title="Bản đồ toàn trường"><Icon name="map" size={20} /></button>
-                <button className="hud-button" onClick={() => navigate("menu")} aria-label="Mở menu" title="Menu"><Icon name="menu" size={20} /></button>
+                <button className="hud-button photo-launch" ref={photoTrigger} onClick={openPhoto} aria-label={t("Mở máy ảnh")} title={t("Máy ảnh")}><Icon name="camera" size={20} /></button>
+                <button className="hud-button" onClick={() => setAtlasOpen(true)} aria-label={t("Mở bản đồ toàn trường")} title={t("Bản đồ toàn trường")}><Icon name="map" size={20} /></button>
+                <button className="hud-button" onClick={() => navigate("menu")} aria-label={t("Mở menu")} title={t("Menu")}><Icon name="menu" size={20} /></button>
               </div>
               {mapVisible && (
                 <CampusMinimap player={playerPosition} waypoint={atlasDestination} area={areaName} missionName={storyChapter?.place ?? (goal && PLACES[goal.place].english)} onOpen={()=>setAtlasOpen(true)}
@@ -901,82 +938,81 @@ export function CampusGame({ account, onExpired, onLogout }: {
 
             <div className="hud-area">
               <Icon name="target" size={16} />
-              <span className="hud-area-name">{areaName}</span>
-              <small className="desktop-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Di chuyển</small>
+              <span className="hud-area-name">{t(areaName)}</span>
+              <small className="desktop-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> {t("Di chuyển")}</small>
             </div>
             {registration && !classStudy && (
-              <button ref={deskTrigger} className="interact-button sports-register" lang="en" onClick={()=>worldRef.current?.openRegistration()}>
-                <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> Register at {SPORTS_VENUES[registration].name.toLowerCase()}
+              <button ref={deskTrigger} className="interact-button sports-register" onClick={()=>worldRef.current?.openRegistration()}>
+                <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> {t("Register at")} {t(SPORTS_VENUES[registration].name)}
               </button>
             )}
             {nearReadingTable(playerPosition) && !levelMissionTravel && (
               <button className="interact-button" lang="en" onClick={()=>openPlacePractice({area:"garden",reading:true})}>
-                <kbd>E</kbd><Icon name="book" size={19}/> Read and practise English
+                <kbd>E</kbd><Icon name="book" size={19}/> {t("Read and practise English")}
               </button>
             )}
             {near && !registration && (
               <button className="interact-button" onClick={interactWithStoryNpc}>
-                <kbd>E</kbd><Icon name="chat" size={19} /> {storyAction} · {PLACES[near].npc}
+                <kbd>E</kbd><Icon name="chat" size={19} /> {t(storyAction)} · {PLACES[near].npc}
               </button>
             )}
-            <div className="camera-tools" aria-label="Camera">
-              <button className="hud-button" onClick={() => worldRef.current?.zoom(0.15)} aria-label="Phóng to cảnh" title="Phóng to"><Icon name="plus" size={18} /></button>
-              <button className="hud-button" onClick={() => worldRef.current?.zoom(-0.15)} aria-label="Thu nhỏ cảnh" title="Thu nhỏ"><Icon name="minus" size={18} /></button>
-              <button className="hud-button" onClick={() => worldRef.current?.recenter()} aria-label="Đặt lại camera" title="Đặt lại camera"><Icon name="target" size={18} /></button>
+            <div className="camera-tools" aria-label={t("Camera")}>
+              <button className="hud-button" onClick={() => worldRef.current?.zoom(0.15)} aria-label="Phóng to cảnh" title={t("Phóng to")}><Icon name="plus" size={18} /></button>
+              <button className="hud-button" onClick={() => worldRef.current?.zoom(-0.15)} aria-label="Thu nhỏ cảnh" title={t("Thu nhỏ")}><Icon name="minus" size={18} /></button>
+              <button className="hud-button" onClick={() => worldRef.current?.recenter()} aria-label={t("Đặt lại camera")} title={t("Đặt lại camera")}><Icon name="target" size={18} /></button>
             </div>
-            <p className="travel-notice" role="status">{notice}</p>
+            <p className="travel-notice" role="status">{t(notice)}</p>
           </div>
         )}
                 {talking && (
-                  <section className="encounter" lang="en" aria-label={`Talk to ${dialogueName}`} data-speaking={speaking === talking} inert={modalOpen}>
+                  <section className="encounter" lang={settings.language} aria-label={`Talk to ${dialogueName}`} data-speaking={speaking === talking} inert={modalOpen}>
                     <NpcPortrait place={talking}/>
                     <div className="encounter-topline">
-                      <span><Icon name="target" size={16} /> {person.english}</span>
+                      <span><Icon name="target" size={16} /> {t(person.english)}</span>
                       <button className="encounter-exit" onClick={closeConversation}>
-                        Back to campus <Icon name="close" size={18} />
+                        {t("Back to campus")} <Icon name="close" size={18} />
                       </button>
                     </div>
                     <div className="encounter-caption">
-                      <div className="learning-objective"><span>{lesson.level}</span><strong>{encounterGoal?.label || (goal ? `Next: ${goal.label}` : "Mission complete")}</strong><span>{progress.goals.length}/{quest.goals.length}</span></div>
+                      <div className="learning-objective"><span>{lesson.level.split(" · ")[0]}</span><strong>{encounterGoal ? t(encounterGoal.label) : (goal ? t(goal.label) : t("Mission complete"))}</strong><span>{progress.goals.length}/{quest.goals.length}</span></div>
                       <div className="encounter-speaker">
-                        <div><strong>{dialogueName}</strong><span>{dialogueRole}</span></div>{speaking === talking && <span className="encounter-turn">Speaking</span>}
+                        <div><strong>{dialogueName}</strong><span>{t(dialogueRole)}</span></div>{speaking === talking && <span className="encounter-turn">{t("Speaking")}</span>}
                         <button
                           onClick={() => {
                             setAutoVoiceMuted((muted) => !muted);
                             stopSpeech();
                           }}
                           className="icon-button auto-voice"
-                          aria-label="Auto voice"
+                          aria-label={t("Auto voice")}
                           aria-pressed={!autoVoiceMuted}
-                          title={autoVoiceMuted ? "Automatic voice off" : "Automatic voice on"}
+                          title={autoVoiceMuted ? t("Automatic voice off") : t("Automatic voice on")}
                         >
                           <Icon name={autoVoiceMuted ? "mute" : "sound"} size={18} />
-                          <span>Auto voice {autoVoiceMuted ? "off" : "on"}</span>
+                          <span>{t(autoVoiceMuted ? "Automatic voice off" : "Automatic voice on")}</span>
                         </button>
                       </div>
                       <div className="encounter-line" aria-live="polite" aria-atomic="true">
-                        <p>{conversationMessages.findLast((m) => m.role === "npc")?.text || conversationPrompt(progress,talking)}</p>
-                        <button className="replay-button" onClick={() => speak(conversationMessages.findLast((m) => m.role === "npc")?.text || conversationPrompt(progress,talking), talking)} aria-label="Replay reply"><Icon name="sound" size={20} /></button>
+                        <p lang="en">{npcLine}</p>
+                        <button className="replay-button" onClick={() => speak(npcLine, talking)} aria-label={t("Replay reply")}><Icon name="sound" size={20} /></button>
                       </div>
-                      {conversationMessages.at(-2)?.role === "student" && <p className="encounter-your-line">You: {conversationMessages.at(-2)?.text}</p>}
-                      {turnFeedback && <div className={`learning-feedback learning-${turnFeedback}`} role="status"><strong>{turnFeedback === "success" ? "Message understood" : "Keep practising"}</strong><span>{turnFeedback === "success" ? "You completed a real communication goal. Listen for your next step." : lesson.tip}</span></div>}
-                      {encounterGoal && <div className="learning-support"><button aria-expanded={practiceFirst} onClick={()=>{setPracticeFirst(!practiceFirst);setHint(false);}}>Listen to a model</button></div>}
-                      {practiceFirst && encounterGoal && <div className="model-practice"><p>{encounterGoal.hint}</p><button onClick={()=>speak(encounterGoal.hint,talking)}>Play model</button><small>Try saying it yourself. Then choose Speak or Type to answer.</small></div>}
-                      {near !== talking && <p className="inline-notice">Move closer to continue this conversation.</p>}
-                      {hint && encounterGoal && <div className="encounter-hint" id="encounter-hint"><Icon name="bulb" size={20} /><div><small>Try saying</small><p>{encounterGoal.hint}</p></div><button onClick={() => { setResponseMode("text"); setDraft(encounterGoal.hint); requestAnimationFrame(() => draftRef.current?.focus()); }} title="Fill in the suggested reply">Use this <Icon name="arrow" size={16} /></button></div>}
+                      {conversationMessages.at(-2)?.role === "student" && <p className="encounter-your-line">{t("You:")} {conversationMessages.at(-2)?.text}</p>}
+                      {turnFeedback && <div className={`learning-feedback learning-${turnFeedback}`} role="status"><strong>{turnFeedback === "success" ? t("Message understood") : t("Keep practising")}</strong><span>{turnFeedback === "success" ? t("You completed a real communication goal. Listen for your next step.") : lesson.tip}</span></div>}
+                      {lineMeaning && <div className="learning-support"><button aria-expanded={practiceFirst} onClick={()=>{if(!practiceFirst) remember({en:npcLine,vi:lineMeaning});setPracticeFirst(!practiceFirst);}}>{t(practiceFirst?'Hide meaning':'Save and show meaning')}</button>{practiceFirst && <p lang="vi">{lineMeaning}</p>}</div>}
+                      {near !== talking && <p className="inline-notice">{t('Move closer to continue this conversation.')}</p>}
+                      {hint && encounterGoal && <div className="encounter-hint" id="encounter-hint"><Icon name="bulb" size={20}/><p>{conversationClue(encounterGoal.id, settings.language)}</p></div>}
                       {responseMode && encounterGoal && !finished && <form className="encounter-form" onSubmit={send}>
                         {listening && <span className="voice-wave" aria-hidden="true"><i /><i /><i /><i /><i /></span>}
-                        <input ref={draftRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={listening ? "Listening…" : responseMode === "voice" ? "Review your words, then send…" : "Type your reply…"} aria-label="Your English reply" maxLength={600} disabled={near !== talking || listening} />
-                        <button type="submit" disabled={!draft.trim() || near !== talking || listening} aria-label="Send reply"><Icon name="send" size={20} /><span>Send</span></button>
+                        <input ref={draftRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={listening ? t("Listening…") : responseMode === "voice" ? t("Review your words, then send…") : t("Type your reply…")} aria-label={t("Your English reply")} maxLength={600} disabled={near !== talking || listening} />
+                        <button type="submit" disabled={!draft.trim() || near !== talking || listening} aria-label={t("Send reply")}><Icon name="send" size={20} /><span>{t("Send")}</span></button>
                       </form>}
-                      {finished && !allDone ? <button className="encounter-claim" onClick={claim}><Icon name="trophy" size={22} /> Mission complete · Quick review <Icon name="arrow" size={20} /></button> : !allDone && encounterGoal && <div className="encounter-options" aria-label="Reply options">
-                        <button onClick={() => setHint(!hint)} aria-expanded={hint} aria-controls="encounter-hint" className={hint ? "option-active" : ""} disabled={!encounterGoal} title={!encounterGoal ? "Hints are available at your current quest character" : "Show hint"}><Icon name="bulb" size={19} /><span>Hint</span></button>
-                        <button onClick={() => { setResponseMode("voice"); microphone(); }} aria-pressed={listening} className={listening ? "option-listening" : responseMode === "voice" ? "option-active" : ""} disabled={near !== talking}><Icon name="mic" size={23} /><span>{listening ? "Stop mic" : "Speak"}</span></button>
-                        <button onClick={() => { recognitionRef.current?.abort(); setListening(false); setResponseMode("text"); requestAnimationFrame(() => draftRef.current?.focus()); }} className={responseMode === "text" ? "option-active" : ""} disabled={near !== talking}><Icon name="chat" size={23} /><span>Type</span></button>
+                      {finished && !allDone ? <button className="encounter-claim" onClick={claim}><Icon name="trophy" size={22} /> {t("Mission complete · Quick review")} <Icon name="arrow" size={20} /></button> : !allDone && encounterGoal && <div className="encounter-options" aria-label={t("Reply options")}>
+                        <button onClick={() => setHint(true)} aria-expanded={hint} aria-controls="encounter-hint" className={hint ? "option-active" : ""} disabled={!encounterGoal || hint} title={!encounterGoal ? "Hints are available at your current quest character" : t("Show hint")}><Icon name="bulb" size={19} /><span>{t("Hint")}</span></button>
+                        <button onClick={() => { setResponseMode("voice"); microphone(); }} aria-pressed={listening} className={listening ? "option-listening" : responseMode === "voice" ? "option-active" : ""} disabled={near !== talking}><Icon name="mic" size={23} /><span>{listening ? t("Stop mic") : t("Speak")}</span></button>
+                        <button onClick={() => { recognitionRef.current?.abort(); setListening(false); setResponseMode("text"); requestAnimationFrame(() => draftRef.current?.focus()); }} className={responseMode === "text" ? "option-active" : ""} disabled={near !== talking}><Icon name="chat" size={23} /><span>{t("Type")}</span></button>
                       </div>}
                       {goal && goal.place !== talking && <button className="learning-next-stop" onClick={()=>goTo(goal.place)}>Next: {PLACES[goal.place].english} <Icon name="arrow" size={18}/></button>}
-                      <div className="encounter-footer"><span role="status">{notice || (allDone ? "Journey complete. Keep exploring the campus." : "")}</span><button onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory}>{showHistory ? "Hide history" : "History"}<Icon name="clock" size={14} /></button></div>
-                      {showHistory && <div className="encounter-history" role="log" aria-label="Conversation history" ref={messagesRef}><p><strong>{dialogueName}</strong>{person.greeting}</p>{conversationMessages.map((m, i) => <p key={i}><strong>{m.role === "npc" ? dialogueName : "You"}</strong>{m.text}</p>)}</div>}
+                      <div className="encounter-footer"><span role="status">{t(notice) || (allDone ? "Journey complete. Keep exploring the campus." : "")}</span><button onClick={() => setShowHistory(!showHistory)} aria-expanded={showHistory}>{showHistory ? t("Hide history") : t("History")}<Icon name="clock" size={14} /></button></div>
+                      {showHistory && <div className="encounter-history" role="log" aria-label={t("Conversation history")} ref={messagesRef}><p><strong>{dialogueName}</strong>{person.greeting}</p>{conversationMessages.map((m, i) => <p key={i}><strong>{m.role === "npc" ? dialogueName : t("You")}</strong>{m.text}</p>)}</div>}
                     </div>
                   </section>
                 )}
@@ -1016,13 +1052,12 @@ export function CampusGame({ account, onExpired, onLogout }: {
       {travelingMission && levelMissionTravel && !physicalWork && !modalOpen && !swimOpen && !talking && <div className="study-arrival level-mission-arrival" lang="en">
         <p>{travelingMission.title} · {travelingMission.place}</p>
         <button className="activity-button" disabled={!nearStoryLocation(travelingMission.area,playerPosition) || level.level < travelingMission.level}
-          onClick={()=>startLevelMission(levelMissionTravel)}>Start mission quiz</button>
-        <button className="activity-back" onClick={()=>setLevelMissionTravel(null)}>Cancel</button>
+          onClick={()=>startLevelMission(levelMissionTravel)}>{t("Start mission quiz")}</button>
+        <button className="activity-back" onClick={()=>setLevelMissionTravel(null)}>{t("Cancel")}</button>
       </div>}
-      {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>Walk into Classroom A1 to take your English challenge.</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>Take the classroom challenge</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>Cancel</button></div>}
+      {studyTravel&&!physicalWork&&<div className="study-arrival" lang="en"><p>{t("Walk into Classroom A1 to take your English challenge.")}</p><button className="activity-button" disabled={!atClassroom} onClick={()=>{setStudyTravel(false);openActivities('academy');}}>{t("Take the classroom challenge")}</button><button className="activity-back" onClick={()=>setStudyTravel(false)}>{t("Cancel")}</button></div>}
       {storyOpen&&<CampaignJournal progress={progress} nearby={storyNearby} saveAvailable={saveAvailable} onClose={()=>{setStoryOpen(false);window.speechSynthesis?.cancel();}} onTravel={travelStory} onPractical={practicalStory}
         onAnswer={(chapter,word)=>{const result=answerStory(campaign,chapter,word,storyNearby);if(result.state!==campaign)saveProgress({...progress,campaign:result.state});return result.correct;}}
-        onHint={chapter=>saveProgress({...progress,campaign:hintStory(campaign,chapter)})}
         onRetry={chapter=>saveProgress({...progress,campaign:retryStory(campaign,chapter)})}
         onFinish={(chapter,word)=>{const next=finishStory(campaign,chapter,word,storyNearby,{garden:!!progress.fieldwork?.garden.reported,duty:!!progress.fieldwork?.duty.reported});if(next===campaign)return false;saveProgress({...progress,campaign:next});return true;}}/>}
       {activityOpen&&<CampusActivities onStudy={setClassStudy} onFieldwork={prepareFieldwork} inClassroom={atClassroom} onStudyTravel={()=>{closeActivities();setLevelMissionTravel(null);setStudyTravel(true);goToZone('classrooms');}}
@@ -1042,34 +1077,41 @@ export function CampusGame({ account, onExpired, onLogout }: {
           requestAnimationFrame(()=>worldRef.current?.goToPractice('balance'));
         }} progress={progress} saveAvailable={saveAvailable} initial={activityInitial} onClose={closeActivities} onTravel={zone=>{closeActivities();goToZone(zone);}} onComplete={(id,answers,quizTier)=>saveReward(finishActivity(progress,id,answers,quizTier))}/>}
 
+      {tab === "phrasebook" && <Phrasebook onClose={()=>navigate("explore")}/>}
+
       {tab === "menu" && (
         <div className="modal-backdrop">
           <section className="pause-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
-            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng menu"><Icon name="close" /></button>
-            <h2 id="menu-title">Tạm dừng</h2>
-            <button className="primary-button full-width" onClick={() => navigate("explore")}>Tiếp tục chơi <Icon name="arrow" size={18} /></button>
+            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label={t("Đóng menu")}><Icon name="close" /></button>
+            <h2 id="menu-title">{t("Tạm dừng")}</h2>
+            <button className="primary-button full-width" onClick={() => navigate("explore")}>{t("Tiếp tục chơi")} <Icon name="arrow" size={18} /></button>
+            <LanguageSelect/>
             <div className="pause-list">
-              <button onClick={() => navigate("journey")}><Icon name="book" /> Nhật ký nhiệm vụ</button>
-              <button onClick={()=>openActivities()}><Icon name="leaf"/> Cadet activities · 3 hoạt động mới</button>
-              <button onClick={() => navigate("teacher")}><Icon name="school" /> Góc giáo viên</button>
-              <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> Hướng dẫn chơi</button>
-              <Link href="/character-study" className="character-study-link"><Icon name="users" /> Dàn nhân vật 3D</Link>
-              <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> Bộ sưu tập hình ảnh</button>
-              <button onClick={() => { navigate("explore"); setMobileHudOpen(false); worldRef.current?.overview(); }}><Icon name="compass" /> Xem toàn cảnh 3D</button>
-              <button className="minimap-setting" onClick={() => setMapVisible(!mapVisible)} aria-pressed={mapVisible}><Icon name="map" /> Bản đồ nhỏ <span>{mapVisible ? "Bật" : "Tắt"}</span></button>
-              <button onClick={() => setHighQuality((quality) => !quality)}><Icon name="leaf" /> Đồ họa <span>{highQuality ? "Chi tiết" : "Nhẹ"}</span></button>
-              <button onClick={toggleFullscreen}><Icon name="fullscreen" /> {fullscreen ? "Thoát toàn màn hình" : "Bật toàn màn hình"}</button>
+              <button onClick={()=>navigate("phrasebook")}><Icon name="book"/>{t('My phrasebook')}</button>
+              <button onClick={() => navigate("journey")}><Icon name="book" /> {t("Nhật ký nhiệm vụ")}</button>
+              <button onClick={()=>openActivities()}><Icon name="leaf"/> {t("Cadet activities")}</button>
+              <button onClick={() => { setTab("explore"); setHelp(true); }}><Icon name="info" /> {t("Hướng dẫn chơi")}</button>
             </div>
+            <details className="student-extras"><summary>{t("More options")}</summary><div className="pause-list">
+              <button onClick={() => navigate("teacher")}><Icon name="school" /> {t("Góc giáo viên")}</button>
+              <Link href="/character-study" className="character-study-link"><Icon name="users" /> {t("Dàn nhân vật 3D")}</Link>
+              <button onClick={() => { setTab("explore"); setArtGallery(true); }}><Icon name="image" /> {t("Bộ sưu tập hình ảnh")}</button>
+              <button onClick={() => { navigate("explore"); setMobileHudOpen(false); worldRef.current?.overview(); }}><Icon name="compass" /> {t("Xem toàn cảnh 3D")}</button>
+              <button className="minimap-setting" onClick={() => setMapVisible(!mapVisible)} aria-pressed={mapVisible}><Icon name="map" /> {t("Bản đồ nhỏ")} <span>{mapVisible ? t("Bật") : t("Tắt")}</span></button>
+              <button onClick={() => setHighQuality((quality) => !quality)}><Icon name="leaf" /> {t("Đồ họa")} <span>{highQuality ? t("Chi tiết") : t("Nhẹ")}</span></button>
+              <button onClick={toggleFullscreen}><Icon name="fullscreen" /> {fullscreen ? t("Thoát toàn màn hình") : t("Bật toàn màn hình")}</button>
+            </div>
+            </details>
             <div className="account-menu-state">
-              <strong>Tài khoản · {account.username}</strong>
-              <p className="save-status" role="status">{SYNC_LABELS[sync]}</p>
+              <strong>{t("Tài khoản ·")} {account.username}</strong>
+              <p className="save-status" role="status">{t(SYNC_LABELS[sync])}</p>
               <div className="account-menu-actions">
-                {sync === 'offline' && <button className="outline-button" onClick={() => void flush()}>Thử lưu lại</button>}
+                {sync === 'offline' && <button className="outline-button" onClick={() => void flush()}>{t("Thử lưu lại")}</button>}
                 {sync === 'conflict' && <>
-                  <button className="outline-button" onClick={() => resolveConflict(false)}>Dùng tiến độ máy chủ</button>
-                  <button className="outline-button" onClick={() => resolveConflict(true)}>Lưu tiến độ thiết bị này</button>
+                  <button className="outline-button" onClick={() => resolveConflict(false)}>{t("Dùng tiến độ máy chủ")}</button>
+                  <button className="outline-button" onClick={() => resolveConflict(true)}>{t("Lưu tiến độ thiết bị này")}</button>
                 </>}
-                <button className="outline-button" disabled={logoutBusy} onClick={() => void logout()}>Đăng xuất</button>
+                <button className="outline-button" disabled={logoutBusy} onClick={() => void logout()}>{t("Đăng xuất")}</button>
               </div>
               {logoutError && <p className="save-status" role="alert">{logoutError}</p>}
             </div>
@@ -1080,14 +1122,14 @@ export function CampusGame({ account, onExpired, onLogout }: {
       {tab === "journey" && (
         <div className="modal-backdrop">
           <section className="quest-journal" role="dialog" aria-modal="true" aria-labelledby="journal-title">
-            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng nhật ký"><Icon name="close" /></button>
+            <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label={t("Đóng nhật ký")}><Icon name="close" /></button>
             <header className="journal-heading">
-              <h2 id="journal-title">Nhật ký nhiệm vụ</h2>
-              <span>{progress.completed.length}/{QUESTS.length} hoàn thành <b><Icon name="star" size={14} />{xp} XP</b></span>
+              <h2 id="journal-title">{t("Nhật ký nhiệm vụ")}</h2>
+              <span>{progress.completed.length}/{QUESTS.length} {t("hoàn thành")} <b><Icon name="star" size={14} />{xp} XP</b></span>
             </header>
             <div className="journal-layout">
               <div className="journal-brief">
-                <h3 lang="en">{allDone ? "English Discovery Day" : questTitle}</h3>
+                <h3 lang="en">{allDone ? t("English Discovery Day") : questTitle}</h3>
                 <button className="activity-back" onClick={()=>openActivities()}>Cadet activities · Garden / Duty / English challenge <Icon name="arrow" size={16}/></button>
                 <p lang="en">{allDone ? "All missions complete." : quest.description}</p>
                 {!allDone && <>
@@ -1095,12 +1137,12 @@ export function CampusGame({ account, onExpired, onLogout }: {
                     {quest.goals.map((objective) => {
                       const done = progress.goals.includes(objective.id);
                       return <li key={objective.id} className={done ? "is-complete" : ""} aria-current={goal?.id === objective.id ? "step" : undefined}>
-                        <Icon name={done ? "check" : "target"} size={17} /> {objective.label}
+                        <Icon name={done ? "check" : "target"} size={17} /> {goal?.id===objective.id ? <button className="journal-route" onClick={()=>goTo(objective.place)}>{t(objective.label)} <Icon name="arrow" size={15}/></button> : t(objective.label)}
                       </li>;
                     })}
                   </ol>
                   <details className="journal-words">
-                    <summary>Câu mẫu và từ vựng</summary>
+                    <summary>{t("Câu mẫu và từ vựng")}</summary>
                     <strong lang="en">{lesson.skill}</strong>
                     <p lang="en">{lesson.pattern}</p>
                     <ul>{lesson.words.map((word) => <li key={word}>{word}</li>)}</ul>
@@ -1122,18 +1164,18 @@ export function CampusGame({ account, onExpired, onLogout }: {
                       <Icon name={done ? "check" : index === progress.active ? "compass" : "lock"} size={18} />
                       <span>
                         <strong lang="en">{mission.title.replace(/^\d+ · /, "")}</strong>
-                        <small>{done ? mission.badge : index === progress.active ? "Đang thực hiện" : mission.minutes}</small>
+                        <small>{done ? mission.badge : index === progress.active ? t("Đang thực hiện") : mission.minutes}</small>
                       </span>
                       <span>+{mission.xp} XP</span>
                     </li>;
                   })}
                 </ol>
-                <section className="journal-inventory" aria-label="Hành trang">
-                  <h3>Hành trang</h3>
+                <section className="journal-inventory" aria-label={t("Hành trang")}>
+                  <h3>{t("Hành trang")}</h3>
                   <ul>
-                    <li><span className="inventory-art" /> Ba lô</li>
-                    <li className={progress.completed.includes(2) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(2) && <Icon name="lock" size={21} />}</span> Sách{!progress.completed.includes(2) && <small>Chưa mở</small>}</li>
-                    <li className={progress.completed.includes(4) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(4) && <Icon name="lock" size={21} />}</span> Đồ ăn{!progress.completed.includes(4) && <small>Chưa mở</small>}</li>
+                    <li><span className="inventory-art" /> {t("Ba lô")}</li>
+                    <li className={progress.completed.includes(2) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(2) && <Icon name="lock" size={21} />}</span> {t("Sách")}{!progress.completed.includes(2) && <small>{t("Chưa mở")}</small>}</li>
+                    <li className={progress.completed.includes(4) ? "" : "item-locked"}><span className="inventory-art" aria-hidden="true">{!progress.completed.includes(4) && <Icon name="lock" size={21} />}</span> {t("Đồ ăn")}{!progress.completed.includes(4) && <small>{t("Chưa mở")}</small>}</li>
                   </ul>
                 </section>
               </div>
@@ -1148,7 +1190,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             <button className="modal-close icon-button" onClick={() => navigate("explore")} aria-label="Đóng góc giáo viên"><Icon name="close" /></button>
             <div className="page-heading">
               <div>
-                <h2 id="teacher-title">Góc giáo viên</h2>
+                <h2 id="teacher-title">{t("Góc giáo viên")}</h2>
                 <p>
                   Dữ liệu của một học viên trên trình duyệt này; chưa có quản lý
                   lớp hay tài khoản trực tuyến.
@@ -1203,7 +1245,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
                   />
                   <span>
                     <strong>Làm quen</strong>
-                    <small>Chọn Hint để xem và điền câu gợi ý khi trò chuyện.</small>
+                    <small>{t("Xem gợi ý ngắn rồi tự nói hoặc gõ câu trả lời.")}</small>
                   </span>
                 </label>
                 <label
@@ -1273,7 +1315,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
                       className="primary-button"
                       onClick={() => setTab("explore")}
                     >
-                      Vào khuôn viên
+                      {t("Vào khuôn viên")}
                       <Icon name="arrow" size={17} />
                     </button>
                   </div>
@@ -1357,69 +1399,31 @@ export function CampusGame({ account, onExpired, onLogout }: {
               className="modal-close icon-button"
               autoFocus
               onClick={() => setHelp(false)}
-              aria-label="Đóng hướng dẫn"
+              aria-label={t("Close")}
             >
               <Icon name="close" />
             </button>
             <span className="help-emblem">
               <Icon name="compass" size={35} />
             </span>
-            <h2 id="help-title">Cùng khám phá CampusQuest</h2>
+            <h2 id="help-title">{t('How to play')}</h2>
             <ol>
-              <li>
-                <strong>Nhận nhiệm vụ</strong>
-                <span>
-                  Mở nhật ký để xem mục tiêu, câu mẫu và từ vựng. Chọn mục tiêu trên màn chơi để đến gặp nhân vật.
-                </span>
-              </li>
-              <li>
-                <strong>Khám phá khuôn viên</strong>
-                <span>
-                  Dùng WASD, phím mũi tên, giữ Shift để chạy, bấm sân hoặc chọn
-                  một địa điểm trên bản đồ toàn trường để di chuyển.
-                </span>
-              </li>
-              <li>
-                <strong>Trò chuyện bằng tiếng Anh</strong>
-                <span>
-                  Đến gần nhân vật, bấm Trò chuyện hoặc E. Nhập câu hoặc dùng
-                  micro, kiểm tra văn bản rồi gửi.
-                </span>
-              </li>
-              <li>
-                <strong>Nhận thưởng và tiếp tục</strong>
-                <span>Hoàn thành mọi mục tiêu, nhận XP và huy hiệu.</span>
-              </li>
+              <li><strong>{t('Walk to mission')}</strong><span>{t('Tap the mission under your name. Your character walks there. Tap it again when you arrive.')}</span></li>
+              <li><strong>{t('Speak in English')}</strong><span>{t('Listen to the character. Tap Speak or Type and answer in your own words.')}</span></li>
+              <li><strong>{t('My phrasebook')}</strong><span>{t('Tap Show meaning to save a phrase. Open your phrasebook in the menu to practise it again.')}</span></li>
             </ol>
-            <div className="teacher-note">
-              <Icon name="info" size={22} />
-              <p>
-                Đây là bản mẫu theo kịch bản, chưa kết nối AI tạo sinh. Micro và
-                giọng đọc tùy trình duyệt; nhận giọng nói có thể sử dụng dịch vụ
-                của trình duyệt. Tiến độ lưu trên máy này. Chưa có chấm phát âm,
-                thu âm hay báo cáo cả lớp.
-              </p>
-            </div>
-            <a
-              className="school-source"
-              href="https://103.72.97.24/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Logo và ảnh tham chiếu: Website Phân hiệu 1 ↗
-            </a>
             <button
               className="primary-button full-width"
               onClick={() => setHelp(false)}
             >
-              Sẵn sàng khám phá
+              {t("Got it")}
               <Icon name="arrow" size={17} />
             </button>
           </section>
         </div>
       )}
 
-      {reviewOpen && <div className="modal-backdrop"><section className="learning-review" role="dialog" aria-modal="true" aria-labelledby="review-title" lang="en"><button className="modal-close icon-button" aria-label="Close review" onClick={()=>setReviewOpen(false)}><Icon name="close" /></button><span className="review-book"><Icon name="book" size={28}/></span><h2 id="review-title">Before your next adventure</h2><p>{lesson.question}</p><div className="review-choices">{lesson.choices.map((choice,i)=><button key={choice} aria-pressed={reviewChoice===i} onClick={()=>setReviewChoice(i)} className={reviewChoice===i ? i===lesson.answer ? "review-correct":"review-retry":""}>{choice}</button>)}</div>{reviewChoice!==null && <p className="review-explanation" role="status">{reviewChoice===lesson.answer ? `That’s right. ${lesson.tip}` : "Not quite. Think about the details you heard in the conversation, then try again."}</p>}<div className="review-takeaway"><strong>Keep this phrase</strong><p>{lesson.pattern}</p></div><button className="primary-button full-width" disabled={reviewChoice!==lesson.answer} onClick={completeMission}>Collect {quest.xp} XP & continue <Icon name="arrow" size={18}/></button></section></div>}
+      {reviewOpen && <div className="modal-backdrop"><section className="learning-review" role="dialog" aria-modal="true" aria-labelledby="review-title" lang="en"><button className="modal-close icon-button" aria-label={t("Close review")} onClick={()=>setReviewOpen(false)}><Icon name="close" /></button><span className="review-book"><Icon name="book" size={28}/></span><h2 id="review-title">{t("Before your next adventure")}</h2><p>{lesson.question}</p><div className="review-choices">{lesson.choices.map((choice,i)=><button key={choice} aria-pressed={reviewChoice===i} onClick={()=>setReviewChoice(i)} className={reviewChoice===i ? i===lesson.answer ? "review-correct":"review-retry":""}>{choice}</button>)}</div>{reviewChoice!==null && <p className="review-explanation" role="status">{reviewChoice===lesson.answer ? `That’s right. ${lesson.tip}` : "Not quite. Think about the details you heard in the conversation, then try again."}</p>}<div className="review-takeaway"><strong>{t("Keep this phrase")}</strong><p>{lesson.pattern}</p></div><button className="primary-button full-width" disabled={reviewChoice!==lesson.answer} onClick={completeMission}>{t("Collect")} {quest.xp} {t("XP & continue")} <Icon name="arrow" size={18}/></button></section></div>}
 
       {rankingsOpen && <CampusLeaderboards avatar={progress.avatar} nickname={progress.name} onVenue={venue=>{setRankingsOpen(false);walkToRegistration(venue);}} flush={flush} onClose={()=>setRankingsOpen(false)}/>}
       {atlasOpen && <CampusMap player={playerPosition} progress={progress} onSelect={setAtlasDestination}
@@ -1448,7 +1452,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             >
               <Icon name="close" />
             </button>
-            <h2 id="gallery-title">Bộ sưu tập hình ảnh</h2>
+            <h2 id="gallery-title">{t("Bộ sưu tập hình ảnh")}</h2>
             <p>
               Hình ảnh được tạo riêng cho hành trình tại Phân hiệu 1. Chọn một
               hình để tải bản chi tiết.
@@ -1571,5 +1575,6 @@ export function CampusGame({ account, onExpired, onLogout }: {
         </div>
       )}
     </div>
+    </StudentContext.Provider>
   );
 }

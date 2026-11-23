@@ -1,4 +1,6 @@
 "use client";
+import { englishLine } from '@/lib/student-support';
+import { useStudent } from './student-support';
 import {useEffect,useRef,useState} from 'react';
 import {Icon} from './icon';
 import type {DistrictFrame} from '@/lib/campus-districts-layout';
@@ -9,6 +11,7 @@ function BalancePrompt({frame,level,tier,onTier,onStart,onAnswer,onCancel}:{
   frame:DistrictFrame;level:number;tier:EnglishTier;onTier:(tier:EnglishTier)=>void;
   onStart:()=>void;onAnswer:(answer:string)=>void;onCancel:()=>void;
 }) {
+  const { t } = useStudent();
   const run = frame.balance?.run;
   const stage = run?.stage;
   const config = BALANCE_TIERS[tier];
@@ -23,8 +26,8 @@ function BalancePrompt({frame,level,tier,onTier,onStart,onAnswer,onCancel}:{
       {active && <button className="balance-close" type="button" aria-label="Leave balance challenge" onClick={onCancel}><Icon name="close" size={18}/></button>}
     </div>
     {stage?.kind === 'quiz' && question ? <>
-      <div className="balance-quiz-meta"><span>Question {run!.index + 1} / {run!.questions.length} · {run!.tier}</span><strong>{frame.balance!.remaining}s</strong></div>
-      <progress className="balance-timer" aria-label="Time remaining" max={BALANCE_TIERS[run!.tier].seconds} value={frame.balance!.remaining}/>
+      <div className="balance-quiz-meta"><span>{t("Question")} {run!.index + 1} / {run!.questions.length} · {run!.tier}</span><strong>{frame.balance!.remaining}s</strong></div>
+      <progress className="balance-timer" aria-label={t("Time remaining")} max={BALANCE_TIERS[run!.tier].seconds} value={frame.balance!.remaining}/>
       <p className="balance-question" tabIndex={-1} ref={heading}>{question.prompt}</p>
       <div className="balance-choices">
         {question.choices.map((choice,i) => <button type="button" key={choice} onClick={()=>onAnswer(choice)}><kbd>{i+1}</kbd>{choice}</button>)}
@@ -36,7 +39,7 @@ function BalancePrompt({frame,level,tier,onTier,onStart,onAnswer,onCancel}:{
           {stage?.kind === 'failed' && question ? `${stage.reason === 'timeout' ? 'Time ran out.' : 'You fell off the beam.'} The answer was “${question.answer}”. ${question.explanation}`
             : stage?.kind === 'done' ? frame.instruction : `Answer ${config.positions.length - 1} English questions to cross. A wrong answer or timeout makes you fall.`}
         </p>
-        <label className="balance-tier">Difficulty
+        <label className="balance-tier">{t("Difficulty")}
           <select value={tier} onChange={event=>onTier(event.target.value as EnglishTier)}>
             {ENGLISH_TIERS.map(id=><option key={id} value={id} disabled={level < TIER_LEVEL[id]}>
               {id} · {level < TIER_LEVEL[id] ? `Unlocks at Level ${TIER_LEVEL[id]}` : `${BALANCE_TIERS[id].seconds}s per question`}
@@ -45,7 +48,7 @@ function BalancePrompt({frame,level,tier,onTier,onStart,onAnswer,onCancel}:{
         </label>
         <button type="button" className="balance-start" onClick={onStart} onKeyDown={event => {
           if (event.key.toLowerCase() === 'e' && !event.repeat) { event.preventDefault(); onStart(); }
-        }}>{stage?.kind === 'done' ? 'Cross again' : stage ? 'Try again' : 'Start balance challenge'}<kbd>E</kbd></button>
+        }}>{stage?.kind === 'done' ? 'Cross again' : stage ? t('Try again') : 'Start balance challenge'}<kbd>E</kbd></button>
       </>}
   </aside>;
 }
@@ -54,14 +57,15 @@ export function DistrictPrompt({frame,level,balanceTier,onBalanceTier,onHold,onA
   frame:DistrictFrame;level:number;balanceTier:EnglishTier;onBalanceTier:(tier:EnglishTier)=>void;
   onHold:(hold:boolean)=>void;onAnswer:(answer:string)=>void;onCancel:()=>void;
 }){
+  const { t, settings } = useStudent();
   const button=useRef<HTMLButtonElement>(null),[voiceStatus,setVoiceStatus]=useState('');
-  const listen=()=>{if(!('speechSynthesis' in window)){setVoiceStatus('Audio is unavailable. Read the sentence above.');return;}speechSynthesis.cancel();const line=new SpeechSynthesisUtterance(frame.sentence);line.lang='en-US';line.rate=.85;line.onerror=()=>setVoiceStatus('Audio is unavailable. Read the sentence above.');speechSynthesis.speak(line);};
+  const listen=()=>{if(!('speechSynthesis' in window)){setVoiceStatus('Audio is unavailable. Read the sentence above.');return;}speechSynthesis.cancel();const line=englishLine(frame.sentence, settings.pace);line.onerror=()=>setVoiceStatus('Audio is unavailable. Read the sentence above.');speechSynthesis.speak(line);};
   useEffect(()=>()=>{onHold(false);if('speechSynthesis' in window)speechSynthesis.cancel();},[onHold]);
   if(frame.id==='balance')return <BalancePrompt frame={frame} level={level} tier={balanceTier} onTier={onBalanceTier} onStart={()=>onHold(true)} onAnswer={onAnswer} onCancel={onCancel}/>;
   return <aside className="district-prompt" lang="en" aria-label={frame.title}>
     <div className="district-prompt-heading"><strong>{frame.title}</strong><span>{frame.done?'Complete':`${frame.percent}%`}</span></div>
     <p>{frame.instruction}</p>
-    <blockquote>{frame.sentence}<button type="button" className="district-listen" onClick={listen} aria-label="Listen to the English sentence"><Icon name="sound" size={14}/> Listen</button></blockquote>
+    <blockquote>{frame.sentence}<button type="button" className="district-listen" onClick={listen} aria-label={t("Listen to the English sentence")}><Icon name="sound" size={14}/> {t("Listen")}</button></blockquote>
     <button ref={button} type="button" className="district-hold" style={{'--action-progress':`${frame.percent}%`} as React.CSSProperties}
       onPointerDown={e=>{if(e.button!==0)return;e.currentTarget.setPointerCapture(e.pointerId);onHold(true);}}
       onPointerUp={()=>onHold(false)} onPointerCancel={()=>onHold(false)} onLostPointerCapture={()=>onHold(false)} onBlur={()=>onHold(false)}

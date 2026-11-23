@@ -687,11 +687,11 @@
 .balance-tier { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 10px 0; color: var(--muted); font-size: .8rem; }
 .balance-tier select { max-width: 100%; padding: 6px 9px; color: var(--ink); background: #162a21; border: 1px solid var(--line); border-radius: 5px; }
 
-.hud-activities .story-tracker-compact { display: flex; align-items: stretch; }
-.hud-activities .story-tracker-compact .quest-heading { flex: 1; width: auto; min-width: 0; }
+.hud-left .story-tracker-compact { display: flex; align-items: stretch; }
+.hud-left .story-tracker-compact .quest-heading { flex: 1; width: auto; min-width: 0; }
 .story-tracker-compact .quest-heading > span { display: grid; gap: 3px; min-width: 0; text-align: left; }
 .story-tracker-compact .quest-heading small { color: var(--muted); font-size: .72rem; }
-.hud-activities .story-tracker-compact .story-travel { flex: none; width: 44px; min-height: 44px; padding: 0; justify-content: center; border-left: 1px solid var(--line); }
+.hud-left .story-tracker-compact .story-travel { flex: none; width: 44px; min-height: 44px; padding: 0; justify-content: center; border-left: 1px solid var(--line); }
 .hud-more-practice { background: var(--deep); color: var(--ink); border-radius: 7px; margin-top: 5px; pointer-events: auto; }
 .hud-more-practice summary { display: flex; align-items: center; gap: 7px; min-height: 44px; padding-inline: 11px; cursor: pointer; list-style: none; font-size: .8rem; font-weight: 650; }
 .hud-more-practice summary::-webkit-details-marker { display: none; }
@@ -760,3 +760,36 @@
   font: 600 11px/1.45 system-ui, sans-serif;
 }
 .campus-peer-name::before { content: '●'; color: #9ce4b7; margin-right: 4px; }
+
+.campus-hud .mobile-hud-toggle {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 7px;
+  min-height: 44px; padding: 6px 12px; background: var(--deep); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; font-size: 13px; pointer-events: auto;
+}
+.hud-activities[data-expanded=false] { display: none; }
+.hud-left .story-tracker-compact { max-width: min(260px, 48vw); }
+.journal-route, .student-audio { display: inline-flex; gap: 7px; align-items: center; text-align: start; }
+.journal-route { text-decoration: underline; text-underline-offset: 3px; min-height: 40px; }
+.student-book { width: min(100%, 440px); max-height: 88dvh; overflow: auto; padding: clamp(16px, 4vw, 26px); background: #fcf8ed; color: #193a2d; border-radius: 14px; }
+.student-book header, .student-select { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.student-book h2 { margin: 0; font-size: 1.5rem; }
+.student-book .student-select, .pause-menu .student-select { margin-block: 10px; }
+.student-select select { border: 1px solid #839984; border-radius: 6px; padding: 6px; min-height: 40px; background: #fffdf5; color: #193a2d; }
+.student-book nav { display: flex; gap: 5px; margin-top: 16px; }
+.student-book nav button, .student-audio { padding: 8px 12px; min-height: 42px; border: 1px solid #a2b2a0; border-radius: 7px; }
+.student-book nav button[aria-pressed=true] { background: #264b39; color: white; }
+.student-book > p { margin-block: 12px; font-size: .92rem; }
+.student-book ul { margin: 0; padding: 0; list-style: none; }
+.student-book li { display: flex; justify-content: space-between; border-bottom: 1px solid #d4ddce; }
+.student-book li button { min-height: 44px; min-width: 44px; padding: 6px; }
+.student-book li button:first-child { flex: 1; text-align: start; }
+.student-book li span { display: block; color: #425c49; }
+@media (hover:hover) and (pointer:fine) {
+  .world-canvas canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='26' viewBox='0 0 24 26'%3E%3Cpath d='M3 2l16 11-8 1-4 8z' fill='%23f8eccb' stroke='%23213a2b' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, crosshair; }
+  .campus-shell :is(button, summary, select, .map-label) { cursor: pointer; }
+  .campus-shell :is(input, textarea) { cursor: text; }
+  .campus-shell button:disabled { cursor: not-allowed; }
+}
+.student-extras { margin-block: 12px; }
+.student-extras summary { padding-block: 10px; cursor: pointer; font-weight: 600; }
+.book-search { width: 100%; background: white; color: #193a2d; border: 1px solid #8a9b83; padding: 10px; border-radius: 6px; }

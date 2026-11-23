@@ -1,4 +1,5 @@
 'use client';
+import { useStudent } from './student-support';
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { TIER_LEVEL } from '@/lib/cadet-tiers';
@@ -59,9 +60,9 @@ const recordMessages = {
 const raceHistoryKey = (mode: CompetitionId, difficulty: RaceDifficulty) =>
   `race/${mode}/${difficulty === 'basic' || difficulty === 'elementary' ? difficulty : DIFFICULTIES[difficulty].level}`;
 
-function difficultyLabel(id: RaceDifficulty) {
+function difficultyLabel(id: RaceDifficulty, t: (value:string)=>string) {
   const item = DIFFICULTIES[id];
-  return id === 'basic' || id === 'elementary' ? item.label : `${item.label} (${item.level})`;
+  return id === 'basic' || id === 'elementary' ? t(item.label) : `${t(item.label)} (${item.level})`;
 }
 
 export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress, quizHistory, invitation, onInvitationJoined, onView, onExit, onFinish }: {
@@ -77,6 +78,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   onExit: () => void;
   onFinish: (event: DailyEvent, at: number, challenge?: string) => void;
 }) {
+  const { t } = useStudent();
   const venueInfo = SPORTS_VENUES[venue];
   const events = venueCompetitions(venue);
   const [selected, setSelected] = useState(invitation?.mode ?? events[0]);
@@ -387,85 +389,85 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   }, [practiceOrder, practiceSeen, quizHistory, mode, level]);
   const remaining = room && me ? Math.max(0, limit - (Math.max(0, time) - openedAt(me,room))) : 0;
   const slots: (CompetitionMember | null)[] = Array.from({ length: 4 }, (_, i) => room?.members[i] ?? null);
-  const title = room ? COMPETITIONS[room.mode].title : `${venueInfo.name} registration`;
+  const title = room ? t(COMPETITIONS[room.mode].title) : t("Registration desk")+" · "+t(venueInfo.name);
 
   return (
-    <section ref={root} className={`swim-race competition-arena${!room ? ' at-registration' : ''}`} role="dialog" aria-modal="true" aria-labelledby="competition-title" lang="en">
+    <section ref={root} className={`swim-race competition-arena${!room ? ' at-registration' : ''}`} role="dialog" aria-modal="true" aria-labelledby="competition-title">
       <header className="swim-header">
         <div>
           <h2 ref={heading} tabIndex={-1} id="competition-title">{title}</h2>
           <p>{room
-            ? `${definition.subtitle} · ${DIFFICULTIES[level].label} · ${isPractice ? 'Solo practice' : `Room ${room.code}${live ? ' · Live' : ''}`}`
-            : 'Choose an event and mode'}</p>
+            ? `${t(definition.subtitle)} · ${t(DIFFICULTIES[level].label)} · ${isPractice ? t('Solo practice') : `${t('Room')} ${room.code}${live ? ' · Live' : ''}`}`
+            : t('Choose an event and mode')}</p>
         </div>
         <div className="swim-header-actions">
-          <button onClick={() => { setBoardOpen(false); setHelp(!help); }} aria-expanded={help}>How to play</button>
-          <button disabled={busy} onClick={() => void exit()} aria-label={room && !finished ? 'Leave race' : 'Back to campus'}><Icon name="close" size={18}/></button>
+          <button onClick={() => { setBoardOpen(false); setHelp(!help); }} aria-expanded={help}>{t("How to play")}</button>
+          <button disabled={busy} onClick={() => void exit()} aria-label={room && !finished ? t('Leave race') : t('Back to campus')}><Icon name="close" size={18}/></button>
         </div>
       </header>
-      {!connected && <div className="competition-error" role="status">Reconnecting. The race clock is still running.</div>}
+      {!connected && <div className="competition-error" role="status">{t("Reconnecting. The race clock is still running.")}</div>}
       {help ? (
         <div className="swim-panel competition-help">
-          <h3>How to play</h3>
+          <h3>{t("How to play")}</h3>
           <ol>
-            <li>Pick an event and a difficulty at the desk. Harder levels ask different questions and give you less time.</li>
-            <li>In solo practice, you have the course to yourself. {earnedDistance ? 'Answer all 10 questions correctly to post a time.' : `Get at least ${RECORD_MIN_CORRECT} answers right to post a time.`} The board keeps your fastest time for each event and level.</li>
-            <li>For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.</li>
-            <li>The host can add bots with the + button. Empty seats fill when the race starts.</li>
-            <li>Tap an answer or use keys 1–4. For listening questions, play the clip and choose an answer. For word gaps, type the missing word and press Check.</li>
+            <li>{t("Pick an event and a difficulty at the desk. Harder levels ask different questions and give you less time.")}</li>
+            <li>{t("In solo practice, you have the course to yourself.")} {earnedDistance ? t('Answer all 10 questions correctly to post a time.') : `Get at least ${RECORD_MIN_CORRECT} answers right to post a time.`} {t("The board keeps your fastest time for each event and level.")}</li>
+            <li>{t("For online racing, create a room and share the code and venue. Friends join from the same venue and use the host’s difficulty. Everyone presses Ready.")}</li>
+            <li>{t("The host can add bots with the + button. Empty seats fill when the race starts.")}</li>
+            <li>{t("Tap an answer or use keys 1–4. For listening questions, play the clip and choose an answer. For word gaps, type the missing word and press Check.")}</li>
             <li>{earnedDistance ? `Each correct answer moves you ${segmentMetres} m. If you miss or time out, you stay in place and the question comes back later. A streak moves you through each segment faster.` : 'Cross the finish line to end your race. Quick correct answers give you a bigger boost. Two correct answers in a row increase your pace. Reach five in a row for double speed. A mistake or timeout resets your pace.'}</li>
           </ol>
-          <button className="swim-primary" onClick={() => setHelp(false)}>Got it</button>
+          <button className="swim-primary" onClick={() => setHelp(false)}>{t("Got it")}</button>
         </div>
       ) : boardOpen ? (
         <CompetitionRecordBoard key={`${mode}-${level}`} mode={mode} difficulty={level} avatar={avatar} nickname={name} onBack={() => setBoardOpen(false)}/>
       ) : !room ? (
         <div className="swim-panel competition-desk">
           <fieldset className="race-event-picker">
-            <legend>Event</legend>
+            <legend>{t("Event")}</legend>
             {events.map(event => <button key={event} aria-pressed={selected === event} onClick={() => setSelected(event)} disabled={busy}>
-              <Icon name={venueInfo.icon} size={18}/><span><strong>{COMPETITIONS[event].title}</strong><small>{COMPETITIONS[event].subtitle}</small></span>
+              <Icon name={venueInfo.icon} size={18}/><span><strong>{t(COMPETITIONS[event].title)}</strong><small>{t(COMPETITIONS[event].subtitle)}</small></span>
               {selected === event && <Icon name="check" size={15}/>}
             </button>)}
           </fieldset>
           <fieldset className="race-format-picker">
-            <legend>Mode</legend>
-            <button aria-pressed={format === 'practice'} onClick={() => setFormat('practice')} disabled={busy}><Icon name="user" size={17}/> Solo practice</button>
-            <button aria-pressed={format === 'online'} onClick={() => setFormat('online')} disabled={busy}><Icon name="trophy" size={17}/> Race with friends</button>
+            <legend>{t("Mode")}</legend>
+            <button aria-pressed={format === 'practice'} onClick={() => setFormat('practice')} disabled={busy}><Icon name="user" size={17}/> {t("Solo practice")}</button>
+            <button aria-pressed={format === 'online'} onClick={() => setFormat('online')} disabled={busy}><Icon name="trophy" size={17}/> {t("Race with friends")}</button>
           </fieldset>
-          <label className="race-level">Difficulty
+          <label className="race-level">{t("Difficulty")}
             <select value={difficulty} onChange={event => setDifficulty(event.target.value as RaceDifficulty)} disabled={busy}>
               {DIFFICULTY_IDS.map(id => {
                 const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
                 return <option value={id} key={id} disabled={cadetRank < required}>
-                  {difficultyLabel(id)}{cadetRank < required ? ` · Level ${required} required` : ''}
+                  {difficultyLabel(id,t)}{cadetRank < required ? ` · Level ${required} required` : ''}
                 </option>;
               })}
             </select>
           </label>
-          <p className="level-note">{RACE_QUESTION_COUNT} correct answers to finish {definition.distance} m · {MIXED_RACE_SETS+1} multiple choice, {MIXED_RACE_SETS} listening, {MIXED_RACE_SETS} word gaps. {timingNote}.</p>
-          <label className="competition-name">Nickname
+          <p className="level-note">{RACE_QUESTION_COUNT} {t("correct answers to finish")} {definition.distance} m · {MIXED_RACE_SETS+1} {t("multiple choice,")} {MIXED_RACE_SETS} {t("listening,")} {MIXED_RACE_SETS} {t("word gaps.")} {timingNote}.</p>
+          <label className="competition-name">{t("Nickname")}
             <input maxLength={24} value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={busy}/>
           </label>
-          <p className="level-note">{format === 'practice' ? 'Your nickname appears on the campus record board when you qualify.' : 'Your nickname is visible to other players in your room.'}</p>
+          <p className="level-note">{format === 'practice' ? t('Your nickname appears on the campus record board when you qualify.') : t('Your nickname is visible to other players in your room.')}</p>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           <div className="swim-result-actions">
             <button className="swim-primary" disabled={busy || !unlocked || !displayName.trim()} onClick={() => void enter(format === 'practice' ? 'practice' : 'create')}>
-              {busy ? 'Connecting…' : format === 'practice' ? 'Start solo practice' : 'Create online room'} <Icon name="arrow" size={16}/>
+              {busy ? t('Connecting…') : format === 'practice' ? t('Start solo practice') : t('Create online room')} <Icon name="arrow" size={16}/>
             </button>
-            <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
+            <button disabled={busy} onClick={() => setBoardOpen(true)}>{t("Campus records")}</button>
           </div>
           {format === 'online' && <>
           {invitation && code === invitation.code && <p className="level-note">Your friend’s room code is ready. Press Join room to enter.</p>}
           <form className="competition-join" onSubmit={event => { event.preventDefault(); void enter('join'); }}>
-            <label>Join a friend’s room
-              <input aria-label="Room code" maxLength={6} value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="ABC123" autoComplete="off" disabled={busy} aria-describedby="race-join-note"/>
+            <label>{t("Join a friend’s room")}
+              <input aria-label={t("Room code")} maxLength={6} value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="ABC123" autoComplete="off" disabled={busy} aria-describedby="race-join-note"/>
             </label>
-            <button disabled={busy || code.length !== 6 || !displayName.trim()}>Join room</button>
+            <button disabled={busy || code.length !== 6 || !displayName.trim()}>{t("Join room")}</button>
           </form>
-          <p className="level-note" id="race-join-note">Joined rooms use the host’s difficulty. Reach its required level to earn the first-clear XP.</p>
+          <p className="level-note" id="race-join-note">{t("Joined rooms use the host’s difficulty. Reach its required level to earn the first-clear XP.")}</p>
           </>}
-          {resume && <button className="resume-race" disabled={busy} onClick={() => resumeSeat(resume)}>Resume previous race</button>}
+          {resume && <button className="resume-race" disabled={busy} onClick={() => resumeSeat(resume)}>{t("Resume previous race")}</button>}
         </div>
       ) : inLobby && inviteOpen && isHost ? (
         <RaceFriendInvites code={room.code} onClose={closeInvites}/>
@@ -475,13 +477,13 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             <div><small>Invite your friends to {definition.venue}</small><strong>{room.code}</strong></div>
             <button onClick={() => { void navigator.clipboard?.writeText(room.code).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'Copied' : 'Copy code'}</button>
           </div>
-          <label className="race-level">Room difficulty
+          <label className="race-level">{t("Room difficulty")}
             <select value={room.difficulty} disabled={!isHost || busy || !connected}
               onChange={event => void act('difficulty', { difficulty: event.target.value })}>
               {DIFFICULTY_IDS.map(id => {
                 const item = DIFFICULTIES[id], required = TIER_LEVEL[item.level];
                 return <option key={id} value={id} disabled={isHost && cadetRank < required}>
-                  {difficultyLabel(id)}{isHost && cadetRank < required ? ` · Level ${required} required` : ''}
+                  {difficultyLabel(id,t)}{isHost && cadetRank < required ? ` · Level ${required} required` : ''}
                 </option>;
               })}
             </select>
@@ -492,25 +494,25 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
               <div key={member.id} className="competition-seat">
                 <span aria-hidden="true" className={`cadet-portrait avatar-${member.avatar===1?1:0}`} style={{boxShadow:`0 0 0 2px ${member.colour}`}}/>
                 <strong>{member.name}{member.id === session?.playerId ? ' (you)' : ''}</strong>
-                <small>{member.kind === 'bot' ? 'Bot · Ready' : member.ready ? 'Ready' : 'Not ready'}</small>
+                <small>{member.kind === 'bot' ? 'Bot · Ready' : member.ready ? t('Ready') : t('Not ready')}</small>
                 {isHost && member.kind === 'bot' && <button aria-label={`Remove ${member.name}`} disabled={busy} onClick={() => void act('remove', { playerId: member.id })}><Icon name="close" size={14}/></button>}
               </div>
             ) : (
-              <button key={index} disabled={!isHost || busy} className="competition-add-bot" aria-label={`Add bot to seat ${index + 1}`} onClick={() => void act('add-bot')}><Icon name="plus" size={22}/>{isHost ? 'Add bot' : 'Empty seat'}</button>
+              <button key={index} disabled={!isHost || busy} className="competition-add-bot" aria-label={`Add bot to seat ${index + 1}`} onClick={() => void act('add-bot')}><Icon name="plus" size={22}/>{isHost ? t('Add bot') : 'Empty seat'}</button>
             ))}
           </div>
-          {isHost && <button ref={inviteLaunch} className="competition-invite-friends" onClick={() => setInviteOpen(true)}><Icon name="users" size={17}/> Invite friends</button>}
-          <p className="swim-help">If the host changes the difficulty, other players must press Ready again.</p>
+          {isHost && <button ref={inviteLaunch} className="competition-invite-friends" onClick={() => setInviteOpen(true)}><Icon name="users" size={17}/> {t("Invite friends")}</button>}
+          <p className="swim-help">{t("If the host changes the difficulty, other players must press Ready again.")}</p>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           <div className="swim-result-actions">
-            <button disabled={busy} onClick={() => void act('ready', { ready: !me?.ready, difficulty: room.difficulty })}>{me?.ready ? 'Ready ✓' : 'I’m ready'}</button>
-            {isHost ? <button className="swim-primary" disabled={busy || room.members.some(member => member.kind === 'human' && !member.ready)} onClick={() => void act('start')}>Start race</button>
-              : <span>Waiting for the host to start…</span>}
+            <button disabled={busy} onClick={() => void act('ready', { ready: !me?.ready, difficulty: room.difficulty })}>{me?.ready ? t('Ready')+' ✓' : t('Ready')}</button>
+            {isHost ? <button className="swim-primary" disabled={busy || room.members.some(member => member.kind === 'human' && !member.ready)} onClick={() => void act('start')}>{t("Start race")}</button>
+              : <span>{t("Waiting for the host to start…")}</span>}
           </div>
         </div>
       ) : finished && me ? (
         <div className="swim-panel swim-results">
-          <h3>{isPractice ? 'Practice complete' : room.phase === 'finished' && ranking[0]?.id === me.id ? 'You won!' : 'Finish line reached!'}</h3>
+          <h3>{isPractice ? 'Practice complete' : room.phase === 'finished' && ranking[0]?.id === me.id ? 'You won!' : t('Finish line reached!')}</h3>
           <p>{me.answers.filter(answer => answer.correct).length}/{me.answers.length} correct · Best combo {bestStreak} · {me.finishedAt?.toFixed(3)} s</p>
           {isPractice ? <p className="practice-record" role="status">{room.record ? recordMessages[room.record] : 'Checking your time…'}</p> : (
             <ol className="swim-finish-list">{ranking.map(member => <li key={member.id}><span>{member.name}{member.kind === 'bot' ? ' · Bot' : ''}</span><strong>{member.finishedAt === null ? `${member.metres.toFixed(1)} m` : `${member.finishedAt.toFixed(3)} s`}</strong></li>)}</ol>
@@ -520,59 +522,59 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             : room.members.some(member => member.id !== me.id && member.kind === 'human' && !member.botAssisted)
               && room.phase === 'racing' && <p>Stay here until your teammate finishes to earn team credit.</p>)}
           <details>
-            <summary>Review your answers</summary>
+            <summary>{t("Review your answers")}</summary>
             {me.answers.map((answer, i) => {
               const prompt = raceQuestion(room, me, i);
-              return <article key={i}><strong>{answer.correct ? 'Correct' : 'Practise'} · {prompt.sentence}</strong>
-                <p>{answer.choice === null ? 'Time ran out.' : answer.choice === -1 ? 'Your entry did not match.' : `Your answer: ${prompt.choices[answer.choice]}.`} Correct: {prompt.choices[prompt.answer]}.</p><small>{prompt.explanation}</small>
+              return <article key={i}><strong>{answer.correct ? t('Correct') : t('Practise')} · {prompt.sentence}</strong>
+                <p>{answer.choice === null ? 'Time ran out.' : answer.choice === -1 ? 'Your entry did not match.' : `Your answer: ${prompt.choices[answer.choice]}.`} {t("Correct:")} {prompt.choices[prompt.answer]}.</p><small>{prompt.explanation}</small>
               </article>;
             })}
           </details>
           {error && <p className="race-inline-error" role="alert">{error}</p>}
           {isPractice ? <div className="swim-result-actions">
-            <button className="swim-primary" disabled={busy} onClick={() => void exit(true)}>Back to registration</button>
-            <button disabled={busy} onClick={() => setBoardOpen(true)}>Campus records</button>
+            <button className="swim-primary" disabled={busy} onClick={() => void exit(true)}>{t("Back to registration")}</button>
+            <button disabled={busy} onClick={() => setBoardOpen(true)}>{t("Campus records")}</button>
           </div> : room.phase === 'finished'
-            ? (isHost ? <button className="swim-primary" disabled={busy} onClick={() => void act('lobby')}>Return everyone to lobby</button> : <p>Waiting for the host to open the next lobby.</p>)
+            ? (isHost ? <button className="swim-primary" disabled={busy} onClick={() => void act('lobby')}>{t("Return everyone to lobby")}</button> : <p>Waiting for the host to open the next lobby.</p>)
             : <p>Other players are still racing. You can review your answers.</p>}
         </div>
       ) : isRacing && me ? (
         <>
           <ol className="swim-standings" aria-label="Live race positions">{ranking.map((member, index) => (
             <li key={member.id} style={{ '--swim-color': member.colour } as React.CSSProperties}>
-              <span>{index + 1}</span><strong>{member.id === me.id ? 'You' : member.name}</strong><small>{member.metres.toFixed(1)} / {definition.distance} m</small>
+              <span>{index + 1}</span><strong>{member.id === me.id ? t('You') : member.name}</strong><small>{member.metres.toFixed(1)} / {definition.distance} m</small>
             </li>
           ))}</ol>
-          {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>Get ready</small></div>}
+          {time < 0 && <div className="swim-countdown">{Math.ceil(-time)}<small>{t("Get ready")}</small></div>}
           {question ? <div className="swim-panel swim-question">
             <div className="swim-question-meta">
-              <span>{question.kind==='listen'?'Listening':question.kind==='fill'?'Word gap':'Multiple choice'} · {earnedDistance ? `${correctCount}/${room.round!.order.length} correct` : `${index+1}${room.round?.fixed ? ' / '+room.round.order.length : ''}`}</span>
+              <span>{question.kind==='listen'?t('Listening'):question.kind==='fill'?t('Word gap'):t('Multiple choice')} · {earnedDistance ? `${correctCount}/${room.round!.order.length} correct` : `${index+1}${room.round?.fixed ? ' / '+room.round.order.length : ''}`}</span>
               <strong className={pace>1?'race-pace-active':undefined}>
-                {pace>1 ? `${last!.streak} in a row · ×${pace} pace` : last?.streak===1 ? '1 more to speed up' : '2 in a row to speed up'}
+                {pace>1 ? `${last!.streak} in a row · ×${pace} pace` : last?.streak===1 ? t('1 more to speed up') : t('2 in a row to speed up')}
               </strong>
             </div>
-            <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label="Question time remaining"/>
+            <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label={t("Question time remaining")}/>
             <h3>{question.sentence}</h3>
-            {question.audio && <audio key={index} aria-label="Play the listening question" controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
+            {question.audio && <audio key={index} aria-label={t("Play the listening question")} controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
             {question.kind==='fill' ? <form className="race-word-gap" key={index} onSubmit={e=>{
               e.preventDefault();
               const value=String(new FormData(e.currentTarget).get('word')??'').trim();
               if(value) submit(-1,value);
             }}>
-              <input name="word" aria-label="Missing English word" placeholder="Type the missing word" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} required disabled={!canAnswer}/>
-              <button type="submit" disabled={!canAnswer}>Check</button>
+              <input name="word" aria-label={t("Missing English word")} placeholder={t("Type the missing word")} autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} required disabled={!canAnswer}/>
+              <button type="submit" disabled={!canAnswer}>{t("Check")}</button>
             </form> : <div className="swim-choices">{question.choices.map((choice, i) => (
               <button key={`${question.id}-${i}`} disabled={!canAnswer}
                 className={sending?.choice === i ? 'is-sending' : feedback && !feedback.correct && feedback.choice === i ? 'is-wrong' : ''}
                 onClick={() => submit(i)}><kbd>{i + 1}</kbd>{choice}</button>
             ))}</div>}
             <div className="swim-feedback" aria-live="polite">{feedback
-              ? <strong>{feedback.correct && earnedDistance ? `+${segmentMetres} m · ${feedback.streak} in a row` : feedback.correct ? `Speed boost · ${feedback.streak} in a row` : feedback.choice === null && earnedDistance ? 'Time’s up · retry this question later' : earnedDistance ? 'Stay here · retry this question later' : 'Streak reset · normal pace'}</strong>
-              : <p>{error || (sending ? 'Checking your answer…' : time < 0 ? 'The first question opens when the race starts.' : `${Math.ceil(remaining)} s left`)}</p>}
+              ? <strong>{feedback.correct && earnedDistance ? `+${segmentMetres} m · ${feedback.streak} in a row` : feedback.correct ? `Speed boost · ${feedback.streak} in a row` : feedback.choice === null && earnedDistance ? t('Time’s up · retry this question later') : earnedDistance ? t('Stay here · retry this question later') : 'Streak reset · normal pace'}</strong>
+              : <p>{error || (sending ? t('Checking your answer…') : time < 0 ? t('The first question opens when the race starts.') : `${Math.ceil(remaining)} s left`)}</p>}
             </div>
           </div> : <div className="swim-panel swim-question" role="status">
-            <h3>{atFinish ? 'Finish line reached!' : 'Final stretch'}</h3>
-            <p>{atFinish ? 'Recording your time…' : 'All questions answered. Your racer will keep moving at the current pace until the finish.'}</p>
+            <h3>{atFinish ? t('Finish line reached!') : 'Final stretch'}</h3>
+            <p>{atFinish ? t('Recording your time…') : 'All questions answered. Your racer will keep moving at the current pace until the finish.'}</p>
           </div>}
         </>
       ) : null}

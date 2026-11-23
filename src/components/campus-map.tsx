@@ -1,4 +1,5 @@
 "use client";
+import { useStudent } from './student-support';
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { CAMPUS_RESIDENTS, residentMeetingPoint } from "@/lib/campus-residents";
@@ -29,6 +30,7 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
   player:MapPoint & {heading:number;route:MapPoint[]}; progress:Progress;storyLocation?:string;
   onPlace:(id:Place)=>void;onZone:(id:ZoneId)=>void;onResident:(id:ResidentKind)=>void;onClose:()=>void;onOverview:()=>void;onSelect:(destination:AtlasDestination)=>void;
 }) {
+  const { t } = useStudent();
   const [tab,setTab] = useState<"places"|"people">("places");
   const [zoomed,setZoomed] = useState(false);
   const [query,setQuery] = useState("");
@@ -69,7 +71,7 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
     const p=PLACES[id], current=goal?.place===id;
     return {id,person:true,symbol:"chat",name:p.npc,detail:current?goal.label:id===reportPlace?quest.title:p.english,keywords:p.role,x:p.position[0],z:p.position[1],status:id===reportPlace?"Report back":current?"Story mission":"Conversation",walk:()=>onPlace(id)};
   })].sort((a,b)=>statusOrder.indexOf(a.status)-statusOrder.indexOf(b.status)||a.name.localeCompare(b.name));
-  const visible=(tab==="places"?places:people).filter(e=>(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords].join(" ")).includes(searchable(query.trim())));
+  const visible=(tab==="places"?places:people).filter(e=>(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords,t(e.name),t(e.status)].join(" ")).includes(searchable(query.trim())));
   const overlay=tab==="places" && questPins && !query.trim()
     ? people.filter(e=>["Report back","Story mission","New mission","In progress"].includes(e.status)) : [];
   const pins=layoutAtlasPins([...visible,...overlay],size.width,size.height,size.diameter);
@@ -78,9 +80,9 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
     entry.walk();
   }
   return <div className="modal-backdrop field-atlas-backdrop">
-    <section role="dialog" lang="en" aria-modal="true" aria-labelledby="atlas-title" className="field-atlas">
-      <header><div><h2 id="atlas-title">Campus atlas</h2><p>Tap a pin or a name to walk there.</p></div>
-        <button aria-label="Close campus atlas" onClick={onClose}><Icon name="close"/></button></header>
+    <section role="dialog" aria-modal="true" aria-labelledby="atlas-title" className="field-atlas">
+      <header><div><h2 id="atlas-title">{t("Campus atlas")}</h2><p>{t("Tap a pin or a name to walk there.")}</p></div>
+        <button aria-label={t("Close campus atlas")} onClick={onClose}><Icon name="close"/></button></header>
       <div className="field-atlas-body">
         <div className="field-atlas-sheet" data-zoomed={zoomed}>
           <div className="atlas-map-scroll">
@@ -97,26 +99,26 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
               data-zone={e.person?undefined:e.id} data-npc={e.person?e.id:undefined}
               style={{left:x/size.width*100+"%",top:y/size.height*100+"%"}} onClick={()=>travel(e)} aria-label={`Walk to ${e.name}${e.status?" · "+e.status:""}`}
               title={[e.name,e.status||e.detail].join(" · ")}><PinSymbol entry={e}/></button>)}
-            <span className="field-atlas-player campus-map-player" style={position(player.x,player.z)} title="You">
+            <span className="field-atlas-player campus-map-player" style={position(player.x,player.z)} title={t("You")}>
               <svg viewBox="0 0 20 20" style={{transform:`rotate(${180-player.heading*180/Math.PI}deg)`}}><path d="m10 2 7 15-7-3-7 3z" fill="#17698a" stroke="#fffaf0" strokeWidth="2"/></svg>
             </span>
           </div>
           </div>
-          <div className="field-atlas-mapkey"><span>▲ You</span>{tab==="places" ? <label><input type="checkbox" checked={questPins} onChange={e=>setQuestPins(e.target.checked)}/> ! Quest NPCs</label>
-            : <span><b className="atlas-legend-new">!</b> New <b className="atlas-legend-active">!</b> Active <i/> Turn in</span>}<b>↑ N</b>
-            <button type="button" aria-label={zoomed?"Zoom out":"Zoom in"} aria-pressed={zoomed} onClick={()=>setZoomed(!zoomed)}>{zoomed?"−":"+"}</button></div>
+          <div className="field-atlas-mapkey"><span>{t("▲ You")}</span>{tab==="places" ? <label><input type="checkbox" checked={questPins} onChange={e=>setQuestPins(e.target.checked)}/> {t("! Quest NPCs")}</label>
+            : <span><b className="atlas-legend-new">!</b> {t("New")} <b className="atlas-legend-active">!</b> {t("Active")} <i/> {t("Turn in")}</span>}<b>↑ N</b>
+            <button type="button" aria-label={zoomed?t("Zoom out"):t("Zoom in")} aria-pressed={zoomed} onClick={()=>setZoomed(!zoomed)}>{zoomed?"−":"+"}</button></div>
         </div>
         <div className="field-atlas-directory">
-          <div className="field-atlas-tabs">{(["places","people"] as const).map(id=><button key={id} aria-pressed={tab===id} onClick={()=>{setTab(id);setQuery("");}}>{id==="places"?"Places":"Quest NPCs"}</button>)}</div>
-          <input aria-label="Search destinations" type="search" placeholder={tab==="places"?"Find a place…":"Find a person or mission…"} value={query} onChange={e=>setQuery(e.target.value)}/>
-          {tab==="people"&&<label className="atlas-show-done"><input type="checkbox" checked={showCompleted} onChange={e=>setShowCompleted(e.target.checked)}/> Show completed missions</label>}
-          <nav aria-label="Destinations">{visible.map(e=><button key={e.id} onClick={()=>travel(e)}>
-            <span className="field-atlas-symbol" data-status={e.status}><PinSymbol entry={e}/></span><span><strong>{e.name}</strong><small>{e.detail}</small>{e.status&&<em>{e.status}</em>}</span><Icon name="arrow" size={15}/></button>)}
-            {!visible.length&&<p role="status">{query?"No matching destinations.":"No unfinished missions."}</p>}
+          <div className="field-atlas-tabs">{(["places","people"] as const).map(id=><button key={id} aria-pressed={tab===id} onClick={()=>{setTab(id);setQuery("");}}>{id==="places"?t("Places"):t("Quest NPCs")}</button>)}</div>
+          <input aria-label={t("Search destinations")} type="search" placeholder={tab==="places"?t("Find a place…"):t("Find a person or mission…")} value={query} onChange={e=>setQuery(e.target.value)}/>
+          {tab==="people"&&<label className="atlas-show-done"><input type="checkbox" checked={showCompleted} onChange={e=>setShowCompleted(e.target.checked)}/> {t("Show completed missions")}</label>}
+          <nav aria-label={t("Destinations")}>{visible.map(e=><button key={e.id} onClick={()=>travel(e)}>
+            <span className="field-atlas-symbol" data-status={e.status}><PinSymbol entry={e}/></span><span><strong>{t(e.name)}</strong>{(e.person || e.detail.includes(" · ")) && <small>{t(e.detail)}</small>}{e.status&&<em>{t(e.status)}</em>}</span><Icon name="arrow" size={15}/></button>)}
+            {!visible.length&&<p role="status">{query?t("No matching destinations."):t("No unfinished missions.")}</p>}
           </nav>
         </div>
       </div>
-      <footer><button onClick={onOverview}><Icon name="compass" size={16}/> 3D overview</button></footer>
+      <footer><button onClick={onOverview}><Icon name="compass" size={16}/> {t("3D overview")}</button></footer>
     </section>
   </div>;
 }
