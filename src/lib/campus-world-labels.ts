@@ -79,9 +79,17 @@ export function createCampusWorldLabels(layer: HTMLElement) {
       dirty = false;
 
       const nearbyVenue = nearbySportsVenue(player.x, player.z);
+      // The two feeding stations across an aisle project to almost the same pixels.
+      let nearestFeed: HTMLElement | undefined;
+      let nearestDistance=Infinity;
+      for(const label of labels.values()){
+        if(!label.element.dataset.station?.startsWith('feed-'))continue;
+        const distance=(label.anchor.x-player.x)**2+(label.anchor.z-player.z)**2;
+        if(distance<nearestDistance){nearestFeed=label.element;nearestDistance=distance;}
+      }
       for (const label of labels.values()) {
         const { element, destination, anchor, width, height } = label;
-        let visible = width > 0 && height > 0;
+        let visible = width > 0 && height > 0 && (!element.dataset.station?.startsWith('feed-') || element===nearestFeed);
         if (destination) {
           const distance = Math.hypot(player.x - destination.x, player.z - destination.z);
           visible &&= distance <= (label.visible ? 18 : 17) &&

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {petStatus,type PetCare,type PetId} from './pet-care.ts';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {CAMPUS_EXTENT,DISTRICT_PATHS,BASE_LIVESTOCK_PENS as LIVESTOCK_PENS,BASE_FISH_POND as FISH_POND,BASE_FEED_DECK as FEED_DECK,BASE_SWIMMING_POOL as SWIMMING_POOL,BASE_TRAINING_GROUND as TRAINING_GROUND,BASE_BALANCE_BEAM as BALANCE_BEAM,BASE_TRAINING_CONES as TRAINING_CONES,BASE_DISTRICT_STRUCTURES as DISTRICT_STRUCTURES,BASE_DISTRICT_BENCHES as DISTRICT_BENCHES,BASE_DISTRICT_STATIONS as DISTRICT_STATIONS,DISTRICT_TRANSFORMS,baseDistrictAt,districtPoint,type DistrictStationId} from './campus-districts-layout.ts';
+import {PEN_HABITATS,CAMPUS_EXTENT,DISTRICT_PATHS,BASE_LIVESTOCK_PENS as LIVESTOCK_PENS,BASE_FISH_POND as FISH_POND,BASE_FEED_DECK as FEED_DECK,BASE_SWIMMING_POOL as SWIMMING_POOL,BASE_TRAINING_GROUND as TRAINING_GROUND,BASE_BALANCE_BEAM as BALANCE_BEAM,BASE_TRAINING_CONES as TRAINING_CONES,BASE_DISTRICT_STRUCTURES as DISTRICT_STRUCTURES,BASE_DISTRICT_BENCHES as DISTRICT_BENCHES,BASE_DISTRICT_STATIONS as DISTRICT_STATIONS,DISTRICT_TRANSFORMS,baseDistrictAt,districtPoint,type DistrictStationId} from './campus-districts-layout.ts';
 import {seededRandom,createCampusSurfaces,worldAlignedUV} from './campus-surfaces';
 
 /** Actual walkable districts. Static colored geometry is batched; animal joints and water stay live. */
@@ -35,11 +35,11 @@ export function createCampusDistricts(scene:THREE.Scene){
     const sides=[{x,z:z-d/2,w,d:0},{x,z:z+d/2,w,d:0},{x:x-w/2,z,w:0,d},{x:x+w/2,z,w:0,d}];
     for(const s of sides){const length=s.w||s.d,count=Math.ceil(length/1.7);box(s.w||.2,.18,s.d||.2,0xa87b59,s.x,.13,s.z);for(const y of [.55,1.02])box(s.w||.075,.07,s.d||.075,0x667c50,s.x,y,s.z);for(let i=0;i<=count;i++){const a=i/count-.5;round(.11,1.22,.11,0x526b47,s.x+s.w*a,.64,s.z+s.d*a);}}
   }
-  function shelter(x:number,z:number,w:number,d:number,h:number,open=true){
+  function shelter(x:number,z:number,w:number,d:number,h:number,open=true,roofColor=0x526e59){
     box(w+.3,.14,d+.3,0xb6b09a,x,.08,z);
     if(!open){box(w,h,d,0xd4be91,x,h/2,z);for(let i=0;i<Math.floor(w/.5);i++)box(.025,h,.028,0xb9a477,x-w/2+i*.5,h/2,z+d/2+.02);round(.9,1.95,.09,0x46634e,x,.99,z+d/2+.06);box(.7,.55,.018,0x91b4aa,x,1.45,z+d/2+.12);}
     else {box(w,.8,.12,0xc7af86,x,.48,z-d/2);for(const side of [-1,1])for(const end of [-1,1])round(.12,h,.12,0x677557,x+side*(w/2-.09),h/2,z+end*(d/2-.09));}
-    for(const side of [-1,1]){const roof=box(w+.65,.12,d/2+.5,0x526e59,x,h+.16,z+side*(d/4+.1));roof.rotation.x=side*.22;for(let i=0;i<Math.ceil(w/.34);i++){const rib=box(.035,.045,d/2+.5,0x6f8666,x-w/2-.25+i*.34,h+.23,z+side*(d/4+.1));rib.rotation.x=side*.22;}}
+    for(const side of [-1,1]){const roof=box(w+.65,.12,d/2+.5,roofColor,x,h+.16,z+side*(d/4+.1));roof.rotation.x=side*.22;for(let i=0;i<Math.ceil(w/.34);i++){const rib=box(.035,.045,d/2+.5,new THREE.Color(roofColor).lerp(new THREE.Color(0xffeed3),.18).getHex(),x-w/2-.25+i*.34,h+.23,z+side*(d/4+.1));rib.rotation.x=side*.22;}}
     box(w+.7,.1,.14,0x789074,x,h+.4,z);
   }
   // The new outer fence replaces the old internal campus boundary.
@@ -81,15 +81,50 @@ export function createCampusDistricts(scene:THREE.Scene){
     animals.push({group:g,head,legs,x,z,phase:random()*8,kind});
   }
   for(const pen of LIVESTOCK_PENS){
-    surface(pen.w,pen.d,pen.kind==='duck'?0x9ba58b:0xbca87d,pen.x,pen.z,'stone');fence(pen.x,pen.z,pen.w,pen.d);
-    shelter(pen.x,pen.z-2,pen.w-1,2,1.9);label(pen.label,pen.x,1.02,pen.z+pen.d/2+.08,2,.35);
-    for(let i=0;i<4;i++){const x=pen.x-3+i*2,z=pen.z+.6;animal(pen.kind,x,z,pen.kind==='goat'?.92:pen.kind==='pig'?1.02:.85);}
-    // Troughs and fresh-water bowls are inside each pen, clear of the central service aisle.
-    round(pen.w-3,.24,.38,0x8b7860,pen.x,.25,pen.z+2.5);box(pen.w-3.3,.045,.25,0xc4aa61,pen.x,.385,pen.z+2.5);
-    cyl(.32,.2,0x8a9c8b,pen.x+3.9,.23,pen.z+1.7);cyl(.27,.015,0x6d9c98,pen.x+3.9,.34,pen.z+1.7);
-    if(pen.kind==='chicken')for(let i=0;i<4;i++){box(.7,.6,.5,0x97774c,pen.x-2+i*1.4,.7,pen.z-2.5);oval(.25,.05,.19,0xcab978,pen.x-2+i*1.4,.74,pen.z-2.2);for(let j=0;j<3;j++)oval(.05,.07,.05,0xeee1bc,pen.x-2+i*1.4+(j-1)*.12,.82,pen.z-2.2);}
-    if(pen.kind==='goat'||pen.kind==='pig')for(let i=0;i<3;i++)round(.8,.4,.5,0xbaac6b,pen.x-2+i,.45,pen.z-2);
-    if(pen.kind==='duck')surface(3,1.5,0x729d93,pen.x+1,pen.z+.6,'stone',.1);
+    const {x,z,kind}=pen;
+    const house=PEN_HABITATS[kind];
+    shelter(x+house.dx,z+house.dz,house.w,house.d,house.h,true,house.roof);
+    surface(pen.w,pen.d,house.ground,x,z,kind==='goat'||kind==='duck'?'turf':'stone');
+    fence(x,z,pen.w,pen.d);
+    label(pen.label,x,1.02,z+pen.d/2+.08,2,.35);
+    if(kind==='chicken'){
+      // Raised timber henhouse, individual nests and a cleated access ramp.
+      box(4.1,.92,1.7,0xb18653,x-1.9,1.15,z-2);
+      for(const dx of [-3.15,-1.95,-.75]){
+        box(.78,.56,.10,0x604f3c,x+dx,1.27,z-1.09);
+        oval(.37,.09,.24,0xd4b772,x+dx,1.02,z-.95);
+        oval(.085,.12,.075,0xf1e1b8,x+dx,1.10,z-.9);
+      }
+      box(.76,.12,1.95,0xad895e,x-3,.58,z-.12).rotation.x=.46;
+      for(let i=0;i<6;i++)box(.76,.055,.08,0xe2bb7b,x-3,.99-i*.126,z-.84+i*.25);
+      pipe([x+1.5,.65,z-1.8],[x+4,.65,z-1.8],.08,0x886a48);
+      for(const dx of [1.5,4])cyl(.08,.68,0x886a48,x+dx,.35,z-1.8);
+    }else if(kind==='goat'){
+      for(let i=0;i<3;i++){
+        const h=.38+i*.35;
+        round(1.15,h,1.48,0xab875b,x-3.6+i*.98,h/2+.1,z-1.8);
+        box(1.18,.09,1.52,0xc5a06c,x-3.6+i*.98,h+.12,z-1.8);
+      }
+      for(let i=0;i<4;i++)oval(.46,.35+i%2*.18,.37,0x99997e,x-4+i*.55,.22,z+.05);
+      round(1.55,.58,1,0xbfa557,x+2.8,.39,z-1.35);
+    }else if(kind==='pig'){
+      for(const dx of [-4.1,-1.8,.5])box(.19,.85,1.86,0xba9584,x+dx,.55,z-1.92);
+      oval(1.64,.055,1.18,0x8a7156,x+2.3,.14,z+.1);
+      for(const dx of [1.9,2.6])oval(.58,.019,.31,0x988165,x+dx,.19,z+.16);
+    }else{
+      oval(2.55,.08,1.88,0xb7af88,x+1.6,.13,z-.56);
+      oval(2.36,.065,1.70,0x6ba59c,x+1.6,.20,z-.56);
+      for(let i=0;i<12;i++){
+        const a=i*.21,h=.4+(i%3)*.16;
+        cyl(.028,h,0x788b4f,x+1.6+2.3*Math.cos(a),.2+h/2,z-.56-1.61*Math.sin(a));
+      }
+      plank(1.45,.72,x-.56,.30,z+.59);
+    }
+    const positions=[[-3.55,1.43],[-1.44,.29],[.62,1.62],[2.87,.75]];
+    positions.forEach(([dx,dz],i)=>animal(kind,x+dx,z+dz,(kind==='goat'?1.16:kind==='pig'?1.14:1.02)*(i===1?.84:1)));
+    round(2.65,.32,.52,0x877858,x,.28,z+2.84);
+    box(2.45,.045,.36,0xc7ad68,x,.46,z+2.84);
+    cyl(.35,.23,0x859789,x+4.15,.24,z+2.07);cyl(.29,.024,0x72a6a1,x+4.15,.365,z+2.07);
   }
   label('ANIMAL CARE',55.5,3.1,12.7,6,.55);for(const x of [52.5,58.5])round(.14,3.3,.14,0x5d724e,x,1.65,12.6);
   // Feed sacks, compost bins, washing station, boot brush and a parked wheelbarrow.

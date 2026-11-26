@@ -1,4 +1,8 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Fruit orchard","Vườn cây ăn trái"],["Plan the fruit harvest","Lập kế hoạch hái quả"],
+  ["Basketball courts","Cụm sân bóng rổ"],["Volleyball courts","Cụm sân bóng chuyền"],["Signal arcade","Sân bia điện tử"],
+  ["Join basketball practice","Luyện tiếng Anh ở sân bóng rổ"],["Join volleyball practice","Luyện tiếng Anh ở sân bóng chuyền"],["Read the colour signals","Đọc tín hiệu màu"],
+  ["District","Phân khu"],["All districts","Tất cả phân khu"],["Sport & games","Thể thao và trò chơi"],["Workshops","Nhà thực hành"],["Farm & garden","Tăng gia và vườn"],["Campus life","Sinh hoạt học đường"],
   ["Weather station","Trạm khí tượng"], ["Read the forecast","Đọc dự báo thời tiết"],
   ["Art studio","Xưởng mỹ thuật"], ["Mix a colour palette","Pha bảng màu"],
   ["Ensemble room","Phòng hòa tấu"], ["Rehearse with the band","Tập cùng ban nhạc"],

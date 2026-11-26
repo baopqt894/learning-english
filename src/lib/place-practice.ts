@@ -1,3 +1,5 @@
+import { recreationQuestions } from './recreation-lessons.ts';
+import { PARK_ZONES } from './recreation-park.ts';
 import { WORKSHOPS } from './workshop-wing.ts';
 import { workshopQuestions, workshopNotes, workshopAudio } from './workshop-lessons.ts';
 import {areaQuestions} from './campus-question-bank.ts';
@@ -13,6 +15,7 @@ const q=(prompt:string,options:string[],answer:string,explanation:string):PlaceQ
 const order=(sentence:string):PlaceQuestion=>({prompt:'Put the words in order.',options:sentence.split(' ').reverse(),answer:sentence,explanation:`The complete sentence is: ${sentence}`,kind:'order'});
 const vocab=(word:string,correct:string,wrong1:string,wrong2:string)=>q(`Choose the meaning of “${word}”.`,[correct,wrong1,wrong2],correct,`“${word}” means ${correct.toLowerCase()}.`);
 export const PLACE_PRACTICE:Record<string,{title:string;questions:PlaceQuestion[]}>= {
+ ...Object.fromEntries(PARK_ZONES.map(p=>[p.id,{title:p.title,questions:recreationQuestions(p.id,'A1')}])),
  ...Object.fromEntries(WORKSHOPS.map(b => [b.kind, {title:b.title,questions:[
    workshopQuestions[b.kind].A1, workshopQuestions[b.kind].A2, workshopQuestions[b.kind].B1,
  ]}])),
@@ -103,6 +106,8 @@ export function practiceQuestionKey(question: PlaceQuestion) {
   return question.kind === 'order' ? question.answer : question.prompt;
 }
 export function placePracticeRound(area: string, tier: EnglishTier, previous: readonly string[], feeding?: PetId) {
+  const court=PARK_ZONES.find(zone=>zone.id===area);
+  if(court&&!feeding)return drawQuestions(recreationQuestions(court.id,tier),3,practiceQuestionKey,previous).map(mix);
   const workshop = WORKSHOPS.find(b => b.kind === area);
   if (workshop && !feeding) {
     const bank = workshopQuestions[workshop.kind];

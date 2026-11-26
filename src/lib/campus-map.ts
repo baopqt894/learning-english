@@ -1,4 +1,5 @@
-import { WORKSHOPS, workshopZones, workshopFixtures, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
+import { PARK_ZONES, nearbyPark, parkObstacles } from './recreation-park.ts';
+import { WORKSHOPS, workshopZones, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
 import { READING_PAVILION, READING_APPROACH, READING_TABLES, READING_SEATS, BOOKCASES } from './reading-pavilion.ts';
 import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
@@ -33,8 +34,8 @@ export const EXPANSION_BUILDINGS: Building[] = [
   {
     x: -28,
     z: -13,
-    w: 12,
-    d: 8,
+    w: 16,
+    d: 9,
     h: 5.2,
     name: "NHÀ Ở HỌC VIÊN A",
     roof: 0x956044,
@@ -43,7 +44,7 @@ export const EXPANSION_BUILDINGS: Building[] = [
   {
     x: -28,
     z: 0,
-    w: 12,
+    w: 16,
     d: 10,
     h: 4.6,
     name: "NHÀ Ở HỌC VIÊN B",
@@ -93,18 +94,18 @@ export const EXPANSION_BUILDINGS: Building[] = [
   {
     x: -29,
     z: 15,
-    w: 16,
-    d: 12,
+    w: 19,
+    d: 13,
     h: 3.8,
     name: "NHÀ ĂN HỌC VIÊN",
     roof: 0xac6744,
     kind: "dining",
   },
   {
-    x: -28,
+    x: -29,
     z: 36,
-    w: 20,
-    d: 14,
+    w: 24,
+    d: 16,
     h: 5,
     name: "NHÀ ĐA NĂNG",
     roof: 0x607f77,
@@ -115,7 +116,7 @@ export const EXPANSION_BUILDINGS: Building[] = [
 ];
 export const EXPLORATION_ZONES = [
   ...NEW_DISTRICT_ZONES,
-  ...workshopZones,
+  ...workshopZones, ...PARK_ZONES,
   {
     id: "dormitory",
     name: "Khu nội trú",
@@ -247,7 +248,7 @@ export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.k
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
-  ...SPORTS_OBSTACLES, ...workshopFixtures,
+  ...SPORTS_OBSTACLES, ...workshopFixtures, ...workshopFittings, ...parkObstacles,
   ...CORE_FRONT_FIXTURES, ...ROOM_EXHIBITS,
   ...ROOM_FIXTURES, ...BOOKCASES, ...READING_TABLES, ...READING_SEATS,
   ...DISTRICT_OBSTACLES,
@@ -261,9 +262,9 @@ export const MAP_OBSTACLES = [
     { x: b.x + b.w / 2, z: b.z, w: 0.2, d: b.d },
     { x: b.x, z: b.z - b.d / 2, w: b.w, d: 0.2 },
     ...[-1, 1].map((side) => ({
-      x: b.x + side * (b.w / 4 + 0.65),
+      x: b.x + side * (b.w / 4 + doorwayHalfWidth(b.kind)/2),
       z: b.z + b.d / 2,
-      w: b.w / 2 - 1.3,
+      w: b.w / 2 - doorwayHalfWidth(b.kind),
       d: 0.2,
     })),
   ]),
@@ -454,6 +455,8 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   return [];
 }
 export function campusAreaName(point: MapPoint) {
+  const park=nearbyPark(point);
+  if(park)return park.name;
   const workshop = nearbyWorkshop(point);
   if (workshop) return workshop.name;
   const venue = nearbySportsVenue(point.x, point.z);

@@ -1,3 +1,4 @@
+import { doorwayHalfWidth } from './workshop-wing.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { addCampusRoofs } from './campus-roofs.ts';
@@ -19,10 +20,11 @@ export function createRoomShell(b:Room){
   const box=(w:number,h:number,d:number,x:number,y:number,z:number,m:THREE.Material)=>{
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;shell.add(mesh);return mesh;
   };
+  const halfDoor=doorwayHalfWidth(b.kind);
   const front=b.z+b.d/2,top=b.h+.25;
   // Front wall has a 2.6 m doorway and two broad, recessed windows.
   for(const side of [-1,1]){
-    const width=b.w/2-1.3,cx=b.x+side*(b.w/4+.65),windowWidth=Math.min(2.2,width-1);
+    const width=b.w/2-halfDoor,cx=b.x+side*(b.w/4+halfDoor/2),windowWidth=Math.min(2.2,width-1);
     box(width,.65,.2,cx,1.225,front,stucco);
     box(width,top-2.75,.2,cx,(top+2.75)/2,front,stucco);
     for(const edge of [-1,1])box((width-windowWidth)/2,1.2,.2,cx+edge*(windowWidth/2+(width-windowWidth)/4),2.15,front,stucco);
@@ -31,7 +33,7 @@ export function createRoomShell(b:Room){
     for(const dx of [-windowWidth/2,0,windowWidth/2])box(.055,1.25,.12,cx+dx,2.15,front+.09,timber);
     box(windowWidth,.055,.12,cx,2.15,front+.09,timber);
     // Open timber door leaves do not obstruct the walkable threshold.
-    const door=box(.075,2.9,1.08,b.x+side*1.28,1.7,front-.55,timber);door.rotation.y=side*.15;
+    const door=box(.075,2.9,1.08,b.x+side*(halfDoor-.02),1.7,front-.55,timber);door.rotation.y=side*.15;
     // Side elevations sit above the low cutaway wall; real panes and sills face outside.
     box(.2,top-1.5,b.d,b.x+side*b.w/2,(top+1.5)/2,b.z,stucco);
     for(let i=0;i<Math.floor(b.d/2.4);i++){
@@ -41,7 +43,7 @@ export function createRoomShell(b:Room){
       box(.09,1.2,.06,b.x+side*(b.w/2+.15),2.18,z,timber);
     }
   }
-  box(2.6,Math.max(.2,top-3.15),.22,b.x,(top+3.15)/2,front,stucco);
+  box(halfDoor*2,Math.max(.2,top-3.15),.22,b.x,(top+3.15)/2,front,stucco);
   box(b.w+.45,.17,b.d+.45,b.x,top+.06,b.z,trim);
   const run=b.d/2+.4, rise=1.3, eave=top+.16;
   const isGlasshouse = b.kind === 'plant-lab';

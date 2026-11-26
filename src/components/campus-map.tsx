@@ -14,10 +14,17 @@ import "./campus-atlas.css";
 
 const width = MAP_BOUNDS.maxX - MAP_BOUNDS.minX;
 const height = MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ;
-const position = (x:number,z:number) => ({left:`${(x-MAP_BOUNDS.minX)/width*100}%`,top:`${(z-MAP_BOUNDS.minZ)/height*100}%`});
+
 const searchable = (s:string) => s.normalize("NFD").replace(/\p{M}/gu,"").replace(/đ/gi,"d").toLowerCase();
 export type AtlasDestination = MapPoint & {name:string};
 type Entry = MapPoint & {id:string;person?:boolean;symbol:string;name:string;detail:string;status:string;walk:()=>void;keywords?:string};
+const districtGroups=[
+  {name:'Sport & games',ids:['basketball','volleyball','signal-arcade','athletics','swimming','sports','field-games','training']},
+  {name:'Workshops',ids:['kitchen','plant-lab','light-lab','art','weather','music']},
+  {name:'Farm & garden',ids:['orchard','livestock','fish-pond','vegetable-garden','garden']},
+  {name:'Campus life',ids:[]},
+];
+const districtOf=(id:string)=>districtGroups.find(group=>group.ids.includes(id))??districtGroups[3];
 const statusOrder = ["Report back","Story mission","In progress","New mission","Conversation","Completed"];
 
 function PinSymbol({entry}: {entry:Entry}) {
@@ -33,6 +40,7 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
   const { t } = useStudent();
   const [tab,setTab] = useState<"places"|"people">("places");
   const [zoomed,setZoomed] = useState(false);
+  const [district,setDistrict]=useState("");
   const [query,setQuery] = useState("");
   const [showCompleted,setShowCompleted] = useState(false);
   const [questPins,setQuestPins] = useState(true);
@@ -71,10 +79,21 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
     const p=PLACES[id], current=goal?.place===id;
     return {id,person:true,symbol:"chat",name:p.npc,detail:current?goal.label:id===reportPlace?quest.title:p.english,keywords:p.role,x:p.position[0],z:p.position[1],status:id===reportPlace?"Report back":current?"Story mission":"Conversation",walk:()=>onPlace(id)};
   })].sort((a,b)=>statusOrder.indexOf(a.status)-statusOrder.indexOf(b.status)||a.name.localeCompare(b.name));
-  const visible=(tab==="places"?places:people).filter(e=>(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords,t(e.name),t(e.status)].join(" ")).includes(searchable(query.trim())));
-  const overlay=tab==="places" && questPins && !query.trim()
+  const visible=(tab==="places"?places:people).filter(e=>(tab!=="places"||!district||districtOf(e.id).name===district)&&(showCompleted||e.status!=="Completed")&&searchable([e.name,e.detail,e.status,e.keywords,t(e.name),t(e.status)].join(" ")).includes(searchable(query.trim())));
+  const overlay=tab==="places" && questPins && !district && !query.trim()
     ? people.filter(e=>["Report back","Story mission","New mission","In progress"].includes(e.status)) : [];
-  const pins=layoutAtlasPins([...visible,...overlay],size.width,size.height,size.diameter);
+  const focused=tab==='places'&&district ? places.filter(e=>districtOf(e.id).name===district) : [];
+  const bounds={...MAP_BOUNDS};
+  if(focused.length){
+    const xs=focused.map(e=>e.x),zs=focused.map(e=>e.z);
+    const cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
+    const scale=Math.min(1,Math.max((Math.max(...xs)-Math.min(...xs)+52)/width,(Math.max(...zs)-Math.min(...zs)+46)/height));
+    bounds.minX=Math.max(MAP_BOUNDS.minX,Math.min(MAP_BOUNDS.maxX-width*scale,cx-width*scale/2));
+    bounds.minZ=Math.max(MAP_BOUNDS.minZ,Math.min(MAP_BOUNDS.maxZ-height*scale,cz-height*scale/2));
+    bounds.maxX=bounds.minX+width*scale;bounds.maxZ=bounds.minZ+height*scale;
+  }
+  const frameW=bounds.maxX-bounds.minX,frameH=bounds.maxZ-bounds.minZ;
+  const pins=layoutAtlasPins([...visible,...overlay],size.width,size.height,size.diameter,bounds);
   function travel(entry:Entry) {
     onSelect({name:entry.name, x:entry.x, z:entry.z});
     entry.walk();
@@ -87,7 +106,7 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
         <div className="field-atlas-sheet" data-zoomed={zoomed}>
           <div className="atlas-map-scroll">
           <div ref={sheet} className="campus-map-large field-atlas-map" style={{aspectRatio:`${width}/${height}`}}>
-            <svg viewBox={`${MAP_BOUNDS.minX} ${MAP_BOUNDS.minZ} ${width} ${height}`} aria-label="Campus terrain">
+            <svg viewBox={`${bounds.minX} ${bounds.minZ} ${frameW} ${frameH}`} aria-label="Campus terrain">
               <CampusTerrain/>
               {player.route.length>0&&<polyline points={[player,...player.route].map(p=>p.x+","+p.z).join(" ")} fill="none" stroke="#346f6a" strokeWidth="1" strokeDasharray="1.2 1.5"/>}
             </svg>
@@ -96,24 +115,27 @@ export function CampusMap({player, progress, storyLocation, onPlace, onZone, onR
                 <g key={(p.entry.person?"npc-":"zone-")+p.entry.id}><line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y}/><circle cx={p.anchorX} cy={p.anchorY} r="1.7"/></g>)}
             </svg>
             {pins.map(({entry:e,x,y})=><button key={(e.person?"npc-":"zone-")+e.id} className="field-atlas-pin" data-status={e.status}
-              data-zone={e.person?undefined:e.id} data-npc={e.person?e.id:undefined}
+              data-district={e.person?undefined:districtOf(e.id).name} data-zone={e.person?undefined:e.id} data-npc={e.person?e.id:undefined}
               style={{left:x/size.width*100+"%",top:y/size.height*100+"%"}} onClick={()=>travel(e)} aria-label={`Walk to ${e.name}${e.status?" · "+e.status:""}`}
-              title={[e.name,e.status||e.detail].join(" · ")}><PinSymbol entry={e}/></button>)}
-            <span className="field-atlas-player campus-map-player" style={position(player.x,player.z)} title={t("You")}>
+              title={[e.name,e.status||e.detail].join(" · ")}><PinSymbol entry={e}/>{focused.length>0&&<span className="atlas-pin-caption">{t(e.name)}</span>}</button>)}
+            <span className="field-atlas-player campus-map-player" style={{left:(player.x-bounds.minX)/frameW*100+"%",top:(player.z-bounds.minZ)/frameH*100+"%",display:player.x<bounds.minX||player.x>bounds.maxX||player.z<bounds.minZ||player.z>bounds.maxZ?"none":undefined}} title={t("You")}>
               <svg viewBox="0 0 20 20" style={{transform:`rotate(${180-player.heading*180/Math.PI}deg)`}}><path d="m10 2 7 15-7-3-7 3z" fill="#17698a" stroke="#fffaf0" strokeWidth="2"/></svg>
             </span>
           </div>
           </div>
-          <div className="field-atlas-mapkey"><span>{t("▲ You")}</span>{tab==="places" ? <label><input type="checkbox" checked={questPins} onChange={e=>setQuestPins(e.target.checked)}/> {t("! Quest NPCs")}</label>
+          <div className="field-atlas-mapkey"><span>{t("▲ You")}</span>{tab==="places" ? !district && <label><input type="checkbox" checked={questPins} onChange={e=>setQuestPins(e.target.checked)}/> {t("! Quest NPCs")}</label>
             : <span><b className="atlas-legend-new">!</b> {t("New")} <b className="atlas-legend-active">!</b> {t("Active")} <i/> {t("Turn in")}</span>}<b>↑ N</b>
             <button type="button" aria-label={zoomed?t("Zoom out"):t("Zoom in")} aria-pressed={zoomed} onClick={()=>setZoomed(!zoomed)}>{zoomed?"−":"+"}</button></div>
         </div>
         <div className="field-atlas-directory">
           <div className="field-atlas-tabs">{(["places","people"] as const).map(id=><button key={id} aria-pressed={tab===id} onClick={()=>{setTab(id);setQuery("");}}>{id==="places"?t("Places"):t("Quest NPCs")}</button>)}</div>
           <input aria-label={t("Search destinations")} type="search" placeholder={tab==="places"?t("Find a place…"):t("Find a person or mission…")} value={query} onChange={e=>setQuery(e.target.value)}/>
+          {tab==="places"&&<select className="atlas-district-select" aria-label={t("District")} value={district} onChange={e=>setDistrict(e.target.value)}>
+            <option value="">{t("All districts")}</option>{districtGroups.map(g=><option key={g.name} value={g.name}>{t(g.name)}</option>)}
+          </select>}
           {tab==="people"&&<label className="atlas-show-done"><input type="checkbox" checked={showCompleted} onChange={e=>setShowCompleted(e.target.checked)}/> {t("Show completed missions")}</label>}
           <nav aria-label={t("Destinations")}>{visible.map(e=><button key={e.id} onClick={()=>travel(e)}>
-            <span className="field-atlas-symbol" data-status={e.status}><PinSymbol entry={e}/></span><span><strong>{t(e.name)}</strong>{(e.person || e.detail.includes(" · ")) && <small>{t(e.detail)}</small>}{e.status&&<em>{t(e.status)}</em>}</span><Icon name="arrow" size={15}/></button>)}
+            <span className="field-atlas-symbol" data-district={e.person?undefined:districtOf(e.id).name} data-status={e.status}><PinSymbol entry={e}/></span><span><strong>{t(e.name)}</strong>{(e.person || e.detail.includes(" · ")) && <small>{t(e.detail)}</small>}{e.status&&<em>{t(e.status)}</em>}</span><Icon name="arrow" size={15}/></button>)}
             {!visible.length&&<p role="status">{query?t("No matching destinations."):t("No unfinished missions.")}</p>}
           </nav>
         </div>

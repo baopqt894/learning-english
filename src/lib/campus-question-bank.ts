@@ -1,9 +1,12 @@
+import { recreationQuestions } from './recreation-lessons.ts';
+import { PARK_ZONES } from './recreation-park.ts';
 import { workshopQuestions } from './workshop-lessons.ts';
 import type { EnglishTier } from './cadet-tiers.ts';
 import { gap, type EnglishQuestion } from './level-questions.ts';
 
 // Each situation stays at its campus location as the learner changes level.
 export const areaQuestions: Record<string, Record<EnglishTier, EnglishQuestion>> = {
+  ...Object.fromEntries(PARK_ZONES.map(p=>[p.id,{A1:recreationQuestions(p.id,'A1')[0],A2:recreationQuestions(p.id,'A2')[0],B1:recreationQuestions(p.id,'B1')[0]}])),
   ...workshopQuestions,
   courtyard: {
     A1: gap('A new student says “Nice to meet you.” You reply, “___.”', 'Nice to meet you too', 'Here is your change', 'At half past nine', 'Return a greeting when someone introduces themselves.'),

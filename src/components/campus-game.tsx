@@ -1,5 +1,6 @@
 "use client";
 
+import { nearbyPark } from '@/lib/recreation-park';
 import { WORKSHOPS, nearbyWorkshop } from '@/lib/workshop-wing';
 import { LanguageSelect, Phrasebook, StudentContext, useStudent } from './student-support';
 import { dialogueMeaning, englishLine, rememberPhrase, translate, type Phrase, type StudentSettings } from '@/lib/student-support';
@@ -570,7 +571,9 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setNotice(`Follow the path to the ${SPORTS_VENUES[venue].name} desk. Press E or tap Register when you arrive.`);
     requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
   };
-  const currentWorkshop = nearbyWorkshop(playerPosition);
+  const room = nearbyWorkshop(playerPosition);
+  const park = nearbyPark(playerPosition);
+  const currentWorkshop = room ?? (park && {kind:park.id,title:park.title});
   const goToZone = (zoneId: ZoneId) => {
     const sport = zoneId==='swimming'?'pool':zoneId==='athletics'?'track':zoneId==='field-games'?'field':null;
     if(sport){walkToRegistration(sport);return;}

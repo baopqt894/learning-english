@@ -75,3 +75,12 @@
 .field-atlas :is(.field-atlas-pin,.field-atlas-symbol)[data-status="In progress"] {background:#365d75;color:white;border-color:#d7eef9}
 .field-atlas-mapkey :is(.atlas-legend-new,.atlas-legend-active) {margin:0;display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:#f4ca73;color:#302b21}
 .field-atlas-mapkey .atlas-legend-active {background:#365d75;color:white}
+
+.atlas-district-select{display:block;width:100%;padding:.45rem .7rem;border:1px solid #a6b7a1;border-radius:.45rem;background:#f7f6e9;color:#203d32;font:inherit}
+.field-atlas [data-district="Sport & games"]{background-color:#84503d;color:white}
+.field-atlas [data-district="Workshops"]{background-color:#365f73;color:white}
+.field-atlas [data-district="Farm & garden"]{background-color:#486744;color:white}
+.field-atlas [data-district="Campus life"]{background-color:#675637;color:white}
+
+.atlas-pin-caption{position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:3px 6px;border-radius:4px;color:#f9f6e8;background:#293f35;font:600 10px/1.1 system-ui;pointer-events:none}
+@media(max-width:620px){.atlas-pin-caption{display:none}.field-atlas-sheet[data-zoomed=true] .atlas-pin-caption{display:block}}

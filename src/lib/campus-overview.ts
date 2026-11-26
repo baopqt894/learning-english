@@ -1,7 +1,8 @@
+import { PARK_COURTS,SIGNAL_COURT,orchardTrees } from './recreation-park';
 import * as THREE from 'three';
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, MAP_BOUNDS } from './campus-map';
 import {
-  DISTRICT_PATHS, DISTRICT_STRUCTURES, FEED_DECK, FISH_POND, LIVESTOCK_PENS,
+  PEN_HABITATS, DISTRICT_TRANSFORMS, DISTRICT_PATHS, DISTRICT_STRUCTURES, FEED_DECK, FISH_POND, LIVESTOCK_PENS,
   SWIMMING_POOL, TRAINING_GROUND, TRAINING_EQUIPMENT,
 } from './campus-districts-layout';
 import { CAMPUS_TREES, FARM_FENCES, FARM_LAYOUT, READING_PLANTERS, SPORTS_FIELD } from './campus-spaces';
@@ -44,6 +45,12 @@ export function createCampusOverview(sky: number) {
   const w = maxX - minX, d = maxZ - minZ;
   boxes.push({ x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, w: w + 4, d: d + 4, h: 1, y: -.5, color: 0x939f60 });
   ground({ x: 0, z: -.4, w: 22, d: 18 }, 0xd3c9a6);
+  for(const tree of orchardTrees)crowns.push({...tree,w:4,h:3,d:3.6,y:2.6,color:0x7e9d64});
+  for(const c of PARK_COURTS){
+    ground(c,c.kind==='basketball'?0xb67355:0xd3be91,.1);
+    ground({...c,d:.19},0xf5e7c8,.14);
+  }
+  ground(SIGNAL_COURT,0x7f9c90,.1);
   for (const road of DISTRICT_PATHS) ground(road, 0xcfc4a3, .04);
   for (const b of [...CORE_BUILDINGS, ...EXPANSION_BUILDINGS]) building(b, b.h, b.roof);
   for (const b of DISTRICT_STRUCTURES) building(b, b.h, 0x5f7854);
@@ -65,8 +72,10 @@ export function createCampusOverview(sky: number) {
   building(FARM_LAYOUT.shed, FARM_LAYOUT.shed.height * .78, 0x667d4e);
 
   for (const pen of LIVESTOCK_PENS) {
-    ground(pen, 0xc2ac79, .035);
-    building({ ...pen, z: pen.z - pen.d * .32, d: pen.d * .28, w: pen.w - .8 }, 1.6, 0x6d8054);
+    const h=PEN_HABITATS[pen.kind],s=DISTRICT_TRANSFORMS.livestock.scale;
+    ground(pen,h.ground,.035);
+    building({x:pen.x+h.dx*s,z:pen.z+h.dz*s,w:h.w*s,d:h.d*s},h.h,h.roof);
+    if(pen.kind==='duck')ground({x:pen.x+1.6*s,z:pen.z-.56*s,w:4.72*s,d:3.4*s},0x6ba59c,.09);
   }
   ground(FISH_POND, 0x72988d);
   ground(FEED_DECK, 0xb19065, .18);

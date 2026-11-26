@@ -1,6 +1,8 @@
+import { createWorkshopInterior } from './workshop-interiors';
+import { createRecreationPark } from './recreation-park-scene';
 import { createReadingRoom } from './reading-room';
 import { createDiningRoom } from './dining-room';
-import { workshopFixtures, WORKSHOPS } from './workshop-wing';
+import { workshopFixtures, WORKSHOPS, doorwayHalfWidth } from './workshop-wing';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
@@ -431,12 +433,13 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   });
 
+  scene.add(createRecreationPark());
   EXPANSION_BUILDINGS.forEach((b) => {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
       const shell=createRoomShell(b);scene.add(shell);
-      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : undefined;
+      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createWorkshopInterior(b.kind);
       if(interior)scene.add(interior);
       roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
@@ -453,11 +456,11 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       for (const side of [-1, 1]) {
         box(0.2, 1.25, b.d, 0xe9d6ad, b.x + (side * b.w) / 2, 0.87, b.z);
         box(
-          b.w / 2 - 1.3,
+          b.w / 2 - doorwayHalfWidth(b.kind),
           0.65,
           0.2,
           0xe9d6ad,
-          b.x + side * (b.w / 4 + 0.65),
+          b.x + side * (b.w / 4 + doorwayHalfWidth(b.kind)/2),
           0.57,
           b.z + b.d / 2,
         );
@@ -466,12 +469,12 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
           b.kind === "housing" ? .8 : b.h,
           0.18,
           0xcab78d,
-          b.x + side * 1.3,
+          b.x + side * doorwayHalfWidth(b.kind),
           b.kind === "housing" ? .65 : b.h / 2 + 0.25,
           b.z + b.d / 2,
         );
       }
-      if(b.kind!=="housing")box(2.75, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
+      if(b.kind!=="housing")box(2*doorwayHalfWidth(b.kind)+.15, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
       sign(
         b.kind === "pavilion" ? "ENGLISH READING ROOM" : b.name,
         b.w * 0.8,

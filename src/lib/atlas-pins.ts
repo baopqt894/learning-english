@@ -2,6 +2,7 @@ import { MAP_BOUNDS, type MapPoint, type ZoneId } from './campus-map.ts';
 import type { Place } from './game.ts';
 
 export const placeSymbols = {
+  orchard:'orchard', basketball:'hoop',volleyball:'net','signal-arcade':'signal',
   weather:'weather',art:'palette',music:'music',
   kitchen: 'pot', 'light-lab': 'prism', 'plant-lab': 'flask',
   swimming: 'pool', athletics: 'run', sports: 'ball', 'field-games': 'flag',
@@ -12,14 +13,14 @@ export const placeSymbols = {
 } satisfies Record<ZoneId | Place, string>;
 
 // Separate crowded symbols in screen pixels. Navigation always uses the original world point.
-export function layoutAtlasPins<T extends MapPoint>(entries: T[], width: number, height: number, diameter: number) {
+export function layoutAtlasPins<T extends MapPoint>(entries: T[], width: number, height: number, diameter: number, bounds=MAP_BOUNDS) {
   const placed: { x: number; y: number }[] = [];
   const radius = diameter / 2;
   const gap = diameter + 2;
   let crowded = false;
   const pins = entries.map(entry => {
-    const anchorX = (entry.x - MAP_BOUNDS.minX) / (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) * width;
-    const anchorY = (entry.z - MAP_BOUNDS.minZ) / (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ) * height;
+    const anchorX = (entry.x - bounds.minX) / (bounds.maxX - bounds.minX) * width;
+    const anchorY = (entry.z - bounds.minZ) / (bounds.maxZ - bounds.minZ) * height;
     const clamp = (value: number, max: number) => Math.max(radius, Math.min(max - radius, value));
     let x = clamp(anchorX, width), y = clamp(anchorY, height);
     let free = false;

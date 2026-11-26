@@ -1,7 +1,9 @@
+import { PARK_COURTS, SIGNAL_COURT, orchardTrees } from '@/lib/recreation-park';
+import { WORKSHOPS } from '@/lib/workshop-wing';
 import { useStudent } from './student-support';
 import { memo, useId } from "react";
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, MAP_BOUNDS, type MapPoint } from "@/lib/campus-map";
-import { DISTRICT_PATHS, FISH_POND, LIVESTOCK_PENS, SWIMMING_POOL, TRAINING_GROUND } from "@/lib/campus-districts-layout";
+import { PEN_HABITATS, DISTRICT_TRANSFORMS, DISTRICT_PATHS, FISH_POND, LIVESTOCK_PENS, SWIMMING_POOL, TRAINING_GROUND } from "@/lib/campus-districts-layout";
 import { CAMPUS_TREES, FARM_LAYOUT, READING_PLANTERS, SPORTS_FIELD } from "@/lib/campus-spaces";
 import { STADIUM, TRACK_OUTER_RADIUS } from "@/lib/sports-layout";
 import { Icon } from "./icon";
@@ -39,8 +41,21 @@ export const CampusTerrain = memo(function CampusTerrain() {
       {READING_PLANTERS.map(b=><rect key={b.x} {...footprint(b)} rx="1" fill="#8fa77a" stroke="#e6ddb7" strokeWidth=".3"/>)}
       <g fill="#b9a77e" stroke="#8b825f" strokeWidth=".32">
         <rect {...footprint(TRAINING_GROUND)} rx="1"/>
-        {LIVESTOCK_PENS.map(p=><rect key={p.id} {...footprint(p)} rx=".7"/>)}
+        {LIVESTOCK_PENS.map(p=>{
+          const h=PEN_HABITATS[p.kind],s=DISTRICT_TRANSFORMS.livestock.scale;
+          return <g key={p.id}><rect {...footprint(p)} rx=".7" fill={`#${h.ground.toString(16)}`}/>
+            <rect {...footprint({x:p.x+h.dx*s,z:p.z+h.dz*s,w:h.w*s,d:h.d*s})} fill={`#${h.roof.toString(16)}`}/>
+            {p.kind==='duck'&&<ellipse cx={p.x+1.6*s} cy={p.z-.56*s} rx={2.36*s} ry={1.7*s} fill="#6ba59c"/>}</g>;
+        })}
       </g>
+      {orchardTrees.map(p=><g key={p.x+":"+p.z}><circle cx={p.x} cy={p.z} r="2.35" fill={["#88a369","#749565","#93aa70"][p.variety]}/><circle cx={p.x+.65} cy={p.z+.5} r=".64" fill="#e5bb75"/></g>)}
+      {PARK_COURTS.map(c=><g key={c.x} transform={`translate(${c.x} ${c.z})`} stroke="#fff1d4" strokeWidth=".45">
+        <rect x={-c.w/2} y={-c.d/2} width={c.w} height={c.d} fill={c.kind==='basketball'?'#bd785b':'#d3ae73'}/>
+        <path d={`M${-c.w/2} 0h${c.w}`}/>
+        {c.kind==='basketball'?<><circle r="1.8" fill="none"/>{[-1,1].map(s=><rect key={s} x="-2.45" y={s<0?-c.d/2:c.d/2-5.6} width="4.9" height="5.6" fill="#d29a74"/>)}</>:<path d="M-4.5 -3h9m-9 6h9"/>}
+      </g>)}
+      <rect {...footprint(SIGNAL_COURT)} rx="1" fill="#79a79f" stroke="#4f776e" strokeWidth=".4"/>
+      {[197,204,211].map(x=><rect key={x} x={x-1.6} y="84.5" width="3.2" height="1.1" fill="#355759"/>)}
       <rect {...footprint(FISH_POND)} rx="2" fill="#8ab6ae" stroke="#648d85" strokeWidth=".5"/>
       <rect {...footprint(SWIMMING_POOL)} rx=".8" fill="#80b5ba" stroke="#f8efda" strokeWidth="1"/>
       {[1,2,3].map(i=><path key={i} d={`M${SWIMMING_POOL.x-SWIMMING_POOL.w/2} ${SWIMMING_POOL.z-SWIMMING_POOL.d/2+i*SWIMMING_POOL.d/4}h${SWIMMING_POOL.w}`} stroke="#d8efea" strokeWidth=".32"/>)}
@@ -55,11 +70,14 @@ export const CampusTerrain = memo(function CampusTerrain() {
       <g strokeWidth=".35" strokeLinejoin="round">
         {[...CORE_BUILDINGS,...EXPANSION_BUILDINGS].map(b=>{
           const shape=footprint(b);
+          const workshop=WORKSHOPS.find(room=>room.x===b.x&&room.z===b.z);
           const cool=b.roof===0x526f50||b.roof===0x536f76||b.roof===0x667c56||b.roof===0x607f77;
           return <g key={b.x+":"+b.z}>
             <rect {...shape} y={shape.y+.6} rx=".45" fill="#829180"/>
-            <rect {...shape} rx=".45" fill={cool?"#829c8a":"#c18a6f"} stroke={cool?"#607c69":"#966b55"}/>
+            <rect {...shape} rx=".45" fill={workshop?.color??(cool?"#829c8a":"#c18a6f")} stroke={cool?"#607c69":"#966b55"}/>
             <path d={`M${shape.x+.6} ${shape.y+.45}l1.3 ${b.d/2-.45}h${b.w-3.8}l1.3 -${b.d/2-.45}`} fill="none" stroke="#f5e3c3" opacity=".77"/>
+            {workshop?.kind==='plant-lab'&&Array.from({length:7},(_,i)=><path key={i} d={`M${shape.x+3+i*5.7} ${shape.y+1}v${b.d-2}`} stroke="#deecd3"/>)}
+            {workshop?.kind==='kitchen'&&[-1,1].map(side=><rect key={side} x={b.x+side*8-1.5} y={b.z-2} width="3" height="2.2" fill="#765d4b"/>)}
           </g>;
         })}
       </g>
