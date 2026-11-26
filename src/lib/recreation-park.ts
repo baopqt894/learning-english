@@ -14,7 +14,7 @@ export const parkSeats=[{x:107,z:85},{x:107,z:102},{x:160,z:85},{x:160,z:102},{x
 export const signalBoards=[-7,0,7].map(dx=>({x:SIGNAL_COURT.x+dx,z:85,w:3.5,d:.7}));
 export const orchardTrees=[113,125,138,150,172,184,197,209].flatMap((x,col)=>
   [-108,-98,-76,-66].map((z,row)=>({x,z:z+(col%2)*1.4,variety:(col+row)%3})));
-export const orchardPaths=[{x:161,z:-73,w:3.6,d:34},{x:161,z:-86,w:116,d:4},{x:105,z:-98,w:3,d:24},{x:217,z:-98,w:3,d:24},{x:161,z:-110,w:112,d:3}];
+export const orchardPaths=[{x:161,z:-71,w:3.6,d:30},{x:161,z:-86,w:116,d:4},{x:105,z:-98,w:3,d:24},{x:217,z:-98,w:3,d:24},{x:161,z:-110,w:112,d:3}];
 export const parkPaths=[{x:149,z:72,w:122,d:5},{x:107,z:65,w:4,d:14},{x:173,z:65,w:4,d:14},
   ...orchardPaths,...PARK_ZONES.filter(p=>p.id!=='orchard').map(p=>({x:p.x,z:85,w:5,d:26}))];
 export const parkObstacles=[

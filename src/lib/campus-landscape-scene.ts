@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {sceneryKit} from './campus-scenery-kit';
 import {bananaClump,bucket,feedSack,flowerClump,fruitCrate,hayBale,meadow,pergola,toolBoard} from './campus-garden-props';
-import {harvestStand,nurseryPens,shadeGardens,toolStations,workshopBorders} from './campus-landscape-layout';
+import {fruitTrolley,harvestStand,nurseryPens,orchardBeds,shadeGardens,toolStations,workshopBorders} from './campus-landscape-layout';
 import {COURTYARD_PLANTERS, FARM_LAYOUT, READING_PLANTERS} from './campus-spaces';
 import {FISH_POND,LIVESTOCK_PENS} from './campus-districts-layout';
 
@@ -29,6 +29,27 @@ export function createCampusLandscape(){
   for(let i=0;i<4;i++)fruitCrate(stand,-1.74+i*1.17,1.27,.42,[0xc98b42,0xc5714e,0x9ba84e,0xe0ae54][i]);
   feedSack(stand,-1.32,.08,.45);bucket(stand,1.4,.08,.35);add(stand,harvestStand.x,harvestStand.z);
 
+  for(const [index,bed] of orchardBeds.entries()){
+    const k=sceneryKit('Pollinator border');
+    k.block(0,.15,0,bed.w,.24,bed.d,0x907552);
+    for(const side of [-1,1])for(let i=0;i<Math.ceil(bed.w/.63);i++)
+      k.globe(-bed.w/2+.28+i*.61,.24,side*.66,.65,.41,.35,i%2?0xaaa58b:0xbcb294);
+    for(let i=0;i<Math.floor(bed.w/.43);i++){
+      const x=-bed.w/2+.41+i*.42;
+      flowerClump(k,x,.26,Math.sin(i*2.4)*.28,i%3===0?1.27:.84,[0xe5b763,0xc483a2,0xda8e78][(index+i%3)%3],i);
+    }
+    add(k,bed.x,bed.z);
+  }
+  const cart=sceneryKit('Fruit picking trolley');
+  cart.block(0,.55,0,1.97,.16,1.13,0xaa8054);
+  for(const s of [-1,1]){
+    cart.hoop(-.67,.34,s*.62,.57,.57,1.3,0x585b4b,0,Math.PI/2);
+    cart.block(.83,.42,s*.41,.15,.64,.15,0x837359);
+    cart.block(.94,1.01,s*.46,.10,1.04,.10,0x64776a,-.14);
+  }
+  cart.block(1.0,1.51,0,.10,.10,1.0,0x986d4c);
+  fruitCrate(cart,-.43,.63,.045,0xe4ad53);
+  feedSack(cart,.51,.64,.04);add(cart,fruitTrolley.x,fruitTrolley.z);
   for(const pen of LIVESTOCK_PENS){
     const k=sceneryKit(pen.kind+' habitat details'),hw=pen.w/2,hd=pen.d/2;
     if(pen.kind!=='duck')meadow(k,0,.1,pen.w-1,pen.d-1,hw+hd,pen.kind!=='goat');
