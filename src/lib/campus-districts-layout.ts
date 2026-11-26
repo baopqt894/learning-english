@@ -2,7 +2,7 @@ import { workshopPaths } from './workshop-wing.ts';
 import type { BalanceRun } from './balance-challenge.ts';
 import { SPORTS_VENUES } from './sports-layout.ts';
 /** Every new district shares footprints between geometry, navigation and the atlas. */
-export const CAMPUS_EXTENT={minX:-49,maxX:174,minZ:-125,maxZ:68};
+export const CAMPUS_EXTENT={minX:-49,maxX:214,minZ:-125,maxZ:68};
 export const BASE_DISTRICT_PATHS=[
   {x:44,z:-19.5,w:58,d:3.6},{x:38,z:-9.5,w:3.6,d:87},
   {x:25,z:35,w:96,d:3.6},{x:0,z:-32,w:3.6,d:14},
@@ -96,8 +96,10 @@ export const DISTRICT_BENCHES=BASE_DISTRICT_BENCHES.map(footprint);
 export const TRAINING_CONES=BASE_TRAINING_CONES.map(footprint);
 export const EXPANDED_TREES=[
   // Shade the east promenade without blocking room entrances or classroom sight lines.
+  [179,-51],[190,-51],[206,-46],[179,-16],[183,-13],[207,-16],[178,17],[184,20],[207,22],
+  [179,51],[191,54],[207,52],
   [111,-39],[111,-12],[111,6],[111,28],[111,51],[120,-48],[135,-48],[145,-36],
-  [146,19],[160,20],[146,44],[160,44],[120,53],[137,54],[162,-22],[165,54],
+  [146,19],[160,20],[146,48],[160,48],[120,53],[137,54],[162,-22],[165,54],
   [-42,-30],[-38,-36],[-30,-51],[-27,-68],[28,-65],[29,-44],[40,-71],[55,-68],[98,-70],[102,-34],[53,-24],[103,-22],[104,12],[57,58],[75,58],[95,58],[105,47],[25,62],[10,40],[-8,38],[-40,47]].map(([x,z],i)=>({x,z,scale:.95+(i%4)*.14,flowering:i%5===0}));
 export const DISTRICT_OBSTACLES=[...BASE_DISTRICT_OBSTACLES.map(footprint),...EXPANDED_TREES.map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale}))];
 export const NEW_DISTRICT_ZONES=[...BASE_NEW_DISTRICT_ZONES.map(z=>z.id==='swimming'?{...z,...SPORTS_VENUES.pool.approach}:districtPoint(z.id,z)),{id:'athletics',name:'Đường chạy tiếng Anh',english:'English athletics',...SPORTS_VENUES.track.approach,icon:'run',color:'#bd986b'},{id:'field-games',name:'Sân trò chơi tiếng Anh',english:'English field games',...SPORTS_VENUES.field.approach,icon:'ball',color:'#92b171'}] as const;

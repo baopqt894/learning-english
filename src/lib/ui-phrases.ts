@@ -1,4 +1,7 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Weather station","Trạm khí tượng"], ["Read the forecast","Đọc dự báo thời tiết"],
+  ["Art studio","Xưởng mỹ thuật"], ["Mix a colour palette","Pha bảng màu"],
+  ["Ensemble room","Phòng hòa tấu"], ["Rehearse with the band","Tập cùng ban nhạc"],
   ["Character preview", "Xem trước nhân vật"],
   ["Turn left", "Xoay trái"], ["Turn right", "Xoay phải"], ["Drag to rotate", "Kéo để xoay"],
   ["Loading character…", "Đang tải nhân vật…"], ["Character portrait", "Chân dung nhân vật"],

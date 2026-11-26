@@ -578,6 +578,31 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
           leaf.scale.set(1,.29,.55); leaf.rotation.z=side*.5;
         }
       }
+    } else if (f.kind==='weather') {
+      // Instrument stand with a dial, a graduated rain gauge and a wind vane.
+      const dial=cylinder(.38,.38,.12,0xf4ead6,f.x-1,1.68,f.z,scene,24);
+      dial.rotation.x=Math.PI/2;
+      box(.04,.29,.04,0xb45641,f.x-1.05,1.74,f.z+.08).rotation.z=-.44;
+      cylinder(.19,.16,.62,0x7eaeb7,f.x,1.53,f.z);
+      for (let i=0;i<4;i++) box(.13,.025,.03,0xf7efd8,f.x,1.36+i*.11,f.z+.18);
+      cylinder(.035,.05,.92,steel,f.x+1.15,1.66,f.z);
+      box(.72,.055,.055,0x465d5d,f.x+1.15,2.1,f.z);
+      box(.21,.2,.04,0xc96f46,f.x+1.42,2.17,f.z);
+    } else if (f.kind==='art') {
+      const canvas=box(1.13,.88,.07,0xf3e8c9,f.x-.8,1.86,f.z);
+      canvas.rotation.x=-.14;
+      box(1.28,.08,.3,0x986b4b,f.x-.8,1.44,f.z+.08);
+      for (const side of [-1,1]) box(.075,1.24,.08,0x9f7650,f.x-.8+side*.39,1.83,f.z-.06).rotation.z=side*.13;
+      for(const [i,color] of [0xb9594b,0xd6a441,0x487684].entries()) cylinder(.15,.13,.22,color,f.x+.35+i*.41,1.34,f.z);
+    } else if (f.kind==='music') {
+      box(2.4,.12,.65,0x424c4c,f.x-.45,1.3,f.z);
+      for(let i=0;i<14;i++) {
+        const x=f.x-1.54+i*.167;
+        box(.152,.06,.49,0xf3eee0,x,1.39,f.z+.035);
+        if (![2,6].includes(i%7)) box(.079,.06,.28,0x34403c,x+.08,1.45,f.z-.07);
+      }
+      cylinder(.32,.30,.42,0xb68057,f.x+1.35,1.45,f.z);
+      cylinder(.335,.335,.05,0xf0e4c6,f.x+1.35,1.69,f.z);
     } else {
       box(.65,.23,.43,0x435760,f.x,1.34,f.z);
       for (const [index,colour] of [0xaa5344,0xc39c41,0x557e9a].entries()) {
@@ -600,7 +625,9 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         if (sides===4) shape.rotation.y = Math.PI/4;
       }
     } else {
-      sign(b.kind==='kitchen'?'PREP   /   COOK   /   SERVE':'SOW   /   OBSERVE   /   RECORD',9,.8,b.x,2.6,back+.1,'#39594c');
+      const signText={kitchen:'PREP   /   COOK   /   SERVE','plant-lab':'SOW   /   OBSERVE   /   RECORD',
+        weather:'TEMPERATURE   /   WIND   /   RAIN',art:'SKETCH   /   MIX   /   PAINT',music:'LISTEN   /   COUNT   /   PLAY'};
+      sign(signText[b.kind],9,.8,b.x,2.6,back+.1,'#39594c');
     }
   }
 

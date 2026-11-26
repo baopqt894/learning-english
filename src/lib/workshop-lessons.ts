@@ -5,6 +5,22 @@ import type { WorkshopId } from './workshop-wing.ts';
 
 // A round follows the order a learner would actually work in the room.
 export const workshopBriefings = {
+  weather: {
+    A1: ['It is sunny today. Take your hat.', 'What should you take?', 'A hat', 'A coat', 'An umbrella'],
+    A2: ['Rain will start after lunch. Hang the washing inside this afternoon.', 'When will it start raining?', 'After lunch', 'Before sunrise', 'At midnight'],
+    B1: ['The temperature fell from twenty to fourteen degrees overnight. The wind stayed steady.', 'Which observation belongs in the log?', 'A six-degree fall', 'A stronger wind', 'A four-degree rise'],
+  },
+  art: {
+    A1: ['Use the blue pencil for the river.', 'Which pencil will you use?', 'Blue', 'Green', 'Yellow'],
+    A2: ['Paint the background first. Wait until it dries before adding the tree.', 'What happens just before painting the tree?', 'The background dries', 'You draw the frame', 'You wash the wall'],
+    B1: ['Both samples use the same red. The second has extra white paint mixed in.', 'How does the second sample look?', 'Lighter', 'Darker', 'More transparent by definition'],
+  },
+  music: {
+    A1: ['Pick up the small drum.', 'Which instrument do you need?', 'A drum', 'A guitar', 'A flute'],
+    A2: ['The piano plays first. The drum joins after four beats.', 'Which instrument starts alone?', 'The piano', 'The drum', 'The flute'],
+    B1: ['Keep the same tempo in the final verse, but play more softly so the singer can be heard.', 'What should change?', 'Volume', 'Tempo', 'Key'],
+  },
+
   kitchen: {
     A1: ['Wash the carrots before you cook them.', 'What do you wash?', 'Carrots', 'Rice', 'Apples'],
     A2: ['Set out four bowls. Two more students are joining us for lunch.', 'How many bowls will you need altogether?', 'Six', 'Four', 'Two'],
@@ -23,6 +39,22 @@ export const workshopBriefings = {
 } as const;
 
 export const secondBriefings = {
+  weather: {
+    A1: ['It is windy. Look at the flag.', 'What should you look at?', 'The flag', 'The rain gauge', 'The clock'],
+    A2: ['At nine the gauge was empty. By noon it held five millimetres of rain.', 'How much rain fell before noon?', 'Five millimetres', 'Nine millimetres', 'None'],
+    B1: ['Both thermometers were in the shade, but one was beside an open window.', 'Which factor could explain different readings?', 'Air from outside', 'Direct sunshine', 'Different units by definition'],
+  },
+  art: {
+    A1: ['Pick up the round brush.', 'Which tool do you need?', 'A round brush', 'A ruler', 'A pencil'],
+    A2: ['Keep one brush dry for chalk. Rinse the other brush after using paint.', 'Which brush stays dry?', 'The chalk brush', 'The paint brush', 'Both brushes'],
+    B1: ['The poster looks balanced up close, but the title is hard to read from the door.', 'Which change addresses the problem?', 'Increase the title size', 'Use a smaller page', 'Add tiny details'],
+  },
+  music: {
+    A1: ['Clap twice before we start.', 'How many times should you clap?', 'Twice', 'Once', 'Three times'],
+    A2: ['Bring a music stand and a pencil. Leave the drum in the cupboard.', 'What stays in the cupboard?', 'The drum', 'The stand', 'The pencil'],
+    B1: ['The flute enters too early in bar four. Listen for the last piano chord before you begin.', 'What is the cue for the flute?', 'The last piano chord', 'The first drumbeat', 'The end of the song'],
+  },
+
   kitchen: {
     A1: ['Put the apples on the lunch tray.', 'Which food goes on the tray?', 'Apples', 'Rice', 'Carrots'],
     A2: ['We have eight clean bowls, but only six people are having soup.', 'How many bowls can you put away?', 'Two', 'Six', 'Eight'],
@@ -41,6 +73,22 @@ export const secondBriefings = {
 } as const;
 
 export const workshopQuestions = {
+  weather: {
+    A1:gap('We use a thermometer to measure ___.','temperature','rainfall','time','Temperature tells us how hot or cold it is.'),
+    A2:gap('Yesterday was warm. Today is even ___.','warmer','warmest','as warm than','Use the comparative to compare two days.'),
+    B1:gap('Which forecast expresses uncertainty?','It might rain tonight','It rained last night','It is raining now','Might describes a possibility.'),
+  },
+  art: {
+    A1:gap('Mix blue and yellow paint to make ___.','green','purple','orange','Blue and yellow pigments usually make green.'),
+    A2:gap('Let the paint dry ___ you frame the picture.','before','during','until after','Wait for dry paint before framing.'),
+    B1:gap('Choose a clear instruction for a lighter shade.','Add a little white at a time','Use a larger canvas','Press the brush harder','White lightens the mixture.'),
+  },
+  music: {
+    A1:gap('You play the piano with your ___.','hands','shoes','ears','Your fingers press the keys.'),
+    A2:gap('The drummer keeps a steady ___.','beat','page','seat','A steady beat helps the band play together.'),
+    B1:gap('The conductor asks for a slower tempo. What changes?','The speed','The pitch','The instrument','Tempo is the speed of the music.'),
+  },
+
   kitchen: {
     A1: gap('The rice is ready. Serve it in a ___.','bowl','tap','fork','A bowl holds a serving of rice.'),
     A2: gap('Put the lid on the pot ___ the water begins to boil.','when','during','while boiling it','When introduces the moment an action happens.'),
@@ -59,6 +107,22 @@ export const workshopQuestions = {
 };
 
 export const workshopNotes = {
+  weather: {
+    A1:['The sky is full of clouds. It is ___.','cloudy','wind','sun'],
+    A2:['Read the rain gauge at the same ___ each day.','time','colour','sound'],
+    B1:['Which entry reports a measurement?','Rainfall was eight millimetres','It felt gloomy','I prefer sunshine'],
+  },
+  art: {
+    A1:['Dip your brush in the ___.','paint','desk','shelf'],
+    A2:['The portrait shows a person. The landscape shows ___.','scenery','a timetable','a recipe'],
+    B1:['Which feedback gives a specific change?','Darken the outline around the title','Make it better','Try something else'],
+  },
+  music: {
+    A1:['Read the notes on the music ___.','sheet','spoon','bowl'],
+    A2:['Count four beats ___ you begin.','before','during','beside'],
+    B1:['The singer is hard to hear. Which instruction is best?','Play the accompaniment more softly','Repeat the same volume','Start the verse sooner'],
+  },
+
   kitchen: {
     A1: ['First wash your ___ before touching food.', 'hands', 'boots', 'chair'],
     A2: ['The recipe serves two. For four people, use ___ the amount of rice.', 'twice', 'half', 'less than'],

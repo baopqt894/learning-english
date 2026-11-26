@@ -9,8 +9,9 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { bakeMixamoGameWalk } from './an-mixamo-game-walk.mjs';
 import { correctedCadet, fitCastRig, castWeights, packWeights } from './cast-skin.mjs';
 import { CHARACTER_PROFILES } from '../src/lib/campus-character-profiles.ts';
-const source = process.argv[2] || 'assets/sources/tripo-cast-h31.glb';
-const output = 'public/models/tripo-h31';
+const showroom = process.argv.includes('--showroom');
+const source = process.argv.slice(2).find(arg=>!arg.startsWith('--')) || 'assets/sources/tripo-cast-h31.glb';
+const output = showroom ? 'public/models/cadet-showroom' : 'public/models/tripo-h31';
 await mkdir(output, {recursive:true});
 const input = await readFile(source), jsonLength=input.readUInt32LE(12);
 const gltf=JSON.parse(input.subarray(20,20+jsonLength)), bin=input.subarray(28+jsonLength);
@@ -35,7 +36,9 @@ const textureFiles=['color-original.jpg','orm-original.jpg','normal-original.png
 const textureHashes=[];
 for(let i=0;i<textureFiles.length;i++){
  const bytes=Buffer.from(views[gltf.images[i].bufferView]);
- await writeFile(`${output}/${textureFiles[i]}`,bytes);
+ if (!showroom) await writeFile(`${output}/${textureFiles[i]}`,bytes);
+ else if (i>0) await sharp(bytes).resize({width:1536,withoutEnlargement:true}).webp({quality:93})
+   .toFile(`${output}/${i===1?'surface':'normal'}-mobile.webp`);
  textureHashes.push(createHash('sha256').update(bytes).digest('hex'));
 }
 // The front-of-body prop bounds include fingers wrapped around the object.
@@ -60,7 +63,7 @@ if(crossing)throw Error(`Character boundaries intersect ${crossing} source faces
 globalThis.FileReader=class{readAsArrayBuffer(blob){blob.arrayBuffer().then(b=>{this.result=b;this.onloadend?.();});}};
 const exporter=new GLTFExporter();
 const manifest={version:4,source:'Tripo H3.1 user export',sourceSha256:createHash('sha256').update(input).digest('hex'),sourceTriangles:indices.length/3,textures:textureFiles.map((file,i)=>({url:`/models/tripo-h31/${file}`,sha256:textureHashes[i]})),originalMaterial:gltf.materials[0],characters:[]};
-for(let c=0;c<17;c++){
+for(let c=0;c<(showroom?2:17);c++){
  const kind=rows[Math.floor(c/6)].kinds[c%6],ids=Uint32Array.from(buckets[c]),used=[...new Set(ids)],remap=new Map(used.map((v,i)=>[v,i]));
  const src=used.map(i=>[positions[i*3],positions[i*3+1],positions[i*3+2]]);
  const minY=Math.min(...src.map(p=>p[1])),maxY=Math.max(...src.map(p=>p[1])),height=maxY-minY;
@@ -75,19 +78,19 @@ for(let c=0;c<17;c++){
  }
  let compactIndices=Uint32Array.from(ids,id=>remap.get(id));
  let cadetSkin,seamLocks=null;
- if(kind==='cadet'){
+ if(kind==='cadet'&&!showroom){
   const corrected=correctedCadet();
   ({seamLocks,pos,normal,uv,indices:compactIndices,influences:cadetSkin}=corrected);
  }
  const attrs=new Float32Array(pos.length/3*5);
  for(let i=0;i<pos.length/3;i++)attrs.set([...normal.subarray(i*3,i*3+3),...uv.subarray(i*2,i*2+2)],i*5);
  const root=new T.Group();root.name=kind;root.userData={kind,version:2,assetVersion:4,source:'tripo-h31',backpack:['cadet','nam'].includes(kind),smilingEyes:false};
- const rig=fitCastRig(kind,target,root),{bones}=rig,vertex=new T.Vector3();
+ const rig=fitCastRig(kind,target,root,showroom),{bones}=rig,vertex=new T.Vector3();
  for(const name of ['eyes_0','eyes_1','lids_0','lids_1','smile','talkingMouth']){const n=new T.Group();n.name=name;bones[1].add(n);}
  const skeleton=new T.Skeleton(bones),material=new T.MeshStandardMaterial({roughness:1,metalness:1});
  const stats={};
- for(const [detail,targetFaces,error]of [['near',22000,.004],['far',3500,.015]]){
-  const [simple]=MeshoptSimplifier.simplifyWithAttributes(compactIndices,pos,3,attrs,5,[.025,.025,.025,.35,.35],seamLocks,targetFaces*3,error,['Permissive']);
+ for(const [detail,targetFaces,error]of (showroom ? [['near',70000,.0008]] : [['near',22000,.004],['far',3500,.015]])){
+  const [simple]=MeshoptSimplifier.simplifyWithAttributes(compactIndices,pos,3,attrs,5,[.025,.025,.025,.35,.35],seamLocks,Math.min(targetFaces*3,compactIndices.length),error,['Permissive']);
   const selected=[...new Set(simple)],map=new Map(selected.map((v,i)=>[v,i]));
   const geom=new T.BufferGeometry(),p=[],n=[],u=[],skinIndex=[],skinWeight=[];
   for(const id of selected){const x=pos[id*3],y=pos[id*3+1],z=pos[id*3+2];p.push(...[x,y,z].map(v=>Math.round(v*10000)/10000));n.push(...normal.subarray(id*3,id*3+3));u.push(...uv.subarray(id*2,id*2+2));
@@ -105,7 +108,7 @@ for(let c=0;c<17;c++){
   geom.setAttribute('position',new T.Float32BufferAttribute(p,3));geom.setAttribute('normal',new T.Int16BufferAttribute(n.map(v=>Math.round(Math.max(-1,Math.min(1,v))*32767)),3,true));geom.setAttribute('uv',new T.Uint16BufferAttribute(u.map(v=>Math.round(v*65535)),2,true));geom.setAttribute('skinIndex',new T.Uint16BufferAttribute(skinIndex,4));geom.setAttribute('skinWeight',new T.Uint8BufferAttribute(skinWeight,4,true));geom.setIndex(Array.from(simple,id=>map.get(id)));
   const mesh=new T.SkinnedMesh(geom,material);mesh.name=kind+'_'+detail;mesh.userData={detail,receiveShadow:false};mesh.visible=detail==='near';root.add(mesh);root.updateMatrixWorld(true);mesh.bind(skeleton);stats[detail+'Triangles']=simple.length/3;
  }
- const walk=kind==='cadet'?await bakeMixamoGameWalk(root,bones):undefined;
+ const walk=!showroom&&kind==='cadet'?await bakeMixamoGameWalk(root,bones):undefined;
  const raw=Buffer.from(await exporter.parseAsync(root,{binary:true,onlyVisible:false,trs:true,animations:walk?[walk]:[]}));
  const len=raw.readUInt32LE(12),j=JSON.parse(raw.subarray(20,20+len)),sourceBinary=raw.subarray(28+len);
  // Lossless GPU buffer compression, including UVs and skin weights.
@@ -123,12 +126,12 @@ for(let c=0;c<17;c++){
  j.buffers=[{byteLength:packedOffset},{byteLength:decodedOffset,extensions:{EXT_meshopt_compression:{fallback:true}}}];
  j.extensionsUsed=[...(j.extensionsUsed||[]),'EXT_meshopt_compression'];j.extensionsRequired=[...(j.extensionsRequired||[]),'EXT_meshopt_compression'];
  const chunkHeader=Buffer.alloc(8);chunkHeader.writeUInt32LE(packedOffset,0);chunkHeader.writeUInt32LE(0x004e4942,4);const binary=Buffer.concat([chunkHeader,...chunks]);
- j.images=textureFiles.map((uri,i)=>({uri,mimeType:gltf.images[i].mimeType}));
+ j.images=textureFiles.map((uri,i)=>({uri:showroom?'../tripo-h31/'+uri:uri,mimeType:gltf.images[i].mimeType}));
  j.textures=structuredClone(gltf.textures);if(gltf.samplers)j.samplers=structuredClone(gltf.samplers);
  j.materials=structuredClone(gltf.materials);
  const js=Buffer.from(JSON.stringify(j)),padded=Buffer.alloc(Math.ceil(js.length/4)*4,32);js.copy(padded);const hdr=Buffer.alloc(20);hdr.writeUInt32LE(0x46546c67,0);hdr.writeUInt32LE(2,4);hdr.writeUInt32LE(20+padded.length+binary.length,8);hdr.writeUInt32LE(padded.length,12);hdr.writeUInt32LE(0x4e4f534a,16);const out=Buffer.concat([hdr,padded,binary]),gz=gzipSync(out,{level:9}),hash=createHash('sha256').update(out).digest('hex').slice(0,12);
- await writeFile(`${output}/${kind}.glb`,out);await writeFile(`${output}/${kind}.glb.gz`,gz);
+ await writeFile(`${output}/${kind}.glb`,out);if (!showroom) await writeFile(`${output}/${kind}.glb.gz`,gz);
  manifest.characters.push({kind,name:CHARACTER_PROFILES[kind].name,url:`/models/tripo-h31/${kind}.glb?v=${hash}`,bytes:out.length,transferBytes:gz.length,...stats,drawCalls:1,joints:bones.length,sourceTriangles:ids.length/3,repairedScalpVertices:0});
- console.log(`${kind}: ${ids.length/3} → ${stats.nearTriangles}/${stats.farTriangles} faces, ${Math.round(gz.length/1024)}KB; scalp 0`);
+ console.log(`${kind}: ${ids.length/3} → ${stats.nearTriangles} near faces, ${Math.round(gz.length/1024)}KB; scalp 0`);
 }
-await writeFile(`${output}/manifest.json`,JSON.stringify(manifest,null,2)+'\n');
+if (!showroom) await writeFile(`${output}/manifest.json`,JSON.stringify(manifest,null,2)+'\n');

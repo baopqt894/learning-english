@@ -88,6 +88,24 @@ export function createRoomShell(b:Room){
     box(width+.6,.17,2.1,b.x,eave+rise+.93,b.z,timber);
     box(5.8,.19,1.6,b.x,3.48,front+.7,timber);
   }
+  if (b.kind === 'weather') {
+    const y=eave+rise, x=b.x+.22*b.w;
+    box(.11,1.6,.11,x,y+.78,b.z,timber);
+    box(1.2,.09,.09,x,y+1.51,b.z,trim);
+    box(.37,.33,.08,x+.42,y+1.64,b.z,tile);
+  } else if (b.kind === 'art') {
+    for (const offset of [-.25,0,.25]) {
+      const y=eave+rise*.51, z=b.z+run*.52, x=b.x+b.w*offset;
+      const pitch=Math.atan2(rise,run);
+      box(3.3,.14,2.05,x,y+.12,z,trim).rotation.x=pitch;
+      box(3.08,.08,1.84,x,y+.24,z,glass).rotation.x=pitch;
+    }
+  } else if (b.kind === 'music') {
+    for (const side of [-1,1]) for (let i=0;i<6;i++) {
+      box(.09,1.72,.27,b.x+side*(b.w*.32+i*.32),2.22,front+.18,timber);
+    }
+    box(4.3,.15,1.3,b.x,3.45,front+.54,tile);
+  }
   // Thin gutters, ridge cap and downpipes make the roof read as construction.
   for(const side of [-1,1]){
     box(b.w+.9,.13,.13,b.x,top+.13,b.z+side*(b.d/2+.38),timber);

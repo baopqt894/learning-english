@@ -9,7 +9,7 @@
 }
 .cadet-entry-scene::before {
   content:""; position:absolute; inset:0; z-index:-1;
-  background:linear-gradient(180deg,#112c2bd9 0%,#34574c45 41%,#193d34a8 70%,#153c32 100%),
+  background:radial-gradient(ellipse at 50% 42%,#44494aeb 8%,#303635f0 62%,#23302dfa 100%),
     url('/art/entry-highlands.webp') center/cover;
 }
 .cadet-entry-brand {display:flex; align-items:center; gap:10px; color:#fff4d5;}

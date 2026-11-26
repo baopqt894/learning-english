@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  palette: "M21 11a9 9 0 1 0-10 10c2 .2 3-1.5 2-3s-.2-3 1.6-3h2.5c2.5 0 3.9-1.7 3.9-4ZM7 12h.1M8 8h.1M12 6.5h.1M16 8h.1",
+  music: "M9 17V6l11-3v11M9 9l11-3M9 17a3 2.5 0 1 1-6 0 3 2.5 0 0 1 6 0Zm11-3a3 2.5 0 1 1-6 0 3 2.5 0 0 1 6 0Z",
+  weather: "M4 16a4 4 0 0 1 2-7 5 5 0 0 1 9 1 3 3 0 0 1 1 6H4Zm11-10a4 4 0 0 1 5 5M17 2v1m5 2-1 1M5 19l-1 2m6-2-1 2",
   pot: "M3 10h18m-16 0v7a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-7M2 13h3m14 0h3M6 8q6-7 12 0M11 4h2",
   prism: "m3 19 9-15 9 15H3Zm9-15v10l9 5m-9-5-9 5",
   flask: "M9 3h6m-5 0v7L4 19q-.8 2 2 2h12q2.8 0 2-2l-6-9V3M7 15h10",

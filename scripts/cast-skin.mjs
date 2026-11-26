@@ -96,8 +96,8 @@ export function correctedCadet(){
  return {seamLocks,pos:Float32Array.from(pos),normal:Float32Array.from(normal),uv:Float32Array.from(uv),indices:Uint32Array.from(indices),influences};
 }
 
-export function fitCastRig(kind,height,group){
- const source=kind==='cadet'?relaxedPoints:bindPoints;
+export function fitCastRig(kind,height,group,originalPose=false){
+ const source=kind==='cadet'&&!originalPose?relaxedPoints:bindPoints;
  const points=new Map(names.map(n=>[n,source.get(n).clone().multiplyScalar(height/1.85)]));
  const arms=[];
  for(const [side,sign,slot] of [['r',-1,0],['l',1,1]]){

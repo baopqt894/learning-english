@@ -2,6 +2,7 @@ import { MAP_BOUNDS, type MapPoint, type ZoneId } from './campus-map.ts';
 import type { Place } from './game.ts';
 
 export const placeSymbols = {
+  weather:'weather',art:'palette',music:'music',
   kitchen: 'pot', 'light-lab': 'prism', 'plant-lab': 'flask',
   swimming: 'pool', athletics: 'run', sports: 'ball', 'field-games': 'flag',
   training: 'hurdle', livestock: 'hen', 'fish-pond': 'fish', 'vegetable-garden': 'sprout',
