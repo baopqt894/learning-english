@@ -1,4 +1,9 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Character preview", "Xem trước nhân vật"],
+  ["Turn left", "Xoay trái"], ["Turn right", "Xoay phải"], ["Drag to rotate", "Kéo để xoay"],
+  ["Loading character…", "Đang tải nhân vật…"], ["Character portrait", "Chân dung nhân vật"],
+  ["An · Male", "An · Nam"], ["Linh · Female", "Linh · Nữ"],
+  ["English voice", "Giọng đọc tiếng Anh"], ["Automatic", "Tự chọn"],
   ["Prepare a class lunch", "Chuẩn bị bữa trưa"],
   ["Keep a plant diary", "Ghi nhật ký cây trồng"],
   ["Follow the light signals", "Nghe và chọn tín hiệu"],

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { addCampusRoofs } from './campus-roofs.ts';
 
-type Room={x:number;z:number;w:number;d:number;h:number;roof:number;name:string};
+type Room={x:number;z:number;w:number;d:number;h:number;roof:number;name:string;kind?:string};
 export function roomContainsPlayer(b:Room,point:{x:number;z:number},wasInside=false){
   const inset=wasInside?-.06:.16;
   return Math.abs(point.x-b.x)<b.w/2-inset&&Math.abs(point.z-b.z)<b.d/2-inset;
@@ -43,9 +43,51 @@ export function createRoomShell(b:Room){
   }
   box(2.6,Math.max(.2,top-3.15),.22,b.x,(top+3.15)/2,front,stucco);
   box(b.w+.45,.17,b.d+.45,b.x,top+.06,b.z,trim);
-  const section=new THREE.Shape();section.moveTo(-b.d/2-.4,0);section.lineTo(0,1.3);section.lineTo(b.d/2+.4,0);section.closePath();
-  const roof=new THREE.Mesh(new THREE.ExtrudeGeometry(section,{depth:b.w+.8,bevelEnabled:false}),tile);
-  roof.rotation.y=Math.PI/2;roof.position.set(b.x-b.w/2-.4,top+.16,b.z);roof.castShadow=roof.receiveShadow=true;shell.add(roof);
+  const run=b.d/2+.4, rise=1.3, eave=top+.16;
+  const isGlasshouse = b.kind === 'plant-lab';
+  if (isGlasshouse) {
+    // Two glazed roof slopes with purlins and regularly spaced glazing bars.
+    const slope = Math.hypot(run,rise), pitch = Math.atan2(rise,run);
+    for (const side of [-1,1]) {
+      const middleZ=b.z+side*run/2;
+      const pane=box(b.w+.8,.09,slope,b.x,eave+rise/2,middleZ,glass);
+      pane.rotation.x=side*pitch;
+      const bays=Math.ceil(b.w/2);
+      for (let i=0;i<=bays;i++) {
+        const x=b.x-b.w/2+i*b.w/bays;
+        box(.085,.14,slope,x,eave+rise/2+.075,middleZ,trim).rotation.x=side*pitch;
+      }
+      for (const fraction of [.28,.68])
+        box(b.w+.8,.09,.085,b.x,eave+rise*(1-fraction)+.08,b.z+side*run*fraction,trim);
+    }
+  } else {
+    const section=new THREE.Shape();
+    section.moveTo(-run,0);section.lineTo(0,rise);section.lineTo(run,0);section.closePath();
+    const roof=new THREE.Mesh(new THREE.ExtrudeGeometry(section,{depth:b.w+.8,bevelEnabled:false}),tile);
+    roof.rotation.y=Math.PI/2;roof.position.set(b.x-b.w/2-.4,eave,b.z);
+    roof.castShadow=roof.receiveShadow=true;shell.add(roof);
+  }
+  if (b.kind === 'kitchen') {
+    for (const side of [-1,1]) {
+      const x=b.x+side*b.w*.25, z=b.z-1.1;
+      box(1.25,1.15,1.05,x,eave+rise+.32,z,timber);
+      for (let louver=0;louver<4;louver++)
+        box(1.38,.08,1.17,x,eave+rise+.18+louver*.18,z,trim);
+      box(1.55,.13,1.35,x,eave+rise+.99,z,timber);
+    }
+    const hatchX=b.x-b.w*.31;
+    box(4,.12,1.05,hatchX,3.45,front+.46,tile).rotation.x=.12;
+    box(3.7,.13,.64,hatchX,1.47,front+.29,trim);
+  }
+  if (b.kind === 'light-lab') {
+    // Raised clerestory running along the ridge, shaded by a projecting cap.
+    const width=b.w*.68;
+    box(width,1,1.5,b.x,eave+rise+.34,b.z,glass);
+    for (let i=0;i<=8;i++)
+      box(.095,1.06,1.59,b.x-width/2+i*width/8,eave+rise+.34,b.z,trim);
+    box(width+.6,.17,2.1,b.x,eave+rise+.93,b.z,timber);
+    box(5.8,.19,1.6,b.x,3.48,front+.7,timber);
+  }
   // Thin gutters, ridge cap and downpipes make the roof read as construction.
   for(const side of [-1,1]){
     box(b.w+.9,.13,.13,b.x,top+.13,b.z+side*(b.d/2+.38),timber);
@@ -60,6 +102,6 @@ export function createRoomShell(b:Room){
     const merged=mergeGeometries(geos,false);geos.forEach(g=>g.dispose());
     if(merged){const mesh=new THREE.Mesh(merged,material);mesh.castShadow=mesh.receiveShadow=true;shell.add(mesh);parts.forEach(o=>{o.geometry.dispose();o.removeFromParent();});}
   }
-  addCampusRoofs(shell,[{x:b.x,y:top+.16,z:b.z,width:b.w+.8,run:b.d/2+.4,rise:1.3,color:b.roof,metal:false}],new THREE.MeshStandardMaterial({color:0xffffff,roughness:.88}));
+  if (!isGlasshouse) addCampusRoofs(shell,[{x:b.x,y:top+.16,z:b.z,width:b.w+.8,run:b.d/2+.4,rise:1.3,color:b.roof,metal:false}],new THREE.MeshStandardMaterial({color:0xffffff,roughness:.88}));
   return shell;
 }

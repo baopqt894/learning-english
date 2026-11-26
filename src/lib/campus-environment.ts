@@ -558,16 +558,33 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     for (const dx of [-1,1]) for (const dz of [-1,1])
       box(.09,.81,.09,steel,f.x+dx*(f.w/2-.12),.7,f.z+dz*.6);
     if (f.kind==='kitchen') {
-      cylinder(.5,.43,.48,0xc2cac2,f.x-.9,1.46,f.z);
+      // Induction hob, lidded stockpot and board share the countertop footprint.
+      box(1.55,.1,1,0x29383a,f.x-.9,1.26,f.z);
+      cylinder(.47,.39,.44,0xc2cac2,f.x-.9,1.53,f.z);
+      cylinder(.48,.48,.055,0x859898,f.x-.9,1.78,f.z);
+      cylinder(.10,.12,.10,0x3a514e,f.x-.9,1.85,f.z);
+      for (const side of [-1,1]) box(.22,.08,.14,0x475953,f.x-.9+side*.50,1.66,f.z);
+      for (const dx of [-.55,-.28]) cylinder(.06,.06,.035,0xc6d3bb,f.x+dx,1.33,f.z+.38);
       box(1.1,.08,.75,0xbe9160,f.x+.9,1.24,f.z);
       for (const dx of [.6,.85,1.1]) cylinder(.09,.08,.28,0xe3a549,f.x+dx,1.42,f.z);
     } else if (f.kind==='plant-lab') {
+      box(3.9,.12,.96,0x465d50,f.x,1.27,f.z);
       for (const dx of [-1.35,-.45,.45,1.35]) {
         cylinder(.24,.17,.36,0xad7350,f.x+dx,1.4,f.z);
-        cylinder(.19,.24,.34,0x698849,f.x+dx,1.72,f.z);
+        cylinder(.19,.19,.04,0x614a36,f.x+dx,1.58,f.z);
+        cylinder(.026,.035,.42,0x638154,f.x+dx,1.79,f.z);
+        for (const side of [-1,1]) {
+          const leaf=sphere(.17,side===1?0x69914e:0x829f59,f.x+dx+side*.11,1.79+side*.055,f.z);
+          leaf.scale.set(1,.29,.55); leaf.rotation.z=side*.5;
+        }
       }
     } else {
       box(.65,.23,.43,0x435760,f.x,1.34,f.z);
+      for (const [index,colour] of [0xaa5344,0xc39c41,0x557e9a].entries()) {
+        const x=f.x+(index-1)*.53;
+        cylinder(.16,.21,.10,0x38474a,x,1.27,f.z-.45);
+        cylinder(.13,.14,.28,colour,x,1.46,f.z-.45);
+      }
       box(.18,.12,.08,0xa2dbdc,f.x,1.37,f.z+.24);
     }
   }

@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { defaultStudent, englishLine, translate, type Language, type Phrase, type StudentSettings } from '@/lib/student-support';
+import { defaultStudent, englishLine, englishVoices, translate, type Language, type Phrase, type StudentSettings } from '@/lib/student-support';
 import { UI_PHRASES } from '@/lib/ui-phrases';
 import { Icon } from './icon';
 
@@ -36,11 +36,20 @@ export function Phrasebook({onClose}: {onClose: () => void}) {
   const [query, setQuery] = useState('');
   const [error, setError] = useState(false);
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    const speech = window.speechSynthesis;
+    if (!speech) return;
+    const refresh = () => setVoices(englishVoices(speech.getVoices()));
+    refresh();
+    speech.addEventListener('voiceschanged', refresh);
+    return () => speech.removeEventListener('voiceschanged', refresh);
+  }, []);
   function listen(text: string) {
     setError(false);
     if (!window.speechSynthesis) {setError(true); return;}
     window.speechSynthesis.cancel();
-    const line = englishLine(text, settings.pace);
+    const line = englishLine(text, settings.pace, settings.voice);
     line.onerror = e => { if (e.error !== 'canceled' && e.error !== 'interrupted') setError(true); };
     window.speechSynthesis.speak(line);
   }
@@ -52,6 +61,13 @@ export function Phrasebook({onClose}: {onClose: () => void}) {
   return <div className="modal-backdrop"><section className="student-book" role="dialog" aria-modal="true" aria-labelledby="phrasebook-title">
     <header><h2 id="phrasebook-title">{t('My phrasebook')}</h2><button className="hud-button" onClick={onClose} aria-label={t('Close')}><Icon name="close"/></button></header>
     <LanguageSelect/>
+    {voices.length > 0 && <label className="student-select">{t('English voice')}
+      <select value={voices.some(v=>v.voiceURI===settings.voice)?settings.voice:''}
+        onChange={e=>change({...settings,voice:e.target.value || undefined})}>
+        <option value="">{t('Automatic')} · {voices[0].name}</option>
+        {voices.map(v=><option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+      </select>
+    </label>}
     <label className="student-select">{t('English reading speed')}<select value={settings.pace} onChange={e => change({...settings, pace: e.target.value === 'slow' ? 'slow' : 'normal'})}>
       <option value="normal">{t('Normal')}</option><option value="slow">{t('Slow')}</option></select></label>
     <button className="student-audio" onClick={() => listen('Hello! Welcome to our school.')}><Icon name="sound" size={16}/>{t('Listen to a sample')}</button>

@@ -1,37 +1,35 @@
 .cadet-entry {
-  display: grid;
-  grid-template-columns: minmax(0,1.6fr) minmax(370px,1fr);
-  min-height: 100dvh;
-  background: #f4edda;
-  color: #17382c;
+  display:grid; grid-template-columns:minmax(0,1.2fr) minmax(360px,1fr);
+  min-height:100dvh; background:#faf7ef; color:#18382f;
 }
 .cadet-entry-scene {
-  position: relative;
-  min-height: 100%;
-  display: grid;
-  align-items: end;
-  isolation: isolate;
-  padding: clamp(25px,6vw,82px);
-  background: #406248;
-  color: #fff2d9;
+  position:relative; isolation:isolate; overflow:hidden;
+  display:grid; grid-template-rows:auto 1fr; padding:clamp(22px,4vw,54px);
+  background:#2d5146; color:#fff7df;
 }
-.cadet-entry-scene img { object-fit: cover; object-position: 48% 53%; z-index: -2; }
-.cadet-entry-scene::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(0deg, #10261ff5, #162b2233 65%);
+.cadet-entry-scene::before {
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:linear-gradient(180deg,#112c2bd9 0%,#34574c45 41%,#193d34a8 70%,#153c32 100%),
+    url('/art/entry-highlands.webp') center/cover;
 }
-.cadet-entry-brand h1 {
-  font-size: clamp(35px,6.2vw,86px);
-  font-weight: 760;
-  line-height: 1;
-  letter-spacing: -.037em;
-  margin: 9px 0 11px;
-}
-.cadet-entry-brand h1 span, .cadet-entry-brand > svg { color: #f0c77d; }
-.cadet-entry-brand p { font-size: clamp(13px,1.35vw,20px); color: #f4ebd3; }
+.cadet-entry-brand {display:flex; align-items:center; gap:10px; color:#fff4d5;}
+.cadet-entry-brand h1 {margin:0; font-weight:750; font-size:clamp(20px,2vw,30px); letter-spacing:-.04em;}
+.cadet-entry-brand span,.cadet-entry-brand svg {color:#f0cf88;}
+.entry-showcase {min-height:520px; display:grid; align-content:center; position:relative;}
+.entry-model {position:relative; height:clamp(310px,50dvh,520px); touch-action:pan-y; cursor:grab;}
+.entry-model:active {cursor:grabbing;}
+.entry-render,.entry-render canvas {position:absolute; inset:0; width:100%; height:100%;}
+.entry-standin {position:absolute; width:40%; max-width:170px; aspect-ratio:1; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; background-size:cover;}
+.entry-plinth {position:absolute; width:55%; height:10%; bottom:1%; left:22.5%; border:1px solid #fae2a785; border-radius:50%;
+  background:radial-gradient(ellipse,#152e29a6 0%,#6e907066 55%,#d5dda666 77%,#59786599 80%); box-shadow:0 5px 0 #385648;}
+.entry-rotation {display:flex; align-items:center; justify-content:center; gap:8px; font-size:.8rem; margin-top:12px;}
+.entry-rotation span {color:#fff5db; background:#24463ceb; padding:5px 11px; border-radius:20px;}
+.entry-rotation button {width:44px;height:44px;border:1px solid #c3d2b2aa; border-radius:50%; color:#fff7dc; background:#264b40; font-size:23px;line-height:1;}
+.entry-rotation button:disabled {opacity:.45;}
+.entry-identity {margin-top:16px; display:flex; flex-direction:column; align-items:center;}
+.entry-identity span {font-size:.88rem; color:#f5dba1;}
+.entry-identity strong {font-family:Georgia,serif;font-size:clamp(38px,5vw,64px);font-weight:500;line-height:1.1;}
+.cadet-entry-scene :focus-visible {outline:2px solid #ffe7ab;outline-offset:-2px;}
 .cadet-entry-panel {
   display: grid;
   align-items: center;
@@ -120,17 +118,23 @@
 .account-menu-state p { font-size: .84rem; line-height: 1.5; }
 .account-menu-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .account-menu-actions > button { min-height: 44px; }
-@media (max-width: 760px) {
-  .cadet-entry { grid-template-columns: minmax(0,1fr); }
-  .cadet-entry-scene { min-height: clamp(150px,26dvh,245px); padding: 18px max(18px,env(safe-area-inset-left)); }
-  .cadet-entry-scene img { object-position: 50% 47%; }
-  .cadet-entry-brand > svg { display: none; }
-  .cadet-entry-brand h1 { font-size: clamp(30px,8.5vw,50px); margin: 0 0 6px; }
-  .cadet-entry-panel { align-items: start; padding: 19px max(16px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); }
-  .cadet-entry-form { gap: 11px; }
-}
-
 .cadet-entry-panel { align-content: center; gap: 14px; }
 .entry-language { width: min(100%,430px); }
 .entry-language label { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .entry-language select { min-height: 40px; border: 1px solid #8c9b81; border-radius: 6px; padding: 4px 8px; background: #fcf8ec; color: #17382c; }
+
+@media(max-width:760px) {
+  .cadet-entry {grid-template-columns:minmax(0,1fr);}
+  .cadet-entry-scene {padding:12px 18px 14px;}
+  .cadet-entry-brand h1 {font-size:19px;}
+  .entry-showcase {min-height:0;}
+  .entry-model {height:clamp(155px,26svh,245px);}
+  .entry-identity {position:absolute;bottom:0;left:0;align-items:flex-start;pointer-events:none;}
+  .entry-identity strong {font-size:30px;}
+  .entry-identity span {font-size:.72rem;}
+  .entry-rotation {margin:2px 0 0;}
+  .entry-rotation button {width:40px;height:40px;}
+  .entry-plinth {width:36%;left:32%;}
+  .cadet-entry-panel {padding:16px max(18px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));}
+  .cadet-entry-form {gap:10px;}
+}

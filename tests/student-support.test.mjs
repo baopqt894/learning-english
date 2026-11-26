@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dialogueMeaning, rememberPhrase, translate } from '../src/lib/student-support.ts';
+import { dialogueMeaning, englishVoices, rememberPhrase, restoreStudent, translate } from '../src/lib/student-support.ts';
 import { conversationClue } from '../src/lib/conversation-support.ts';
 import { evaluateTurn, freshProgress, QUESTS, restoreProgress } from '../src/lib/game.ts';
 
@@ -26,4 +26,15 @@ test('each conversation clue teaches without passing the goal when copied', () =
       progress.goals = result.progress.goals;
     }
   });
+});
+
+test('voice preferences survive saves while a missing device voice has an English fallback', () => {
+  const voices = [
+    {voiceURI:'compact',name:'Samantha Compact',lang:'en_US',default:true,localService:true},
+    {voiceURI:'natural',name:'Aria Natural',lang:'en-US'},
+    {voiceURI:'foreign',name:'Premium',lang:'fr-FR'},
+  ];
+  assert.deepEqual(englishVoices(voices).map(v=>v.voiceURI), ['natural','compact']);
+  assert.equal(restoreStudent({voice:'natural'}).voice, 'natural');
+  assert.equal(restoreStudent({voice:42}).voice, undefined);
 });

@@ -3,7 +3,7 @@ import { UI_PHRASES } from './ui-phrases.ts';
 export type Language = 'vi' | 'en';
 export type ReadingPace = 'slow' | 'normal';
 export type Phrase = { en: string; vi: string };
-export type StudentSettings = { language: Language; pace: ReadingPace; phrases: Phrase[] };
+export type StudentSettings = { language: Language; pace: ReadingPace; voice?: string; phrases: Phrase[] };
 export const defaultStudent: StudentSettings = { language: 'vi', pace: 'normal', phrases: [] };
 const translations = new Map<string, readonly [string, string]>();
 for (const pair of UI_PHRASES) for (const label of pair) translations.set(label, pair);
@@ -29,20 +29,30 @@ export function restoreStudent(value: unknown): StudentSettings | undefined {
         !phrases.some(phrase => phrase.en === item.en)) phrases.push({ en: item.en, vi: item.vi });
     }
   }
-  return { language: raw.language === 'en' ? 'en' : 'vi', pace: raw.pace === 'slow' ? 'slow' : 'normal', phrases };
+  return { language: raw.language === 'en' ? 'en' : 'vi', pace: raw.pace === 'slow' ? 'slow' : 'normal', phrases, ...(typeof raw.voice === 'string' && raw.voice.length > 0 && raw.voice.length <= 512 ? {voice:raw.voice} : {}) };
 }
 
-export function englishLine(text: string, pace: ReadingPace) {
-  const line = new SpeechSynthesisUtterance(text);
-  const voices = window.speechSynthesis.getVoices().filter(v => /^en(?:[-_]|$)/i.test(v.lang));
-  const rank = (voice: SpeechSynthesisVoice) =>
-    (/natural|enhanced|premium|neural/i.test(voice.name) ? 8 : 0) +
-    (/samantha|daniel|google us english/i.test(voice.name) ? 4 : 0) +
-    (voice.localService ? 2 : 0) + (voice.default ? 1 : 0);
-  const voice = voices.sort((a,b) => rank(b) - rank(a))[0];
+/** Voice inventories can arrive after the first render, especially on Android. */
+export function englishVoices(voices: SpeechSynthesisVoice[]) {
+  function score(voice: SpeechSynthesisVoice) {
+    const name = voice.name;
+    if (/whisper|novelty|compact|espeak|eloquence|speech synthesizer/i.test(name)) return -10;
+    return (/natural|enhanced|premium|neural|online/i.test(name) ? 20 : 0) +
+      (/samantha|daniel|google.*english|aria|jenny|serena/i.test(name) ? 5 : 0) +
+      (voice.default ? 2 : 0) + (voice.localService ? 1 : 0);
+  }
+  return voices.filter(v => /^en(?:[-_]|$)/i.test(v.lang))
+    .sort((a,b) => score(b)-score(a) || a.name.localeCompare(b.name));
+}
+
+export function englishLine(text: string, pace: ReadingPace, preferred?: string) {
+  const spoken = text.replace(/_{2,}/g, ' blank ').replace(/\s+/g,' ').trim();
+  const line = new SpeechSynthesisUtterance(spoken);
+  const voices = englishVoices(window.speechSynthesis.getVoices());
+  const voice = voices.find(v => v.voiceURI === preferred) ?? voices[0];
   if (voice) line.voice = voice;
   line.lang = voice?.lang ?? 'en-US';
-  line.rate = pace === 'slow' ? .76 : .92;
+  line.rate = pace === 'slow' ? .78 : .9;
   return line;
 }
 

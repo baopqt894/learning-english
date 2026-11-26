@@ -638,7 +638,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     const token=++speechToken.current;
     window.speechSynthesis.cancel();
     setSpeaking(null);
-    const utterance=englishLine(text, settings.pace);
+    const utterance=englishLine(text, settings.pace, settings.voice);
     utteranceRef.current=utterance;
     utterance.onstart=()=>{if(speechToken.current===token)setSpeaking(place);};
     utterance.onend=()=>{if(speechToken.current===token){setSpeaking(null);utteranceRef.current=null;}};
@@ -648,7 +648,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       if(event.error!=="interrupted"&&event.error!=="canceled")setNotice("Voice playback failed. You can still read the dialogue.");
     };
     window.speechSynthesis.speak(utterance);
-  }, [autoVoiceMuted, settings.pace]);
+  }, [autoVoiceMuted, settings.pace, settings.voice]);
 
   const openConversation = useCallback(() => {
     if (!near) return;

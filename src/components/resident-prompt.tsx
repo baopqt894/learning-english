@@ -52,7 +52,7 @@ export function ResidentPrompt({ resident, open, status, onOpen, onClose, onVoic
       return;
     }
     speechSynthesis.cancel();
-    const line = englishLine(prompt, settings.pace);
+    const line = englishLine(prompt, settings.pace, settings.voice);
     line.onstart = () => onVoice(true);
     line.onend = () => onVoice(false);
     line.onerror = event => {

@@ -59,7 +59,7 @@ export function DistrictPrompt({frame,level,balanceTier,onBalanceTier,onHold,onA
 }){
   const { t, settings } = useStudent();
   const button=useRef<HTMLButtonElement>(null),[voiceStatus,setVoiceStatus]=useState('');
-  const listen=()=>{if(!('speechSynthesis' in window)){setVoiceStatus('Audio is unavailable. Read the sentence above.');return;}speechSynthesis.cancel();const line=englishLine(frame.sentence, settings.pace);line.onerror=()=>setVoiceStatus('Audio is unavailable. Read the sentence above.');speechSynthesis.speak(line);};
+  const listen=()=>{if(!('speechSynthesis' in window)){setVoiceStatus('Audio is unavailable. Read the sentence above.');return;}speechSynthesis.cancel();const line=englishLine(frame.sentence, settings.pace, settings.voice);line.onerror=()=>setVoiceStatus('Audio is unavailable. Read the sentence above.');speechSynthesis.speak(line);};
   useEffect(()=>()=>{onHold(false);if('speechSynthesis' in window)speechSynthesis.cancel();},[onHold]);
   if(frame.id==='balance')return <BalancePrompt frame={frame} level={level} tier={balanceTier} onTier={onBalanceTier} onStart={()=>onHold(true)} onAnswer={onAnswer} onCancel={onCancel}/>;
   return <aside className="district-prompt" lang="en" aria-label={frame.title}>

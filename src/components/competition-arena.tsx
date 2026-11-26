@@ -78,7 +78,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
   onExit: () => void;
   onFinish: (event: DailyEvent, at: number, challenge?: string) => void;
 }) {
-  const { t } = useStudent();
+  const { t, settings } = useStudent();
   const venueInfo = SPORTS_VENUES[venue];
   const events = venueCompetitions(venue);
   const [selected, setSelected] = useState(invitation?.mode ?? events[0]);
@@ -555,7 +555,7 @@ export function CompetitionArena({ name, avatar, venue, cadetRank, syncProgress,
             </div>
             <progress max={limit} value={feedback ? limit : sending?.remaining ?? remaining} aria-label={t("Question time remaining")}/>
             <h3>{question.sentence}</h3>
-            {question.audio && <audio key={index} aria-label={t("Play the listening question")} controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
+            {question.audio && <audio key={index} onLoadedMetadata={e=>{e.currentTarget.playbackRate=settings.pace==='slow'?.82:1;}} aria-label={t("Play the listening question")} controls autoPlay={!feedback && !help} preload="auto" src={question.audio}/>}
             {question.kind==='fill' ? <form className="race-word-gap" key={index} onSubmit={e=>{
               e.preventDefault();
               const value=String(new FormData(e.currentTarget).get('word')??'').trim();

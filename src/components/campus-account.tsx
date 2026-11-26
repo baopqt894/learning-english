@@ -3,7 +3,6 @@
 import { StudentContext, LanguageSelect, useStudent } from './student-support';
 import { defaultStudent, type StudentSettings } from '@/lib/student-support';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type AccountSession } from '@/lib/account';
 import { restoreProgress, STORAGE_KEY, type Progress } from '@/lib/game';
@@ -14,6 +13,7 @@ const Game = dynamic(() => import('./campus-game').then(module => module.CampusG
   ssr: false,
   loading: () => <div className="account-game-loading" role="status">Đang mở khuôn viên…</div>,
 });
+const Turntable = dynamic(() => import('./entry-turntable'), { ssr: false });
 const IMPORTED = 'campus-local-progress-imported';
 
 class RequestError extends Error {
@@ -64,6 +64,8 @@ function AccountEntry() {
   const [session, setSession] = useState<AccountSession | null | undefined>(undefined);
   const [previous, setPrevious] = useState<Progress | null>(null);
   const [error, setError] = useState('');
+  const [choice, setChoice] = useState<number | null>(null);
+  const avatar = choice ?? previous?.avatar ?? 0;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
@@ -96,12 +98,11 @@ function AccountEntry() {
   return (
     <main className="cadet-entry">
       <div className="cadet-entry-scene">
-        <Image src="/art/chibi-campus-keyart.png" alt="" fill priority sizes="(max-width: 760px) 100vw, 62vw"/>
-        <div className="cadet-entry-brand">
-          <Icon name="compass" size={36}/>
-          <h1>CampusQuest <span>AI</span></h1>
-          <p>{t("Phiêu lưu học đường bằng tiếng Anh")}</p>
-        </div>
+        <header className="cadet-entry-brand"><Icon name="compass" size={23}/><h1>CampusQuest <span>AI</span></h1></header>
+        {session === null && <div className="entry-showcase">
+          <Turntable key={avatar} avatar={avatar}/>
+          <div className="entry-identity"><span>{t('Cadet')}</span><strong>{avatar===1?'Linh':'An'}</strong></div>
+        </div>}
       </div>
       <div className="cadet-entry-panel"><div className="entry-language"><LanguageSelect disabled={session === undefined && !error}/></div>
         {session === undefined ? (
@@ -110,7 +111,7 @@ function AccountEntry() {
             {!!error && <button className="cadet-submit" onClick={() => { setError(''); setAttempt(attempt + 1); }}>{t("Thử lại")}</button>}
           </div>
         ) : (
-          <AccountForm previous={previous} notice={error} onSession={(account, imported) => {
+          <AccountForm avatar={avatar} setAvatar={setChoice} previous={previous} notice={error} onSession={(account, imported) => {
             if (imported) {
               try { localStorage.setItem(IMPORTED, '1'); } catch { /* Import is already saved on the server. */ }
               setPrevious(null);
@@ -124,7 +125,8 @@ function AccountEntry() {
   );
 }
 
-function AccountForm({ previous, notice, onSession }: {
+function AccountForm({ avatar, setAvatar, previous, notice, onSession }: {
+  avatar: number; setAvatar: (value:number) => void;
   previous: Progress | null;
   notice: string;
   onSession: (account: AccountSession, imported: boolean) => void;
@@ -134,7 +136,6 @@ function AccountForm({ previous, notice, onSession }: {
   const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState(previous?.name ?? '');
   const [password, setPassword] = useState('');
-  const [avatar, setAvatar] = useState(previous?.avatar ?? 0);
   const [importPrevious, setImportPrevious] = useState(!!previous);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(notice);
@@ -167,6 +168,14 @@ function AccountForm({ previous, notice, onSession }: {
       <button type="button" aria-pressed={!creating} disabled={busy} onClick={() => { setMode('login'); setPassword(''); setError(''); }}>{t("Đăng nhập")}</button>
     </div>
     <h2>{creating ? t('Tạo hồ sơ học viên') : t('Chào mừng trở lại')}</h2>
+    {creating && <fieldset className="cadet-entry-avatars" disabled={busy}>
+      <legend>{t("Chọn nhân vật")}</legend>
+      {[0, 1].map((variant) => <label key={variant}>
+        <input type="radio" name="avatar" checked={avatar === variant} onChange={() => setAvatar(variant)}/>
+        <span className={`cadet-portrait avatar-${variant}`} aria-hidden="true"/>
+        <span>{variant === 0 ? t('An · Male') : t('Linh · Female')}</span>
+      </label>)}
+    </fieldset>}
     {creating && <div className="cadet-entry-field">
       <label htmlFor="account-nickname">{t("Biệt danh trong game")}</label>
       <input id="account-nickname" autoComplete="nickname" value={nickname} maxLength={24} required disabled={busy} onChange={event => setNickname(event.target.value)}/>
@@ -181,14 +190,6 @@ function AccountForm({ previous, notice, onSession }: {
       <input key={mode} id="account-password" type="password" autoComplete={creating ? 'new-password' : 'current-password'} value={password} minLength={MIN_PASSWORD_LENGTH} maxLength={MAX_PASSWORD_LENGTH} required disabled={busy} onChange={event => setPassword(event.target.value)}/>
       {creating && <small>{t("Ít nhất")} {MIN_PASSWORD_LENGTH} {t("ký tự.")}</small>}
     </div>
-    {creating && <fieldset className="cadet-entry-avatars" disabled={busy}>
-      <legend>{t("Chọn nhân vật")}</legend>
-      {[0, 1].map((variant) => <label key={variant}>
-        <input type="radio" name="avatar" checked={avatar === variant} onChange={() => setAvatar(variant)}/>
-        <span className={`cadet-portrait avatar-${variant}`} aria-hidden="true"/>
-        <span>{variant === 0 ? t('Học viên An') : t('Học viên Linh')}</span>
-      </label>)}
-    </fieldset>}
     {creating && previous && <label className="cadet-entry-import">
       <input type="checkbox" checked={importPrevious} disabled={busy} onChange={event => setImportPrevious(event.target.checked)}/>
       <span>{t("Chuyển tiến độ của")} <strong>{previous.name}</strong> {t("từ trình duyệt này")}</span>

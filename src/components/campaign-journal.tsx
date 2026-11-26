@@ -32,7 +32,7 @@ export function CampaignJournal({progress,nearby,saveAvailable,onClose,onTravel,
  const solved=chapter?storySolved(state,chapter):false,score=chapter?storyScore(state,chapter):0,ready=chapter?proofReady(chapter,progress):false;
  useEffect(()=>()=>{window.speechSynthesis?.cancel();},[]);
  useEffect(()=>{panel.current?.scrollTo(0,0);},[chapter?.id,indexView,finished,review]);
- function listen(text:string){if(!('speechSynthesis' in window)){setAudioNotice('Audio is unavailable. You can read the text.');return;}speechSynthesis.cancel();const line=englishLine(text.replaceAll('___','blank'), settings.pace);line.onerror=()=>setAudioNotice('Audio is unavailable. You can read the text.');speechSynthesis.speak(line);}
+ function listen(text:string){if(!('speechSynthesis' in window)){setAudioNotice('Audio is unavailable. You can read the text.');return;}speechSynthesis.cancel();const line=englishLine(text.replaceAll('___','blank'), settings.pace, settings.voice);line.onerror=()=>setAudioNotice('Audio is unavailable. You can read the text.');speechSynthesis.speak(line);}
  function check(event:FormEvent){event.preventDefault();if(!question||!chapter||!nearby)return;const correct=onAnswer(chapter.id,draft);setFeedback({correct,question,index:questionIndex,word:draft});}
  function next(){setFeedback(null);setDraft('');setHint(false);requestAnimationFrame(()=>input.current?.focus());}
  function submitReport(e:FormEvent){e.preventDefault();if(!chapter)return;if(onFinish(chapter.id,report)){setFinished(chapter.id);setReport('');setFeedback(null);setReportError('');}else setReportError('Check the missing word. Finish the word clues and practical task here before reporting.');}
