@@ -106,6 +106,9 @@ function AnimalCare({ care, onFeed, onPractice }: { care: PetCare; onFeed: Props
   </>;
 }
 
+const signalSymbols: Record<string,string> = {'Red circle':'●','Yellow triangle':'▲','Blue square':'■'};
+const ingredients: Record<string,string> = {Carrots:'🥕',Rice:'🍚',Apples:'🍎'};
+
 function PracticeStep({ question, index, tier, onNext }: {
   question: PlaceQuestion; index: number; tier: EnglishTier; onNext: () => void;
 }) {
@@ -123,6 +126,8 @@ function PracticeStep({ question, index, tier, onNext }: {
   const isSpoken = 'transcript' in question;
   const isRepeat = question.kind === 'repeat';
   const isTyped = question.kind === 'fill' || question.kind === 'dictation';
+  const signals = 'id' in question && question.id.startsWith('light-lab-');
+  const food = 'id' in question && question.id.startsWith('kitchen-a1');
   const ready = !isSpoken || heard || showTranscript;
   const answer = question.kind === 'order' ? words.map(i => question.options[i]).join(' ') : value;
   const correct = checked && (isRepeat ? matchesSpokenAnswer(question.answer, answer)
@@ -194,7 +199,9 @@ function PracticeStep({ question, index, tier, onNext }: {
         <button key={option} type="button" aria-pressed={value === option}
           data-result={checked && value === option ? (correct ? 'correct' : 'retry') : undefined}
           disabled={!ready || correct} onClick={() => { setValue(option); setChecked(false); }}>
-          <span className="answer-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>{option}
+          {signals && signalSymbols[option] ? <span className="practice-signal" data-shape={option} aria-hidden="true">{signalSymbols[option]}</span>
+            : food ? <span className="practice-ingredient" aria-hidden="true">{ingredients[option]}</span>
+            : <span className="answer-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>}{option}
         </button>)}</div>
       {!correct && <button type="button" className="practice-primary" disabled={!ready || !value || checked}
         onClick={() => setChecked(true)}>{t("Check answer")}</button>}

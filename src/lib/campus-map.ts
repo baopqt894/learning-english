@@ -1,3 +1,4 @@
+import { WORKSHOPS, workshopZones, workshopFixtures, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
 import { READING_PAVILION, READING_APPROACH, READING_TABLES, READING_SEATS, BOOKCASES } from './reading-pavilion.ts';
 import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
@@ -26,7 +27,7 @@ type Building = {
     | "language"
     | "dining"
     | "hall"
-    | "pavilion";
+    | "pavilion" | WorkshopId;
 };
 export const EXPANSION_BUILDINGS: Building[] = [
   {
@@ -110,9 +111,11 @@ export const EXPANSION_BUILDINGS: Building[] = [
     kind: "hall",
   },
   READING_PAVILION,
+  ...WORKSHOPS,
 ];
 export const EXPLORATION_ZONES = [
   ...NEW_DISTRICT_ZONES,
+  ...workshopZones,
   {
     id: "dormitory",
     name: "Khu nội trú",
@@ -215,6 +218,7 @@ type Furniture = MapPoint & {
 export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
   isOpenRoom,
 ).flatMap<Furniture>((b) => {
+  if (WORKSHOPS.some(workshop => workshop.kind === b.kind)) return [];
   if (b.kind === 'housing' || b.kind === 'pavilion') return [];
   if (b.kind === "hall")
     return [
@@ -243,7 +247,7 @@ export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.k
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
-  ...SPORTS_OBSTACLES,
+  ...SPORTS_OBSTACLES, ...workshopFixtures,
   ...CORE_FRONT_FIXTURES, ...ROOM_EXHIBITS,
   ...ROOM_FIXTURES, ...BOOKCASES, ...READING_TABLES, ...READING_SEATS,
   ...DISTRICT_OBSTACLES,
@@ -399,7 +403,11 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   const key = (p: MapPoint) => `${p.x},${p.z}`;
   const scores = new Map<string, number>([[key(start), 0]]);
   const parents = new Map<string, MapPoint>();
-  const h = (p: MapPoint) => Math.hypot(p.x - goal.x, p.z - goal.z);
+  // Exact distance on an empty eight-way grid keeps long routes focused.
+  const h = (p: MapPoint) => {
+    const dx = Math.abs(p.x-goal.x), dz = Math.abs(p.z-goal.z);
+    return Math.max(dx,dz) + (Math.SQRT2-1)*Math.min(dx,dz);
+  };
   push({ ...start, g: 0, f: h(start) });
   const directions = [
     [-1, 0],
@@ -436,10 +444,8 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
     }
     for (const [dx, dz] of directions) {
       const next = { x: current.x + dx, z: current.z + dz };
-      if (!canWalkCampus(next.x, next.z) || !canWalkSegment(current, next))
-        continue;
-      const g = current.g + Math.hypot(dx, dz);
-      if (g >= (scores.get(key(next)) ?? Infinity)) continue;
+      const g = current.g + (dx && dz ? Math.SQRT2 : 1);
+      if (g >= (scores.get(key(next)) ?? Infinity) || !canWalkSegment(current, next)) continue;
       scores.set(key(next), g);
       parents.set(key(next), { x: current.x, z: current.z });
       push({ ...next, g, f: g + h(next) });
@@ -448,6 +454,8 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   return [];
 }
 export function campusAreaName(point: MapPoint) {
+  const workshop = nearbyWorkshop(point);
+  if (workshop) return workshop.name;
   const venue = nearbySportsVenue(point.x, point.z);
   if (venue === 'track') return 'Đường chạy tiếng Anh';
   if (venue === 'pool') return 'Hồ bơi';

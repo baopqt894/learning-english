@@ -1,4 +1,11 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Prepare a class lunch", "Chuẩn bị bữa trưa"],
+  ["Keep a plant diary", "Ghi nhật ký cây trồng"],
+  ["Follow the light signals", "Nghe và chọn tín hiệu"],
+  ["Teaching kitchen", "Bếp thực hành"],
+  ["Plant science lab", "Nhà thực hành cây trồng"],
+  ["Light lab", "Nhà thực hành ánh sáng"],
+  ["Follow the path inside and start the lesson.", "Đi theo lối dẫn vào trong nhà rồi nhấn nút bắt đầu bài học."],
   ["Missions & activities", "Nhiệm vụ và hoạt động"],
   ["Cadet activities", "Hoạt động học viên"],
   ["Daily missions", "Nhiệm vụ ngày"],

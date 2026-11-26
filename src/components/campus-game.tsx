@@ -1,5 +1,6 @@
 "use client";
 
+import { WORKSHOPS, nearbyWorkshop } from '@/lib/workshop-wing';
 import { LanguageSelect, Phrasebook, StudentContext, useStudent } from './student-support';
 import { dialogueMeaning, englishLine, rememberPhrase, translate, type Phrase, type StudentSettings } from '@/lib/student-support';
 import { conversationClue } from '@/lib/conversation-support';
@@ -569,6 +570,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     setNotice(`Follow the path to the ${SPORTS_VENUES[venue].name} desk. Press E or tap Register when you arrive.`);
     requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
   };
+  const currentWorkshop = nearbyWorkshop(playerPosition);
   const goToZone = (zoneId: ZoneId) => {
     const sport = zoneId==='swimming'?'pool':zoneId==='athletics'?'track':zoneId==='field-games'?'field':null;
     if(sport){walkToRegistration(sport);return;}
@@ -581,7 +583,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     stopSpeech();
     requestAnimationFrame(()=>worldRef.current?.goToZone(zoneId));
     setNotice(
-      zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
+      WORKSHOPS.some(b => b.kind === zoneId) ? t("Follow the path inside and start the lesson.") : zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
   };
 
@@ -944,6 +946,11 @@ export function CampusGame({ account, onExpired, onLogout }: {
             {registration && !classStudy && (
               <button ref={deskTrigger} className="interact-button sports-register" onClick={()=>worldRef.current?.openRegistration()}>
                 <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> {t("Register at")} {t(SPORTS_VENUES[registration].name)}
+              </button>
+            )}
+            {currentWorkshop && (
+              <button className="interact-button" onClick={()=>openPlacePractice({area:currentWorkshop.kind})}>
+                <Icon name="book" size={19}/> {t(currentWorkshop.title)}
               </button>
             )}
             {nearReadingTable(playerPosition) && !levelMissionTravel && (

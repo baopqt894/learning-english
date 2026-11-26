@@ -65,3 +65,8 @@
 .practice-modal .reading-passage {padding:14px 16px;background:#f1edda;border-left:3px solid #879767;border-radius:4px;color:#253e30}
 .practice-modal .reading-passage h3 {margin:0 0 6px;font-size:1rem;color:#293f32}
 .practice-modal .reading-passage p {margin:0;line-height:1.55}
+
+.practice-signal, .practice-ingredient { display: inline-grid; place-items: center; flex: 0 0 2rem; font-size: 1.6rem; line-height: 1.25; }
+.practice-signal[data-shape="Red circle"] { color: #ba4234; }
+.practice-signal[data-shape="Blue square"] { color: #286a9e; }
+.practice-signal[data-shape="Yellow triangle"] { color: #ac7700; }

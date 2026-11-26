@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  pot: "M3 10h18m-16 0v7a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-7M2 13h3m14 0h3M6 8q6-7 12 0M11 4h2",
+  prism: "m3 19 9-15 9 15H3Zm9-15v10l9 5m-9-5-9 5",
+  flask: "M9 3h6m-5 0v7L4 19q-.8 2 2 2h12q2.8 0 2-2l-6-9V3M7 15h10",
   fish: "M3 12q6-10 14-2l4-3v10l-4-3q-8 8-14-2Zm5-1h.1",
   hen: "M3 10l3 2c4 2 7 0 7-3a3 3 0 0 1 6-1l3 2-3 1c0 5-4 7-8 7-5 0-8-3-8-8Zm6 8v3m5-3v3",
   sprout: "M12 21v-8M4 5c5 0 8 2 8 8-5 0-8-3-8-8Zm16-2c0 6-3 9-8 10 0-6 3-9 8-10Z",

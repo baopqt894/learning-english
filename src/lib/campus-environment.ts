@@ -1,5 +1,6 @@
 import { createReadingRoom } from './reading-room';
 import { createDiningRoom } from './dining-room';
+import { workshopFixtures, WORKSHOPS } from './workshop-wing';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
@@ -549,6 +550,42 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   });
 
   addCampusRoofs(scene, roofs, finish("clay", 0xffffff));
+
+  for (const f of workshopFixtures) {
+    const steel = 0x839294;
+    box(f.w,.14,f.d,f.kind==='plant-lab'?0x94744e:steel,f.x,1.14,f.z);
+    box(f.w-.25,.12,f.d-.2,steel,f.x,.52,f.z);
+    for (const dx of [-1,1]) for (const dz of [-1,1])
+      box(.09,.81,.09,steel,f.x+dx*(f.w/2-.12),.7,f.z+dz*.6);
+    if (f.kind==='kitchen') {
+      cylinder(.5,.43,.48,0xc2cac2,f.x-.9,1.46,f.z);
+      box(1.1,.08,.75,0xbe9160,f.x+.9,1.24,f.z);
+      for (const dx of [.6,.85,1.1]) cylinder(.09,.08,.28,0xe3a549,f.x+dx,1.42,f.z);
+    } else if (f.kind==='plant-lab') {
+      for (const dx of [-1.35,-.45,.45,1.35]) {
+        cylinder(.24,.17,.36,0xad7350,f.x+dx,1.4,f.z);
+        cylinder(.19,.24,.34,0x698849,f.x+dx,1.72,f.z);
+      }
+    } else {
+      box(.65,.23,.43,0x435760,f.x,1.34,f.z);
+      box(.18,.12,.08,0xa2dbdc,f.x,1.37,f.z+.24);
+    }
+  }
+  for (const b of WORKSHOPS) {
+    const back = b.z-b.d/2+.2;
+    if (b.kind === 'light-lab') {
+      const colors = [0xe57853,0xe8bc48,0x608fba];
+      for (const [i, sides] of [32,3,4].entries()) {
+        const x = b.x+(i-1)*4;
+        box(3.5,3,.12,0xe9e6cf,x,2.45,back);
+        const shape = cylinder(1,1,.1,colors[i],x,2.45,back+.14,scene,sides);
+        shape.rotation.x = Math.PI/2;
+        if (sides===4) shape.rotation.y = Math.PI/4;
+      }
+    } else {
+      sign(b.kind==='kitchen'?'PREP   /   COOK   /   SERVE':'SOW   /   OBSERVE   /   RECORD',9,.8,b.x,2.6,back+.1,'#39594c');
+    }
+  }
 
   ROOM_FURNITURE.forEach((f) => {
     if (f.kind === "stage" || f.kind === "dining") return;

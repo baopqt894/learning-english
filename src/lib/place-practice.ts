@@ -1,3 +1,5 @@
+import { WORKSHOPS } from './workshop-wing.ts';
+import { workshopQuestions, workshopNotes, workshopAudio } from './workshop-lessons.ts';
 import {areaQuestions} from './campus-question-bank.ts';
 import {PETS,type PetId} from './pet-care.ts';
 import { LEVEL_MISSIONS, type EnglishTier, type LevelMissionId } from './cadet-tiers.ts';
@@ -11,6 +13,9 @@ const q=(prompt:string,options:string[],answer:string,explanation:string):PlaceQ
 const order=(sentence:string):PlaceQuestion=>({prompt:'Put the words in order.',options:sentence.split(' ').reverse(),answer:sentence,explanation:`The complete sentence is: ${sentence}`,kind:'order'});
 const vocab=(word:string,correct:string,wrong1:string,wrong2:string)=>q(`Choose the meaning of “${word}”.`,[correct,wrong1,wrong2],correct,`“${word}” means ${correct.toLowerCase()}.`);
 export const PLACE_PRACTICE:Record<string,{title:string;questions:PlaceQuestion[]}>= {
+ ...Object.fromEntries(WORKSHOPS.map(b => [b.kind, {title:b.title,questions:[
+   workshopQuestions[b.kind].A1, workshopQuestions[b.kind].A2, workshopQuestions[b.kind].B1,
+ ]}])),
  courtyard:{title:'Meet your team',questions:[q('My name ___ Minh.',['is','are','am'],'is','Use “is” after “My name”.'),vocab('left','Trái','Phải','Ở trên'),order('Could you help me please')]},
  library:{title:'Library word builder',questions:[order('Could I borrow this book please'),vocab('shelf','Kệ sách','Cửa sổ','Giỏ'),q('Please be ___ in the library.',['quiet','loud','wet'],'quiet','Quiet means making little noise.')]},
  canteen:{title:'Canteen conversation',questions:[q('I ___ like some water, please.',['would','am','has'],'would','“I would like …” is a polite request.'),vocab('change','Tiền thừa','Cái chăn','Luống rau'),q('A sandwich is 20,000 dong and water is 5,000 dong. Total?',['25,000 dong','15,000 dong','30,000 dong'],'25,000 dong','Add the two prices: 20,000 + 5,000.')]},
@@ -98,6 +103,15 @@ export function practiceQuestionKey(question: PlaceQuestion) {
   return question.kind === 'order' ? question.answer : question.prompt;
 }
 export function placePracticeRound(area: string, tier: EnglishTier, previous: readonly string[], feeding?: PetId) {
+  const workshop = WORKSHOPS.find(b => b.kind === area);
+  if (workshop && !feeding) {
+    const bank = workshopQuestions[workshop.kind];
+    const context = bank[tier];
+    const [prompt,answer,b,c] = workshopNotes[workshop.kind][tier];
+    const review = gap(prompt,answer,b,c,answer);
+    const [briefing] = drawQuestions([workshopAudio(workshop.kind,tier),workshopAudio(workshop.kind,tier,true)],1,practiceQuestionKey,previous);
+    return [briefing,context,review].map(mix);
+  }
   const local = (PLACE_PRACTICE[area] ?? PLACE_PRACTICE.courtyard).questions;
   if (feeding) {
     const pet = PETS[feeding];

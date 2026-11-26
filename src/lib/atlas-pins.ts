@@ -2,6 +2,7 @@ import { MAP_BOUNDS, type MapPoint, type ZoneId } from './campus-map.ts';
 import type { Place } from './game.ts';
 
 export const placeSymbols = {
+  kitchen: 'pot', 'light-lab': 'prism', 'plant-lab': 'flask',
   swimming: 'pool', athletics: 'run', sports: 'ball', 'field-games': 'flag',
   training: 'hurdle', livestock: 'hen', 'fish-pond': 'fish', 'vegetable-garden': 'sprout',
   garden: 'leaf', dormitory: 'bed', classrooms: 'board', 'classroom-b': 'pencil',
@@ -14,7 +15,8 @@ export function layoutAtlasPins<T extends MapPoint>(entries: T[], width: number,
   const placed: { x: number; y: number }[] = [];
   const radius = diameter / 2;
   const gap = diameter + 2;
-  return entries.map(entry => {
+  let crowded = false;
+  const pins = entries.map(entry => {
     const anchorX = (entry.x - MAP_BOUNDS.minX) / (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) * width;
     const anchorY = (entry.z - MAP_BOUNDS.minZ) / (MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ) * height;
     const clamp = (value: number, max: number) => Math.max(radius, Math.min(max - radius, value));
@@ -32,7 +34,25 @@ export function layoutAtlasPins<T extends MapPoint>(entries: T[], width: number,
         }
       }
     }
+    if (!free) crowded = true;
     placed.push({ x, y });
     return { entry, x, y, anchorX, anchorY };
   });
+  if (!crowded) return pins;
+  // A dense phone atlas can strand the last marker between earlier ones. Repack
+  // onto touch-sized slots, assigning each marker the closest remaining slot.
+  const columns = Math.floor(width / diameter), rows = Math.floor(height / diameter);
+  if (columns * rows < pins.length) return pins;
+  const slots = Array.from({ length:columns*rows }, (_,i)=>({
+    x:(i%columns+.5)*width/columns, y:(Math.floor(i/columns)+.5)*height/rows,
+  }));
+  for (const pin of pins) {
+    let nearest = 0, best = Infinity;
+    slots.forEach((slot,i)=>{
+      const d = (slot.x-pin.anchorX)**2 + (slot.y-pin.anchorY)**2;
+      if (d < best) { nearest = i; best = d; }
+    });
+    Object.assign(pin,slots.splice(nearest,1)[0]);
+  }
+  return pins;
 }

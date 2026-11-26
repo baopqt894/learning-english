@@ -1,8 +1,10 @@
+import { workshopQuestions } from './workshop-lessons.ts';
 import type { EnglishTier } from './cadet-tiers.ts';
 import { gap, type EnglishQuestion } from './level-questions.ts';
 
 // Each situation stays at its campus location as the learner changes level.
 export const areaQuestions: Record<string, Record<EnglishTier, EnglishQuestion>> = {
+  ...workshopQuestions,
   courtyard: {
     A1: gap('A new student says “Nice to meet you.” You reply, “___.”', 'Nice to meet you too', 'Here is your change', 'At half past nine', 'Return a greeting when someone introduces themselves.'),
     A2: gap('An was waiting by the gate when his classmates ___.','arrived','were arrive','have arrive','The arrival interrupted the wait, so use the past simple.'),
