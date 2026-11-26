@@ -59,15 +59,11 @@ export function createRecreationPark(){
     for(const tree of orchardTrees.filter(t=>t.variety===variety)){
       const {x,z}=tree;
       kit.drum(x,.065,z,3,.10,2.8,0xa18d64);
-      kit.drum(x,1.38,z,.47,2.65,.48,0x887052);
-      for(const side of [-1,1]){
-        kit.block(x+side*.36,2.10,z,.20,1.24,.22,0x887052,-side*.55);
-        kit.globe(x+side*.85,3.05,z,2.65,2.50,2.75,[0x729953,0x678b52,0x78985c][variety]);
-      }
-      kit.globe(x,3.87,z-.18,2.72,2.27,2.59,0x8eaa68);
-      for(let i=0;i<9;i++){
-        const angle=i*2.4, radius=1.45+(i%2)*.23;
-        kit.globe(x+Math.cos(angle)*radius,2.72+i%3*.37,z+Math.sin(angle)*1.20,.36,.4,.35,[0xeea040,0xcb7152,0xd4bc67][variety]);
+      // Stone mulch rings sit below the branching fruit trees in campus-environment.
+      for(let i=0;i<12;i++){
+        const a=i*Math.PI/6;
+        kit.globe(x+1.43*Math.cos(a),.14,z+1.29*Math.sin(a),.46,.24,.37,i%3?0xb4ab88:0x9a997c);
+        if(i%2===0)kit.leaf(x+1.19*Math.cos(a),.30,z+1.04*Math.sin(a),.30,.44,.24,0x829856,.30,a);
       }
     }
     park.add(kit.finish());

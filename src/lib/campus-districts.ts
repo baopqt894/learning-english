@@ -1,3 +1,4 @@
+import { createFarmFamilies } from './campus-farm-families';
 import * as THREE from 'three';
 import {petStatus,type PetCare,type PetId} from './pet-care.ts';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -76,6 +77,14 @@ export function createCampusDistricts(scene:THREE.Scene){
     }
     for(const s of [-1,1])oval(bird?.018:.025,bird?.023:.029,.014,0x292b22,s*(bird?.11:.13),bird?.025:.03,bird?.082:.205,head);
     for(let i=0;i<(bird?2:4);i++){const leg=new THREE.Group();leg.position.set((i%2?1:-1)*(bird?.1:.22),bird?.22:.38,bird?.015:(i<2?.32:-.36));g.add(leg);legs.push(leg);cyl(bird?.022:.056,bird?.2:.3,bird?0xb79b55:c,0,-.1,0,leg);round(bird?.09:.12,.055,bird?.14:.14,bird?0xc6a45e:0x665d4b,0,-(bird?.19:.24),.025,leg);}
+    if(kind==='chicken'){
+      for(let i=0;i<3;i++)oval(.065,.26,.09,[0x795236,0xa16a41,0x82603b][i],(i-1)*.078,.55,-.30-i*.035,g).rotation.x=-.57;
+    }else if(kind==='goat'){
+      oval(.17,.21,.31,0xe3d1ac,.27,.64,.13,g);
+      oval(.095,.26,.11,0x90755b,0,-.22,.15,head);
+    }else if(kind==='pig'){
+      oval(.16,.14,.21,0xc88e80,.31,.66,-.16,g);
+    }
     // Bake each local mesh set; articulated head and feet remain independent.
     for(const p of [g,head,...legs])bake(p);
     animals.push({group:g,head,legs,x,z,phase:random()*8,kind});
@@ -121,7 +130,7 @@ export function createCampusDistricts(scene:THREE.Scene){
       plank(1.45,.72,x-.56,.30,z+.59);
     }
     const positions=[[-3.55,1.43],[-1.44,.29],[.62,1.62],[2.87,.75]];
-    positions.forEach(([dx,dz],i)=>animal(kind,x+dx,z+dz,(kind==='goat'?1.16:kind==='pig'?1.14:1.02)*(i===1?.84:1)));
+    positions.forEach(([dx,dz],i)=>animal(kind,x+dx,z+dz,(kind==='goat'?1.48:kind==='pig'?1.42:1.34)*(i===1?.84:1)));
     round(2.65,.32,.52,0x877858,x,.28,z+2.84);
     box(2.45,.045,.36,0xc7ad68,x,.46,z+2.84);
     cyl(.35,.23,0x859789,x+4.15,.24,z+2.07);cyl(.29,.024,0x72a6a1,x+4.15,.365,z+2.07);
@@ -207,6 +216,7 @@ export function createCampusDistricts(scene:THREE.Scene){
   const foodGeometry=new THREE.SphereGeometry(.025,4,3),food=new THREE.InstancedMesh(foodGeometry,new THREE.MeshStandardMaterial({color:0xcdb06a,roughness:1}),36);food.visible=false;food.frustumCulled=false;root.add(food);const dummy=new THREE.Object3D();
   function bake(parent:THREE.Object3D){const meshes=parent.children.filter((c):c is THREE.Mesh=>c instanceof THREE.Mesh&&c.material===solid);if(!meshes.length)return;const geos=meshes.map(m=>{m.updateMatrix();const g=m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone();g.applyMatrix4(m.matrix);return g;});const merged=mergeGeometries(geos);geos.forEach(g=>g.dispose());if(!merged)return;const m=new THREE.Mesh(merged,solid);m.castShadow=m.receiveShadow=true;parent.add(m);meshes.forEach(m=>{m.removeFromParent();m.geometry.dispose();});}
   // Enlarge real district footprints while retaining human/animal size and vertical clearances.
+  const families=createFarmFamilies();scene.add(families.root);
   const animalGroups=new Set(animals.map(a=>a.group));
   for(const object of [...staticRoot.children,...root.children]){
     if(object===staticRoot||object===food||object===throwRing||object.userData.fixed)continue;
@@ -221,11 +231,27 @@ export function createCampusDistricts(scene:THREE.Scene){
   const speciesFor: Record<string,PetId> = { chicken:'chickens',pig:'pigs',goat:'goats',duck:'ducks' };
   let stateBySpecies: Partial<Record<PetId,ReturnType<typeof petStatus>>> = {};
   let lastCare: PetCare | undefined, lastHealthCheck = -Infinity;
-  return {picks,updateWater(time:number){waterTime.value=time;},update(time:number,reduced:boolean,active:DistrictStationId|null,percent:number,care:PetCare={}){
+  return {picks,updateWater(time:number){waterTime.value=time;},update(time:number,reduced:boolean,active:DistrictStationId|null,percent:number,care:PetCare|undefined,viewer:{x:number;z:number}){
+    families.update(time,reduced,viewer);
+    care??={};
     const t=reduced?0:time;waterTime.value=t;aerator.rotation.x=t*1.8;
     if(lastCare!==care||time-lastHealthCheck>=1){lastCare=care;lastHealthCheck=time;stateBySpecies={};}
-    const statusFor=(species:PetId)=>stateBySpecies[species]??=petStatus(care,species);
-    for(const a of animals){const species=speciesFor[a.kind];const status=statusFor(species);a.group.userData.careScale??=a.group.scale.x;a.group.scale.setScalar(a.group.userData.careScale*status.scale);a.group.rotation.z=status.health<40?.12:0;const feeding=active===`feed-${species}`;a.head.rotation.x=reduced?0:Math.sin(t*(feeding?7:1.4)+a.phase)*(feeding?.3:.07);a.group.rotation.y+=reduced?0:Math.sin(t*.4+a.phase)*.0008;for(const [i,l]of a.legs.entries())l.rotation.x=reduced?0:Math.sin(t*1.2+a.phase+i*Math.PI)*.025;}
+    const statusFor=(species:PetId)=>stateBySpecies[species]??=petStatus(care!,species);
+    for(const a of animals){
+      const species=speciesFor[a.kind],status=statusFor(species);
+      const g=a.group;
+      g.userData.careScale??=g.scale.x;
+      g.scale.setScalar(g.userData.careScale*status.scale);
+      const home=g.userData.home??=g.position.clone();
+      const phase=a.phase+t*.42,walk=status.health<40||reduced?0:1;
+      const feeding=active===`feed-${species}`;
+      g.position.x=home.x+Math.sin(phase)*.32*walk;
+      g.position.z=home.z+Math.cos(phase)*.19*walk;
+      g.rotation.y=feeding?Math.atan2(75-home.x,38-home.z):Math.atan2(.32*Math.cos(phase),-.19*Math.sin(phase));
+      g.rotation.z=status.health<40?.10:0;
+      a.head.rotation.x=reduced?0:feeding?.22+Math.sin(t*5+a.phase)*.18:.08+Math.sin(t*1.4+a.phase)*.12;
+      for(const [i,leg] of a.legs.entries())leg.rotation.x=feeding?0:Math.sin(phase*4+(i===1||i===2?Math.PI:0))*.13*walk;
+    }
     for(const f of fish){f.group.scale.setScalar(1.5*statusFor('fish').scale);const feeding=active==='feed-fish',r=feeding?.8+f.radius*.22:f.radius,centerZ=feeding?.6:-4;const p=districtPoint('fish-pond',{x:56+Math.cos(t*.22+f.phase)*r,z:centerZ+Math.sin(t*.22+f.phase)*r*.65});f.group.position.set(p.x,.14,p.z);f.group.rotation.y=-t*.22-f.phase;f.tail.rotation.z=Math.sin(t*5+f.phase)*.3;}
     food.visible=!!active&&active.startsWith('feed-')&&percent<1&&!reduced;
     if(food.visible){const station=DISTRICT_STATIONS.find(s=>s.id===active)!;for(let i=0;i<36;i++){const phase=(percent*5+i/36)%1;dummy.position.set(THREE.MathUtils.lerp(station.x,station.look.x,phase)+Math.sin(i*19)*phase*.35,1.15+Math.sin(phase*Math.PI)*.7-phase,THREE.MathUtils.lerp(station.z,station.look.z,phase)+Math.cos(i*8)*phase*.35);const p=districtPoint(baseDistrictAt(station),dummy.position);dummy.position.x=p.x;dummy.position.z=p.z;dummy.scale.setScalar(1);dummy.updateMatrix();food.setMatrixAt(i,dummy.matrix);}food.instanceMatrix.needsUpdate=true;}

@@ -8,15 +8,18 @@ export function sceneryKit(name:string) {
     block:new THREE.BoxGeometry(1,1,1),
     drum:new THREE.CylinderGeometry(.5,.5,1,16),
     globe:new THREE.SphereGeometry(.5,10,8),
+    pot:new THREE.CylinderGeometry(.5,.35,1,10),
+    hoop:new THREE.TorusGeometry(.45,.05,5,20),
+    leaf:new THREE.SphereGeometry(.5,5,3),
   };
   type Shape=keyof typeof shapes;
   const batches=new Map<Shape,{matrix:THREE.Matrix4;color:number}[]>();
   const transform=new THREE.Object3D();
-  type Part=[x:number,y:number,z:number,w:number,h:number,d:number,color:number,tilt?:number,yaw?:number];
-  function put(shape:Shape,...[x,y,z,w,h,d,color,tilt=0,yaw=0]:Part){
+  type Part=[x:number,y:number,z:number,w:number,h:number,d:number,color:number,tilt?:number,yaw?:number,pitch?:number];
+  function put(shape:Shape,...[x,y,z,w,h,d,color,tilt=0,yaw=0,pitch=0]:Part){
     transform.position.set(x,y,z);
     transform.scale.set(w,h,d);
-    transform.rotation.set(0,yaw,tilt);
+    transform.rotation.set(pitch,yaw,tilt);
     transform.updateMatrix();
     const batch=batches.get(shape)??[];
     batch.push({matrix:transform.matrix.clone(),color});
@@ -25,6 +28,9 @@ export function sceneryKit(name:string) {
   const block=(...v:Part)=>put('block',...v);
   const drum=(...v:Part)=>put('drum',...v);
   const globe=(...v:Part)=>put('globe',...v);
+  const pot=(...v:Part)=>put('pot',...v);
+  const hoop=(...v:Part)=>put('hoop',...v);
+  const leaf=(...v:Part)=>put('leaf',...v);
   function finish(){
     const material=new THREE.MeshStandardMaterial({roughness:.82});
     for(const shape of Object.keys(shapes) as Shape[]){
@@ -37,5 +43,5 @@ export function sceneryKit(name:string) {
     }
     return group;
   }
-  return {block,drum,globe,finish};
+  return {block,drum,globe,pot,hoop,leaf,finish};
 }

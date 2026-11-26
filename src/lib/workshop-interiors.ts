@@ -1,3 +1,4 @@
+import { furnishGlasshouse } from './glasshouse-tools';
 import { sceneryKit } from './campus-scenery-kit';
 import { workshopFittings, WORKSHOPS } from './workshop-wing';
 
@@ -142,5 +143,6 @@ export function createWorkshopInterior(kind:string){
       }
     }
   }
+  if(kind==='plant-lab')furnishGlasshouse(k,b.w,b.d);
   const group=k.finish();group.position.set(b.x,0,b.z);group.visible=false;return group;
 }

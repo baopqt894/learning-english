@@ -1,3 +1,4 @@
+import { nurseryPens,shadeGardens,harvestStand } from './campus-landscape-layout';
 import { PARK_COURTS,SIGNAL_COURT,orchardTrees } from './recreation-park';
 import * as THREE from 'three';
 import { CORE_BUILDINGS, EXPANSION_BUILDINGS, MAP_BOUNDS } from './campus-map';
@@ -77,6 +78,12 @@ export function createCampusOverview(sky: number) {
     building({x:pen.x+h.dx*s,z:pen.z+h.dz*s,w:h.w*s,d:h.d*s},h.h,h.roof);
     if(pen.kind==='duck')ground({x:pen.x+1.6*s,z:pen.z-.56*s,w:4.72*s,d:3.4*s},0x6ba59c,.09);
   }
+  for(const p of nurseryPens){
+    ground(p,0xa6ac78,.10);
+    building({x:p.x+(p.kind==='sheep'?3:-3),z:p.z-1.6,w:3.4,d:2.2},1.8,0xb18e66);
+  }
+  for(const p of shadeGardens)boxes.push({...p,w:7.6,d:4.8,y:3.3,h:.26,color:0x89a16a});
+  building(harvestStand,2.6,0xa6aa76);
   ground(FISH_POND, 0x72988d);
   ground(FEED_DECK, 0xb19065, .18);
   ground({ ...SWIMMING_POOL, w: SWIMMING_POOL.deckW, d: SWIMMING_POOL.deckD }, 0xded6bb, .035);

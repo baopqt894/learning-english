@@ -1,3 +1,4 @@
+import {nurseryPens,shadeGardens,harvestStand} from '@/lib/campus-landscape-layout';
 import { PARK_COURTS, SIGNAL_COURT, orchardTrees } from '@/lib/recreation-park';
 import { WORKSHOPS } from '@/lib/workshop-wing';
 import { useStudent } from './student-support';
@@ -56,6 +57,9 @@ export const CampusTerrain = memo(function CampusTerrain() {
       </g>)}
       <rect {...footprint(SIGNAL_COURT)} rx="1" fill="#79a79f" stroke="#4f776e" strokeWidth=".4"/>
       {[197,204,211].map(x=><rect key={x} x={x-1.6} y="84.5" width="3.2" height="1.1" fill="#355759"/>)}
+      {nurseryPens.map(p=><g key={p.kind}><rect {...footprint(p)} rx=".6" fill={p.kind==='rabbits'?'#b49c78':'#92a879'} stroke="#8e805f" strokeWidth=".35"/><rect x={p.x+(p.kind==='rabbits'?-4.4:1)} y={p.z-2.3} width="3.2" height="1.8" fill="#a88760"/></g>)}
+      {shadeGardens.map(p=><rect key={p.x} x={p.x-3.7} y={p.z-2.4} width="7.4" height="4.8" rx=".3" fill="#88a16b" stroke="#967a59" strokeWidth=".4"/>)}
+      <rect {...footprint(harvestStand)} fill="#c7ac74" stroke="#887956" strokeWidth=".35"/>
       <rect {...footprint(FISH_POND)} rx="2" fill="#8ab6ae" stroke="#648d85" strokeWidth=".5"/>
       <rect {...footprint(SWIMMING_POOL)} rx=".8" fill="#80b5ba" stroke="#f8efda" strokeWidth="1"/>
       {[1,2,3].map(i=><path key={i} d={`M${SWIMMING_POOL.x-SWIMMING_POOL.w/2} ${SWIMMING_POOL.z-SWIMMING_POOL.d/2+i*SWIMMING_POOL.d/4}h${SWIMMING_POOL.w}`} stroke="#d8efea" strokeWidth=".32"/>)}

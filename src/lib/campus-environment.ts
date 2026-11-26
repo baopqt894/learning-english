@@ -1,3 +1,6 @@
+import { orchardTrees } from './recreation-park';
+import { nurseryPens } from './campus-landscape-layout';
+import { createCampusLandscape } from './campus-landscape-scene';
 import { createWorkshopInterior } from './workshop-interiors';
 import { createRecreationPark } from './recreation-park-scene';
 import { createReadingRoom } from './reading-room';
@@ -433,7 +436,8 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   });
 
-  scene.add(createRecreationPark());
+  scene.add(createRecreationPark(),createCampusLandscape());
+  for(const p of nurseryPens)sign(p.kind==='rabbits'?'RABBITS':'SHEEP & LAMBS',2.5,.39,p.x,.93,p.z+p.d/2+.10,'#536547');
   EXPANSION_BUILDINGS.forEach((b) => {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);
     if (isOpenRoom(b)) {
@@ -706,6 +710,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     shade(x, z, 2.2 * scale, 2.0 * scale, 0.13);
   };
   for(const t of CAMPUS_TREES)tree(t.x,t.z,t.scale,t.flowering);
+  for(const t of orchardTrees)trees.add(t.x,t.z,.91+t.variety*.06,false,t.variety);
   // A continuous distant ridge replaces the old overlapping sphere-shaped hills.
   const ridgeGeometry=new THREE.PlaneGeometry(260,140,65,35);
   ridgeGeometry.rotateX(-Math.PI/2);

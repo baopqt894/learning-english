@@ -5,23 +5,24 @@ type Spray={position:THREE.Vector3;radius:THREE.Vector3;color:number;density:num
 /** Curved branching silhouettes and instanced leaves, with no solid balls inside the crowns. */
 export function createCampusTrees(scene:THREE.Scene,bark:THREE.MeshStandardMaterial,wind:{value:number}){
   const sprays:Spray[]=[];
+  const fruitClusters:{position:THREE.Vector3;color:number}[]=[];
   const tube=(points:THREE.Vector3[],base:number)=>{
     const curve=new THREE.CatmullRomCurve3(points),geo=new THREE.TubeGeometry(curve,10,base,7,false),pos=geo.attributes.position;
     for(let j=0;j<=10;j++){const center=curve.getPointAt(j/10),taper=1-j/10*.85;for(let k=0;k<=7;k++){const i=j*8+k;pos.setXYZ(i,center.x+(pos.getX(i)-center.x)*taper,center.y+(pos.getY(i)-center.y)*taper,center.z+(pos.getZ(i)-center.z)*taper);}}
     geo.computeVertexNormals();const m=new THREE.Mesh(geo,bark);m.castShadow=m.receiveShadow=true;scene.add(m);
   };
-  function add(x:number,z:number,scale:number,flowering:boolean){
+  function add(x:number,z:number,scale:number,flowering:boolean,fruitVariety?:number){
     const random=seededRandom(Math.floor((x+101)*241+(z+103)*601)),species=Math.floor(random()*10);
     const at=(dx:number,y:number,dz:number)=>new THREE.Vector3(x+dx*scale,y*scale,z+dz*scale);
     const spray=(p:THREE.Vector3,r:THREE.Vector3,color:number,density:number,flowers=false)=>sprays.push({position:p,radius:r.multiplyScalar(scale),color,density,flowering:flowers});
-    if(species===0&&Math.abs(x)>18){
+    if(fruitVariety===undefined&&species===0&&Math.abs(x)>18){
       // A clump of bamboo with slender canes and open, lanceolate foliage.
       for(let n=0;n<6;n++){const a=n*2.4,dx=Math.cos(a)*.26,dz=Math.sin(a)*.26,h=3.8+random()*1.5;
         tube([at(dx,0,dz),at(dx*1.4,h*.5,dz*1.3),at(dx*2,h,dz*2)],.035*scale);
         for(let j=0;j<5;j++){const y=1.8+j*.6,b=j*2.4+n,reach=.6+random()*.5,c=at(dx+Math.cos(b)*reach,y,dz+Math.sin(b)*reach);tube([at(dx,y-.2,dz),c],.012*scale);spray(c,new THREE.Vector3(.6,.24,.6),0x668a43,45);}
       }return;
     }
-    if(species===1&&Math.abs(x)>18){
+    if(fruitVariety===undefined&&species===1&&Math.abs(x)>18){
       // Areca palms: arched frond spines and narrow leaflets form a feathered crown.
       tube([at(0,0,0),at(.07,2.2,.04),at(.1,4.2,.09)],.12*scale);
       for(let n=0;n<9;n++){const a=n*Math.PI*2/9;const curve=new THREE.CatmullRomCurve3([at(.1,4.2,.09),at(Math.cos(a)*.9,4.65,Math.sin(a)*.9),at(Math.cos(a)*2,3.6,Math.sin(a)*2)]);tube(curve.getPoints(4),.026*scale);
@@ -32,12 +33,16 @@ export function createCampusTrees(scene:THREE.Scene,bark:THREE.MeshStandardMater
     tube([at(0,0,0),at(lean*.3,.7,.07),fork,at(lean+.1,3.5,.07)],.185*scale);
     // Root flares sink into the soil and the trunk forks asymmetrically.
     for(let i=0;i<5;i++){const a=i*1.256;tube([at(Math.cos(a)*.43,0,Math.sin(a)*.43),at(Math.cos(a)*.11,.34,Math.sin(a)*.11)],.075*scale);}
-    const count=flowering?15:12;
+    const count=fruitVariety!==undefined?10:flowering?15:12;
     for(let i=0;i<count;i++){
       const a=i*2.399+random()*.45,reach=.5+Math.sqrt(i/count)*1.5,height=2.5+random()*.9+(1-i/count)*.5;
       const p=at(lean+Math.cos(a)*reach,height,Math.sin(a)*reach);
       tube([fork,at(lean+Math.cos(a)*reach*.5,height-.35,Math.sin(a)*reach*.5),p],(.038+random()*.027)*scale);
-      spray(p,new THREE.Vector3(.66+random()*.36,.34+random()*.15,.65+random()*.3),[0x47703b,0x66883d,0x789847,0x568044][i%4],Math.hypot(x,z)<40?165:90,flowering&&i%3===0);
+      spray(p,new THREE.Vector3(.66+random()*.36,.34+random()*.15,.65+random()*.3),[0x47703b,0x66883d,0x789847,0x568044][i%4],fruitVariety!==undefined?65:Math.hypot(x,z)<40?165:90,flowering&&i%3===0);
+      if(fruitVariety!==undefined){
+        const color=[0xe69b42,0xc96f4b,0xdbc16a][fruitVariety];
+        for(const side of [-1,1])fruitClusters.push({position:new THREE.Vector3(p.x+side*.18,p.y-.28-random()*.16,p.z+side*.13),color});
+      }
     }
   }
   function finish(){
@@ -54,6 +59,14 @@ export function createCampusTrees(scene:THREE.Scene,bark:THREE.MeshStandardMater
       leaf.rotation.set((random()-.5)*1.8,a,(random()-.5)*2.6);leaf.scale.set(.55+random()*.25,.38+random()*.26,.6);leaf.scale.multiplyScalar(Math.sqrt(s.radius.x));leaf.updateMatrix();leaves.setMatrixAt(index,leaf.matrix);color.setHex(s.color).multiplyScalar(.75+random()*.5+h*.14);leaves.setColorAt(index++,color);
       if(s.flowering&&i<22){leaf.scale.setScalar(.6+random()*.6);leaf.updateMatrix();flowers.setMatrixAt(flower++,leaf.matrix);}
     }}
+    if(fruitClusters.length){
+      const mesh=new THREE.InstancedMesh(new THREE.SphereGeometry(.17,8,6),new THREE.MeshStandardMaterial({roughness:.81}),fruitClusters.length);
+      fruitClusters.forEach((f,i)=>{
+        leaf.position.copy(f.position);leaf.rotation.set(0,0,0);leaf.scale.set(1,1.05,1);leaf.updateMatrix();
+        mesh.setMatrixAt(i,leaf.matrix);mesh.setColorAt(i,color.setHex(f.color));
+      });
+      mesh.castShadow=mesh.receiveShadow=true;scene.add(spatialInstances(mesh));
+    }
     const leafChunks=spatialInstances(leaves),flowerChunks=spatialInstances(flowers);scene.add(leafChunks,flowerChunks);return leafChunks;
   }
   return {add,finish};

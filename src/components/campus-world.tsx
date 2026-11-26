@@ -1173,7 +1173,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         const station=districtActive,aim=focusTarget.set((pos.x+station.look.x)/2,.8,(pos.z+station.look.z)/2);
         camera.position.lerp(focusPosition.copy(aim).add(new THREE.Vector3(-10,13,18)),cameraEase);controls.target.lerp(aim,cameraEase);camera.zoom=THREE.MathUtils.lerp(camera.zoom,host.clientWidth<600?3:2.4,cameraEase);camera.lookAt(controls.target);camera.updateProjectionMatrix();
       }
-      districts.update(time/1000,reducedMotion.matches,districtActive?.id||districtComplete,districtProgress,callbacks.current.pets);
+      districts.update(time/1000,reducedMotion.matches,districtActive?.id||districtComplete,districtProgress,callbacks.current.pets,pos);
       if(time-lastDistrictFrame>100){
         const station=districtActive||districtNear;
         const run = station?.id === 'balance' ? balanceRun ?? balanceResult : null;
