@@ -29,6 +29,7 @@ import { preloadCampusCharacters } from "@/lib/campus-character-assets";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
+import { computerLab, examStations, nearbyExamStation } from '@/lib/learning-room-layout';
 import { nearReadingTable, READING_PAVILION } from '@/lib/reading-pavilion';
 import { campusSunFitter } from "@/lib/campus-sun";
 import { createCampusPeerScene } from '@/lib/campus-peer-scene';
@@ -104,7 +105,7 @@ type Props = {
   highQuality?: boolean;
   photoMode?: boolean;
   onNear: (place: Place | null) => void;
-  onInteract: (target?: 'reading') => void;
+  onInteract: (target?: 'reading' | 'computer') => void;
   onMove?: (x: number, z: number, heading: number, route: readonly MapPoint[]) => void;
   onAreaChange?: (name: string) => void;
 };
@@ -740,6 +741,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         }
         return;
       }
+      if (key === 'e' && !event.repeat && !overviewMode && !callbacks.current.workKind && !callbacks.current.studying &&
+        nearbyExamStation(player.group.position) && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
+        event.preventDefault(); route = []; keys.clear(); callbacks.current.onInteract('computer'); return;
+      }
       const readingShortcut = key === 'e' && !event.repeat && !overviewMode &&
         !callbacks.current.workKind && !callbacks.current.studying && nearReadingTable(player.group.position);
       if (readingShortcut && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
@@ -787,6 +792,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       keys.delete(event.key.toLowerCase());if(event.key===' ')releaseWork();if(event.key.toLowerCase()==='e'&&districtActive?.id!=='balance')releaseDistrict();
     };
     const blur = () => keys.clear();
+    const desktopPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-1.35);
+    const desktopPoint = new THREE.Vector3();
     const click = (event: PointerEvent) => {
       if (residentSession) return;
       if (photoSession || !callbacks.current.enabled || event.button !== 0) return;
@@ -798,6 +805,17 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       );
       if(holdingWork||districtActive)return;
       raycaster.setFromCamera(pointer, camera);
+      const pos = player.group.position;
+      if (!overviewMode && !callbacks.current.workKind && Math.abs(pos.x-computerLab.x)<computerLab.w/2 &&
+          Math.abs(pos.z-computerLab.z)<computerLab.d/2 && raycaster.ray.intersectPlane(desktopPlane,desktopPoint)) {
+        const station = examStations.find(s=>Math.abs(s.x-desktopPoint.x)<(s.laptop?.52:.80) && Math.abs(s.z-desktopPoint.z)<(s.laptop?.42:.64));
+        if (station) {
+          if (nearbyExamStation(pos)?.id===station.id) {
+            route=[]; keys.clear(); callbacks.current.onInteract('computer');
+          } else walkTo(station.approach.x,station.approach.z);
+          return;
+        }
+      }
       if(callbacks.current.workKind){
         const picked=raycaster.intersectObjects(workScene.picks,false)[0];
         if(picked){actionRef.current.goToWork(picked.object.userData.station);return;}

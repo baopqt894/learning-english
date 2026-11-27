@@ -1,4 +1,4 @@
-import { computerLab, languageLab } from './learning-room-layout.ts';
+import { computerLab, laptopTables, languageLab } from './learning-room-layout.ts';
 import { WORKSHOPS, type WorkshopId } from './workshop-wing.ts';
 
 export type StudySubject = 'language' | 'computer' | WorkshopId;
@@ -17,7 +17,7 @@ function studyLayout(subject: StudySubject, room: Room, tables: readonly Locatio
 export const studyGroups = [
   ...studyLayout('language', languageLab,
     [[-4.65, -3.55], [-4.65, 2.85], [4.65, -.30]], [[-4.8, -7.55], [9.15, .65]]),
-  ...studyLayout('computer', computerLab, [[-4.8, -.18], [4.8, -.18]], [[8.12, .10]]),
+  ...studyLayout('computer', computerLab, laptopTables, [[8.12, .10]]),
   ...WORKSHOPS.flatMap(room => studyLayout(room.kind, room,
     [[-4.55, -3.75], [4.55, -3.75], [-4.55, 3.75], [4.55, 3.75]],
     [[4.55, -9.65], [-4.55, 9.65]])),

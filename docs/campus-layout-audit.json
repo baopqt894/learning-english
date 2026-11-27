@@ -28,9 +28,9 @@
     },
     {
       "name": "PHÒNG TIN HỌC",
-      "width": 20,
-      "depth": 16,
-      "area": 320
+      "width": 20.8,
+      "depth": 24.5,
+      "area": 509.6
     },
     {
       "name": "PHÒNG NGOẠI NGỮ",
@@ -152,9 +152,9 @@
   "expandedDistrictObstacles": 132,
   "namedDestinations": 64,
   "orderedRoutes": 4032,
-  "solidFootprints": 631,
+  "solidFootprints": 656,
   "sharedTrees": 183,
-  "circulationPaths": 69,
+  "circulationPaths": 72,
   "productiveBeds": 8,
   "productiveSoilArea": 135.27999999999997,
   "farmAreaMetresSquared": 478.97,

@@ -627,12 +627,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       box(0.08, 0.65, 0.08, 0x686f5a, f.x + side * (f.w / 2 - 0.2), 0.59, f.z);
       box(0.65, 0.1, 0.55, 0x84946f, f.x + side * 0.65, 0.63, f.z + 0.7);
       box(0.65, 0.55, 0.08, 0x84946f, f.x + side * 0.65, 0.94, f.z + 0.94);
-      if (f.kind === "computer") {
-        box(0.76, 0.55, 0.08, 0x354c51, f.x + side * 0.64, 1.31, f.z - 0.1);
-        box(0.64, 0.41, 0.02, 0x84c2c3, f.x + side * 0.64, 1.32, f.z - 0.045);
-        box(0.05, 0.16, 0.05, 0x354c51, f.x + side * 0.64, 1.07, f.z - 0.1);
-        box(0.65, 0.035, 0.2, 0x536b6d, f.x + side * 0.64, 1.05, f.z + 0.2);
-      } else box(0.45, 0.045, 0.32, 0x638997, f.x + side * 0.65, 1.05, f.z);
+      box(0.45, 0.045, 0.32, 0x638997, f.x + side * 0.65, 1.05, f.z);
     }
   });
 

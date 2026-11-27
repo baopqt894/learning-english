@@ -1,7 +1,8 @@
 import { furnishStudyGroups } from './group-study-scene';
+import { furnishComputerClassroom } from './computer-classroom-scene';
 import * as THREE from 'three';
 import { sceneryKit } from './campus-scenery-kit';
-import { boothX,computerRows,conversationPods,globe,listeningBooths,recordingDesk,shelf } from './learning-room-layout';
+import { boothX,conversationPods,globe,listeningBooths,recordingDesk,shelf } from './learning-room-layout';
 import { placeSchoolProp } from './school-props';
 import { flowerClump } from './campus-garden-props';
 
@@ -20,14 +21,12 @@ function wallPrint(width:number,height:number,paint:(c:CanvasRenderingContext2D)
 function teachingPrint(computer:boolean){
   return wallPrint(7.8,2.15,c=>{
     c.fillStyle=computer?'#193746':'#173e40';c.fillRect(0,0,1024,320);
-    c.fillStyle='#fde7b9';c.font='bold 45px sans-serif';c.fillText(computer?'DIGITAL WORKSHOP':'LISTENING STUDIO',40,64);
-    c.font='27px sans-serif';c.fillText(computer?'INPUT   /   PROCESS   /   OUTPUT':'Listen.    Speak.    Replay.',42,284);
+    c.fillStyle='#fde7b9';c.font='bold 45px sans-serif';c.fillText(computer?'ENGLISH COMPUTER LAB':'LISTENING STUDIO',40,64);
+    c.font='27px sans-serif';c.fillText(computer?'Choose a computer.  Take the English test.':'Listen.    Speak.    Replay.',42,284);
     c.lineWidth=5;c.strokeStyle=computer?'#89cbd6':'#87e4c9';
     if(computer){
-      for(let i=0;i<6;i++){
-        c.beginPath();c.moveTo(35,106+i*20);c.lineTo(276+i*35,106+i*20);c.lineTo(324+i*35,145+i*12);c.lineTo(904,145+i*12);c.stroke();
-        c.beginPath();c.arc(914,145+i*12,7,0,Math.PI*2);c.stroke();
-      }
+      c.font='bold 49px sans-serif';c.fillStyle='#98d8cb';
+      c.fillText('01   Read',40,178);c.fillText('02   Write',362,178);c.fillText('03   Review',677,178);
     }else for(let i=0;i<90;i++){
       const wave=(.17+.83*Math.abs(Math.sin(i*.117)*Math.cos(i*.189)))*(.43+.57*Math.abs(Math.cos(i*.64)));
       const h=12+wave*118; c.fillStyle=i%11<2?'#edbe73':'#84ddc7';c.fillRect(43+i*10.5,164-h/2,5,h);
@@ -135,14 +134,7 @@ export function createLearningStudio(b:Room){
         for(let n=0;n<3;n++)k.globe(x-.39+n*.13,h,back+.99,.06,.06,.035,n?teal:0xe4ae64);
       }
     }
-    for(const side of [-1,1])for(const row of computerRows){
-      const x=side*b.w*.28,z=row;
-      for(const dx of [-.65,.65]){
-        k.block(x+dx,1.32,z-.018,.48,.19,.018,ink);
-        for(let n=0;n<3;n++)k.block(x+dx-.09,1.26+n*.05,z-.005,.20+n*.07,.018,.01,0x89dfcb);
-        k.globe(x+dx+.46,1.06,z+.24,.12,.08,.18,ink);
-      }
-    }
+    furnishComputerClassroom(k,props);
   }else if(b.kind==='hall'){
     for(const s of [-1,1]){
       k.block(s*(b.w/2-1.75),2.11,back+.43,2,3.52,.24,0x984d49);

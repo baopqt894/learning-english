@@ -1,5 +1,5 @@
 import {studyObstacles} from './group-study-layout.ts';
-import {computerLab,computerRows,languageLab,languageMeetingPoint,languageFurniture} from './learning-room-layout.ts';
+import {computerLab,computerDesks,examStations,teacherDesk,languageLab,languageMeetingPoint,languageFurniture} from './learning-room-layout.ts';
 import { landscapeObstacles,glasshouseEquipment,nurseryPens } from './campus-landscape-layout.ts';
 import { PARK_ZONES, nearbyPark, parkObstacles } from './recreation-park.ts';
 import { WORKSHOPS, workshopZones, workshopDisplays, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
@@ -145,8 +145,7 @@ export const EXPLORATION_ZONES = [
     id: "computer",
     name: "Phòng tin học",
     english: "Computer lab",
-    x: computerLab.x,
-    z: computerLab.z+2,
+    ...examStations[8].approach,
     icon: "computer",
     color: "#7faab2",
   },
@@ -217,10 +216,7 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
 ).flatMap<Furniture>((b) => {
   if (WORKSHOPS.some(workshop => workshop.kind === b.kind)) return [];
   if (b.kind === 'housing' || b.kind === 'pavilion') return [];
-  if (b.kind === 'language')return [];
-  if (b.kind === 'computer')return computerRows.flatMap(z=>[-1,1].map(side=>({
-    x:b.x+side*b.w*.28,z:b.z+z,w:2.4,d:.8,kind:b.kind,
-  })));
+  if (b.kind === 'language' || b.kind === 'computer')return [];
   if (b.kind === "hall")
     return [
       {
@@ -248,6 +244,9 @@ export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.k
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
+  ...computerDesks.map(f=>({x:computerLab.x+f.x,z:computerLab.z+f.z,w:f.w,d:f.d})),
+  ...examStations.filter(s=>!s.laptop).map(s=>({x:s.x,z:s.z+.85,w:.64,d:.64})),
+  {...teacherDesk,x:computerLab.x+teacherDesk.x,z:computerLab.z+teacherDesk.z},
   ...studyObstacles, ...SPORTS_OBSTACLES, ...workshopDisplays, ...workshopFixtures, ...workshopFittings, ...parkObstacles, ...landscapeObstacles,
   ...WORKSHOPS.filter(b=>b.kind==='plant-lab').flatMap(b=>glasshouseEquipment.map(f=>({...f,x:b.x+f.x,z:b.z+f.z}))),
   ...EXPANSION_BUILDINGS.filter(b=>b.kind==='language').flatMap(b=>languageFurniture.map(f=>({...f,x:b.x+f.x,z:b.z+f.z}))),

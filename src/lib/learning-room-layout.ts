@@ -1,9 +1,36 @@
 // Dimensions and local fixture positions are in metres. All entrances face south (+z).
 export const languageLab = {x:27.75,z:-2,w:25.5,d:21};
-export const computerLab = {x:30.75,z:-23,w:20,d:16};
+export const computerLab = {x:31,z:-27.25,w:20.8,d:24.5};
 export const labEntrance = (room:typeof languageLab) => ({x:room.x,z:room.z+room.d/2});
 export const languageMeetingPoint = {x:languageLab.x,z:labEntrance(languageLab).z-3.2};
-export const computerRows = [-5.95,-3.80,3.55,5.70];
+// Desks face the teaching wall (-z). Each approach is behind its own chair.
+export const computerDesks = [-8.20, -4.80, 4.0, 7.35].flatMap(z =>
+  [-5.15, 5.15].map(x => ({ x, z, w: 5.64, d: 1.10 })));
+export const laptopTables = [[-4.8, -.18], [4.8, -.18]] as const;
+export const teacherDesk = {x: -4.95, z: -10.43, w: 3.48, d: 1.18};
+export const examStations = [
+  ...computerDesks.flatMap(desk => [-1.78, 0, 1.78].map(dx => ({
+    x: desk.x + dx, z: desk.z, approachZ: desk.z + 1.70, laptop: false,
+  }))),
+  ...laptopTables.flatMap(([x,z]) => [-1, 1].flatMap(side => [-1, 1].map(end => ({
+    x: x + side * .86, z: z + end * .45, approachZ: z + end * 2.04, laptop: true,
+  })))),
+].map((station, i) => ({
+  id: 'PC-' + String(i + 1).padStart(2, '0'), laptop: station.laptop,
+  x: computerLab.x + station.x, z: computerLab.z + station.z,
+  approach: {x: computerLab.x + station.x, z: computerLab.z + station.approachZ},
+}));
+export type ExamStation = typeof examStations[number];
+export function nearbyExamStation(point: {x: number; z: number}) {
+  if (Math.abs(point.x - computerLab.x) > computerLab.w / 2 || Math.abs(point.z - computerLab.z) > computerLab.d / 2) return;
+  let nearest: ExamStation | undefined;
+  let best = 1.12;
+  for (const station of examStations) {
+    const distance = Math.hypot(point.x - station.approach.x, point.z - station.approach.z);
+    if (distance < best) { best = distance; nearest = station; }
+  }
+  return nearest;
+}
 
 export const boothX=-languageLab.w/2+2.1;
 export const listeningBooths=[-6.6,-4.15,-1.7,1.7,4.15,6.6];

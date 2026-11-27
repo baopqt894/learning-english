@@ -1,4 +1,9 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Walk to a computer","Đi đến máy tính"], ["Personal best","Điểm cao nhất"], ["Review answers","Xem lại đáp án"],
+  ["Your answer","Câu trả lời của em"], ["Correct answer","Đáp án đúng"], ["Choose one answer","Chọn một đáp án"], ["Fill in the blank","Điền vào chỗ trống"],
+  ["Computer lab test","Kiểm tra trên máy tính"], ["Use computer","Dùng máy tính"],
+  ["Submit test","Nộp bài"], ["Test result","Kết quả kiểm tra"], ["Back to classroom","Trở lại phòng học"],
+  ["Walk to a computer, then use it to take an English test.","Đến chỗ máy tính rồi nhấn Dùng máy tính để làm bài kiểm tra tiếng Anh."],
   ["Fruit orchard","Vườn cây ăn trái"],["Plan the fruit harvest","Lập kế hoạch hái quả"],
   ["Basketball courts","Cụm sân bóng rổ"],["Volleyball courts","Cụm sân bóng chuyền"],["Signal arcade","Sân bia điện tử"],
   ["Join basketball practice","Luyện tiếng Anh ở sân bóng rổ"],["Join volleyball practice","Luyện tiếng Anh ở sân bóng chuyền"],["Read the colour signals","Đọc tín hiệu màu"],

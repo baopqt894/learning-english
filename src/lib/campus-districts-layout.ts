@@ -126,7 +126,9 @@ export const DISTRICT_PATHS=[
  // Western residential street and the two learning streets.
  {x:-15.5,z:21.75,w:3,d:78.5},
  {x:2.425,z:-17.5,w:35.85,d:3},
- {x:38.5,z:-33,w:131,d:3},
+ // The cross-campus path wraps behind the enlarged digital classroom.
+ {x:-3.625,z:-33,w:46.75,d:3}, {x:19.75,z:-37.55,w:1.2,d:9.1},
+ {x:31.875,z:-42.1,w:24.25,d:2.8}, {x:74,z:-33,w:60,d:3},
  {x:-19,z:-25.25,w:2.4,d:15.5},
  {x:19.75,z:-25.25,w:1.2,d:15.5},
  {x:0,z:-35.25,w:3,d:4.5},
