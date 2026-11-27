@@ -3,6 +3,7 @@ const wordVariants: Record<string, string> = {
   centre: 'center', defence: 'defense', practised: 'practiced', practise: 'practice',
 };
 const contractions: Record<string, string> = {
+  "it's": 'it is', "i'm": 'i am', "i'll": 'i will',
   "don't": 'do not', "doesn't": 'does not', "didn't": 'did not',
   "can't": 'can not', cannot: 'can not', "won't": 'will not',
   "hasn't": 'has not', "haven't": 'have not', "hadn't": 'had not',
@@ -12,7 +13,7 @@ const contractions: Record<string, string> = {
   "you're": 'you are', "we're": 'we are', "they're": 'they are',
 };
 
-function spokenWords(text: string) {
+export function spokenWords(text: string) {
   const normalized = text.normalize('NFKC').toLowerCase().replace(/[‘’]/g, "'")
     .replace(/\btouch[\s-]+line\b/g, 'touchline')
     .replace(/\bnotice[\s-]+board\b/g, 'noticeboard');

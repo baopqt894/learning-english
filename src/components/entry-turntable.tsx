@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { showroomClips } from '@/lib/showroom-motion';
 import { useStudent } from './student-support';
 
 function dispose(model: THREE.Object3D) {
@@ -56,41 +55,13 @@ export default function EntryTurntable({avatar}: {avatar: number}) {
     let active = true;
     let model: THREE.Object3D | undefined;
     let frame = 0;
-    const motionPref = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let visible = true, lastTime = 0, remaining = 0;
-    let mixer: THREE.AnimationMixer | undefined, current: THREE.AnimationAction | undefined;
-    const clips = showroomClips(avatar);
-    function tick(time:number) {
-      frame=0;
-      if (!active || !visible || document.hidden) { lastTime=0; return; }
-      if (mixer && clips.length && !motionPref.matches) {
-        if (time-lastTime>=32 || !lastTime) {
-          const dt=lastTime?Math.min((time-lastTime)/1000,.08):0;
-          lastTime=time;
-          remaining-=dt;
-          if (remaining<=0) {
-            const others=clips.filter(c=>c!==current?.getClip());
-            const pool=others.length?others:clips;
-            const clip=current ? pool[Math.floor(Math.random()*pool.length)] : clips[0];
-            const next=mixer.clipAction(clip).reset().play();
-            if (current && current!==next) next.crossFadeFrom(current,.35,false);
-            current=next;
-            remaining=Math.max(1.5,clip.duration);
-            node!.dataset.motion=clip.name;
-          }
-          mixer.update(dt);
-          renderer.render(scene,camera);
-        }
-        frame=requestAnimationFrame(tick);
-      } else { renderer.render(scene,camera); lastTime=0; }
-    }
     function draw() {
-      if (active && visible && !document.hidden && !frame) frame=requestAnimationFrame(tick);
+      if(!active || frame)return;
+      frame=requestAnimationFrame(()=>{
+        frame=0;
+        if(active)renderer.render(scene,camera);
+      });
     }
-    const observer=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;lastTime=0;draw();});
-    observer.observe(node);
-    document.addEventListener('visibilitychange',draw);
-    motionPref.addEventListener('change',draw);
     const resize = new ResizeObserver(() => {
       const {clientWidth:w,clientHeight:h} = node;
       if (!h || !w) return;
@@ -127,7 +98,6 @@ export default function EntryTurntable({avatar}: {avatar: number}) {
       model.position.copy(bounds.getCenter(new THREE.Vector3())).multiplyScalar(-scale);
       pivot.rotation.y = 0;
       pivot.add(model);
-      mixer=new THREE.AnimationMixer(model);
       draw();
       setState('ready');
     },undefined,() => { if (active) setState('portrait'); });
@@ -135,11 +105,6 @@ export default function EntryTurntable({avatar}: {avatar: number}) {
       active=false;
       rotate.current=()=>{};
       resize.disconnect();
-      observer.disconnect();
-      document.removeEventListener('visibilitychange',draw);
-      motionPref.removeEventListener('change',draw);
-      mixer?.stopAllAction();
-      if (model) mixer?.uncacheRoot(model);
       cancelAnimationFrame(frame);
       if (model) dispose(model);
       renderer.dispose();

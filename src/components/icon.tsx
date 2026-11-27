@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-const paths: Record<string, string> = {
+export const paths: Record<string, string> = {
   orchard:"M12 21v-7m-5 7h10M12 5c4-5 9 1 7 4 5 5-1 10-7 6-6 4-12-1-7-6-1-4 3-8 7-4Zm-4 5h.1m7 1h.1",
   hoop:"M3 3h18v9H3zM8 10h8m-8 2 2 8h4l2-8m-7 2 5 4m1-4-5 4",
   net:"M2 5v16m20-16v16M2 8h20M2 15h20M7 8v7m5-7v7m5-7v7M2 11.5h20",

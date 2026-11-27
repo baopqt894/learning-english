@@ -2,7 +2,7 @@ import { furnishStudyGroups } from './group-study-scene';
 import { furnishComputerClassroom } from './computer-classroom-scene';
 import * as THREE from 'three';
 import { sceneryKit } from './campus-scenery-kit';
-import { boothX,conversationPods,globe,listeningBooths,recordingDesk,shelf } from './learning-room-layout';
+import { conversationPods,globe,listeningStations,recordingDesk,shelf } from './learning-room-layout';
 import { placeSchoolProp } from './school-props';
 import { flowerClump } from './campus-garden-props';
 
@@ -12,8 +12,8 @@ type Room={x:number;z:number;w:number;d:number;kind:string};
 
 // A printed teaching panel sits flush to the back wall, above eye level.
 function wallPrint(width:number,height:number,paint:(c:CanvasRenderingContext2D)=>void) {
-  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=320;
-  const c=canvas.getContext('2d')!;paint(c);
+  const canvas=document.createElement('canvas');canvas.width=width<1?192:1024;canvas.height=width<1?60:320;
+  const c=canvas.getContext('2d')!;c.scale(canvas.width/1024,canvas.height/320);paint(c);
   const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:t}));
   return m;
@@ -51,10 +51,10 @@ function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
     const x=-b.w/2+.32+i*.28;
     k.block(x,1.84,back+.15,.21,2.99,.12,i%3?oak:walnut);
   }
-  for(const z of listeningBooths){
-    const x=boothX;
-    k.block(x-.47,.73,z,.24,.83,1.77,walnut);
-    for(const edge of [-1,1])k.block(x+.43,.73,z+edge*.65,.10,.83,.10,ink);
+  for(const {x,z,wall,id} of listeningStations){
+    const inward=-wall;
+    k.block(x-inward*.47,.73,z,.24,.83,1.77,walnut);
+    for(const edge of [-1,1])k.block(x+inward*.43,.73,z+edge*.65,.10,.83,.10,ink);
     k.block(x,1.19,z,1.56,.13,1.88,oak);
     for(const s of [-1,1]){
       k.block(x,1.45,z+s*.90,1.62,1.64,.085,oak);
@@ -64,7 +64,11 @@ function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
     equipment(k,x-.13,1.25,z-.27);
     k.hoop(x+.12,1.59,z+.43,.52,.55,.45,ink);
     for(const s of [-1,1])k.globe(x+.12+s*.21,1.47,z+.43,.12,.24,.19,teal);
-    placeSchoolProp(props,'chair',x+1.42,.31,z,.89,-Math.PI/2);
+    placeSchoolProp(props,'chair',x+inward*1.42,.31,z,.89,-inward*Math.PI/2);
+    const badge=wallPrint(.86,.28,c=>{
+      c.fillStyle='#254f55';c.fillRect(0,0,1024,320);c.fillStyle='#fff1cd';c.textAlign='center';c.font='bold 230px sans-serif';c.fillText(id,512,250);
+    });
+    badge.position.set(x,1.75,z+.96);props.add(badge);
   }
   // Two facing settees and a coffee table, all inside one rug footprint.
   for(const pod of conversationPods){

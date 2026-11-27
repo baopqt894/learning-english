@@ -8,7 +8,7 @@ export type MissionExercise =
   | (SpokenExercise & { kind: 'dictation' | 'repeat' })
   | (SpokenExercise & { kind: 'listen'; options: string[] });
 
-export const listen = (id: string, transcript: string, prompt: string, [answer, ...wrong]: [string, string, string], explanation: string): MissionExercise =>
+export const listen = (id: string, transcript: string, prompt: string, [answer, ...wrong]: [string, string, string], explanation: string): Extract<MissionExercise,{kind:"listen"}> =>
   ({ id, kind: 'listen', transcript, prompt, options: [answer, ...wrong], answer, explanation });
 
 export const fill = (id: string, prompt: string, answer: string, explanation: string, alternatives?: string[]): MissionExercise =>

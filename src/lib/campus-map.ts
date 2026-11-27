@@ -1,5 +1,5 @@
 import {studyObstacles} from './group-study-layout.ts';
-import {computerLab,computerDesks,examStations,teacherDesk,languageLab,languageMeetingPoint,languageFurniture} from './learning-room-layout.ts';
+import {computerLab,computerDesks,examStations,teacherDesk,languageLab,listeningStations,languageFurniture} from './learning-room-layout.ts';
 import { landscapeObstacles,glasshouseEquipment,nurseryPens } from './campus-landscape-layout.ts';
 import { PARK_ZONES, nearbyPark, parkObstacles } from './recreation-park.ts';
 import { WORKSHOPS, workshopZones, workshopDisplays, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
@@ -153,7 +153,7 @@ export const EXPLORATION_ZONES = [
     id: "language",
     name: "Phòng ngoại ngữ",
     english: "Language lab",
-    ...languageMeetingPoint,
+    ...listeningStations[3].approach,
     icon: "sound",
     color: "#b6bc7d",
   },

@@ -2,7 +2,9 @@
 
 import { ComputerExam } from './computer-exam';
 import { computerExamRound, type ExamItem } from '@/lib/computer-exam';
-import { nearbyExamStation } from '@/lib/learning-room-layout';
+import { ListeningLab } from './listening-lab';
+import { listeningRound, type LabRecord, type ListeningLine } from '@/lib/listening-lab';
+import { nearbyListeningStation, nearbyExamStation } from '@/lib/learning-room-layout';
 import { nearbyPark } from '@/lib/recreation-park';
 import { WORKSHOPS, nearbyWorkshop } from '@/lib/workshop-wing';
 import { LanguageSelect, Phrasebook, StudentContext, useStudent } from './student-support';
@@ -175,6 +177,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [swimOpen,setSwimOpen]=useState(false);
   const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
   const [placePractice,setPlacePractice]=useState<(PracticeRequest & {tier:EnglishTier;questions:PlaceQuestion[]})|null>(null);
+  const [lab,setLab] = useState<{station:string;items:ListeningLine[]}|null>(null);
   const [exam,setExam] = useState<{station:string;tier:EnglishTier;items:ExamItem[]}|null>(null);
   const [levelMissionTravel, setLevelMissionTravel] = useState<LevelMissionId | null>(null);
   const [quizHistory] = useState(() => createQuizHistory(account.id));
@@ -406,6 +409,19 @@ export function CampusGame({ account, onExpired, onLogout }: {
     if (id) setNotice(`Quay lại gặp ${CHARACTER_PROFILES[id].name} để báo cáo.`);
   }, [saveReward]);
 
+  function openListeningLab() {
+    const position=worldRef.current?.currentPosition();
+    const station=position && nearbyListeningStation(position);
+    if (!station || lab) return;
+    const key='listening-lab/'+tier;
+    const items=listeningRound(tier,quizHistory.previous(key));
+    quizHistory.record(key,items.map(q=>q.id));
+    setLab({station:station.id,items});
+  }
+  function finishListeningLab(record:LabRecord) {
+    saveReward({...progress,listeningLab:{...progress.listeningLab,[record.tier]:record},
+      daily:recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'})});
+  }
   function openComputerExam() {
     const position = worldRef.current?.currentPosition();
     const station = position && nearbyExamStation(position);
@@ -500,7 +516,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     reward !== null ||
     retryReset ||
     artGallery ||
-    rankingsOpen || atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!exam || !!placePractice || !!sportsJournal || friendsOpen;
+    rankingsOpen || atlasOpen || reviewOpen || photoOpen || activityOpen || storyOpen || !!lab || !!exam || !!placePractice || !!sportsJournal || friendsOpen;
   useEffect(() => {
     if (!notice || talking || modalOpen || swimOpen) return;
     const timer = window.setTimeout(() => setNotice(""), 4200);
@@ -538,6 +554,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         if(rankingsOpen){setRankingsOpen(false);}
         else if(friendsOpen){setFriendsOpen(false);}
         else if(sportsJournal){setSportsJournal(null);}
+        else if(lab){setLab(null);}
         else if(exam){setExam(null);}
         else if(placePractice){closePlacePractice();}
         else if (storyOpen) {setStoryOpen(false);window.speechSynthesis?.cancel();}
@@ -571,7 +588,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
       if (previousFocus?.getClientRects().length) previousFocus.focus();
       else mobileHudButton?.focus();
     };
-  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,exam,placePractice,closePlacePractice,sportsJournal,friendsOpen,rankingsOpen]);
+  }, [modalOpen, tab, help, retryReset, reward, artGallery, atlasOpen, reviewOpen, photoOpen, closePhoto, activityOpen, storyOpen,lab,exam,placePractice,closePlacePractice,sportsJournal,friendsOpen,rankingsOpen]);
 
   const updateMapPlayer = useCallback((x: number, z: number, heading: number, route: readonly MapPoint[]) => {
     positionTracker.observe({x,z,heading});
@@ -592,6 +609,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
   };
   const room = nearbyWorkshop(playerPosition);
+  const headset = nearbyListeningStation(playerPosition);
   const examStation = nearbyExamStation(playerPosition);
   const park = nearbyPark(playerPosition);
   const currentWorkshop = room ?? (park && {kind:park.id,title:park.title});
@@ -607,7 +625,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     stopSpeech();
     requestAnimationFrame(()=>worldRef.current?.goToZone(zoneId));
     setNotice(
-      zoneId === 'computer' ? t("Walk to a computer, then use it to take an English test.") : WORKSHOPS.some(b => b.kind === zoneId) ? t("Follow the path inside and start the lesson.") : zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
+      zoneId === 'language' ? t('Walk to a headset, then listen and repeat.') : zoneId === 'computer' ? t("Walk to a computer, then use it to take an English test.") : WORKSHOPS.some(b => b.kind === zoneId) ? t("Follow the path inside and start the lesson.") : zoneId === "garden" ? "Walk through the pavilion door, then read at the table." : `Walking to ${zone.english}. ${['livestock','training','swimming','fish-pond'].includes(zone.id)?'Use the marked practice spots to interact.':'Open Cadet activities to practise school tasks.'}`,
     );
   };
 
@@ -888,7 +906,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             avatar={progress.avatar}
             cadetRank={level.level}
             quizHistory={quizHistory}
-            studying={classStudy}
+            studying={classStudy} wearingHeadset={!!lab}
             pets={progress.pets}
             stationPass={stationPass}
             residentMissions={progress.residentMissions}
@@ -911,7 +929,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             photoMode={photoOpen}
             enabled={!!progress.name && !modalOpen && !talking && !swimOpen}
             onNear={setNear}
-            onInteract={target=>{if (target === "computer") openComputerExam(); else if (target === "reading") openPlacePractice({area:"garden",reading:true}); else if (!physicalWork) interactWithStoryNpc();}}
+            onInteract={target=>{if (target === "listening") openListeningLab(); else if (target === "computer") openComputerExam(); else if (target === "reading") openPlacePractice({area:"garden",reading:true}); else if (!physicalWork) interactWithStoryNpc();}}
             onMove={updateMapPlayer}
             onAreaChange={setAreaName}
           />
@@ -972,7 +990,12 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 <kbd>E</kbd><Icon name={SPORTS_VENUES[registration].icon} size={20}/> {t("Register at")} {t(SPORTS_VENUES[registration].name)}
               </button>
             )}
-            {areaName === 'Phòng tin học' && !levelMissionTravel && (
+            {areaName === 'Phòng ngoại ngữ' && !levelMissionTravel && (
+              <button className="interact-button" onClick={()=>headset ? openListeningLab() : goToZone('language')}>
+                {headset && <kbd>E</kbd>}<Icon name="headphones" size={19}/>{headset ? t('Put on headset')+' · '+headset.id : t('Walk to a headset')}
+              </button>
+            )}
+            {areaName === 'Phòng tin học'  && !levelMissionTravel && (
               <button className="interact-button" onClick={()=>examStation ? openComputerExam() : goToZone('computer')}>
                 {examStation && <kbd>E</kbd>}<Icon name="computer" size={19}/>{examStation ? t('Use computer')+' · '+examStation.id : t('Walk to a computer')}
               </button>
@@ -1065,6 +1088,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
           onCapture={(format) => worldRef.current?.capturePhoto(format) ?? Promise.resolve(null)}
         />
       )}
+      {lab && <ListeningLab station={lab.station} items={lab.items} previous={progress.listeningLab?.[lab.items[0].tier]} onFinish={finishListeningLab} onExit={()=>setLab(null)}/>}
       {exam && <ComputerExam station={exam.station} tier={exam.tier} items={exam.items} best={progress.computerExams?.[exam.tier]?.best} onFinish={finishComputerExam} onClose={()=>setExam(null)}/>}
       {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??placePractice.resident??''}`}
         area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}

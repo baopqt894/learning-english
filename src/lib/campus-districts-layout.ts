@@ -135,7 +135,8 @@ export const DISTRICT_PATHS=[
  {x:-25.5,z:-49.4,w:1.6,d:32.8},{x:-12.75,z:-65.8,w:25.5,d:1.2},
  {x:2.5,z:-67.25,w:58,d:2.9},
  // Eastern service spine joins water safety, aquaculture and animal care.
- {x:44,z:-7.5,w:4,d:137},
+ {x:44,z:-48.25,w:4,d:55.5}, {x:47,z:-20.5,w:6,d:4},
+ {x:50,z:-2.5,w:4,d:36}, {x:47,z:15.5,w:6,d:4}, {x:44,z:38.25,w:4,d:45.5},
  {x:74,z:-76,w:60,d:2.4},
  {x:83,z:-32.7,w:4.2,d:2.9},
  {x:-16,z:-64.2,w:3.4,d:3.8},
@@ -153,8 +154,9 @@ export const DISTRICT_PATHS=[
  {x:-9,z:-19.5,w:2.6,d:1}, {x:11,z:-19.5,w:2.6,d:1},
  ...[computerLab,languageLab].flatMap(room=>{
    const door=labEntrance(room), landing=room===computerLab?1.22:1.8;
+   const street=50;
    return [{x:door.x,z:door.z+landing/2,w:4.6,d:landing},
-     {x:(door.x+44)/2,z:door.z+landing,w:44-door.x,d:2}];
+     {x:(door.x+street)/2,z:door.z+landing,w:street-door.x,d:2}];
  }),
  {x:-21.75,z:-7.5,w:12.5,d:1.6}, {x:-28,z:-8.25,w:2.6,d:.5},
  {x:-21.75,z:6.5,w:12.5,d:1.6}, {x:-28,z:5.75,w:2.6,d:1.5},

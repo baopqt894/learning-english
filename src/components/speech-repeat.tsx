@@ -38,7 +38,7 @@ const errors: Record<string, string> = {
 
 export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMicrophone }: {
   expected: string; ready: boolean; playback: boolean; passed: boolean;
-  onAnswer: (transcript: string) => void; onMicrophone: (active: boolean) => void;
+  onAnswer: (transcript: string, mode: 'mic' | 'typed') => void; onMicrophone: (active: boolean) => void;
 }) {
   const { t } = useStudent();
   const [phase, setPhase] = useState<'idle' | 'starting' | 'listening' | 'checking'>('idle');
@@ -93,7 +93,7 @@ export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMi
       if (!transcript) { finish(recognizer, errors['no-speech'], true); return; }
       finish(recognizer, undefined, true);
       setHeard(transcript);
-      onAnswer(transcript);
+      onAnswer(transcript.slice(0,350), 'mic');
     };
     recognizer.onerror = event => finish(recognizer, errors[event.error] ?? 'The microphone could not finish. Try again or type the sentence.');
     recognizer.onend = () => finish(recognizer, 'No words were recognised. Try again or type the sentence.');
@@ -116,7 +116,7 @@ export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMi
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (ready && draft.trim() && !passed) { setHeard(''); setMessage(''); onAnswer(draft); }
+    if (ready && draft.trim() && !passed) { setHeard(''); setMessage(''); onAnswer(draft.trim(), 'typed'); }
   }
 
   if (passed && !heard) return null;
@@ -135,8 +135,8 @@ export function SpeechRepeat({ expected, ready, playback, passed, onAnswer, onMi
         }}>{typed ? t('Hide typing') : t('Type instead')}</button>
     </div>}
     {phase !== 'idle' && <p role="status">{phase === 'listening' ? t('Listening… repeat the whole message.') : phase === 'checking' ? t('Checking the words you said…') : t('Waiting for microphone access…')}</p>}
-    {message && <p className="practice-mic-error" role="status">{message}</p>}
-    {heard && <p className="practice-heard">Heard: <span>{heard}</span></p>}
+    {message && <p className="practice-mic-error" role="status">{t(message)}</p>}
+    {heard && <p className="practice-heard">{t('Heard')} · <span>{heard}</span></p>}
     {!typed && !passed && phase === 'idle' && !message && !heard && <p className="practice-mic-note">{t("Your browser may use an online service to recognise your voice.")}</p>}
     {typed && !passed && <form className="practice-fill" onSubmit={submit}>
       <label htmlFor="practice-repeat-text">{t("Repeat the message in writing")}</label>

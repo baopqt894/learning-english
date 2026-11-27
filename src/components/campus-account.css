@@ -1,21 +1,43 @@
+/* The illustrated campus and the paper sign-in sheet share a dark book cover. */
 .cadet-entry {
-  display:grid; grid-template-columns:minmax(0,1.2fr) minmax(360px,1fr);
-  min-height:100dvh; background:#faf7ef; color:#18382f;
+  min-height:100svh; padding:0 clamp(14px,3.5vw,60px) clamp(18px,3.5vw,48px);
+  display:flex;flex-direction:column;background:#123e39;color:#223b34;
 }
-.cadet-entry-scene {
-  position:relative; isolation:isolate; overflow:hidden;
-  display:grid; grid-template-rows:auto 1fr; padding:clamp(22px,4vw,54px);
-  background:#2d5146; color:#fff7df;
-}
-.cadet-entry-scene::before {
-  content:""; position:absolute; inset:0; z-index:-1;
-  background:radial-gradient(ellipse at 50% 42%,#44494aeb 8%,#303635f0 62%,#23302dfa 100%),
-    url('/art/entry-highlands.webp') center/cover;
-}
-.cadet-entry-brand {display:flex; align-items:center; gap:10px; color:#fff4d5;}
-.cadet-entry-brand h1 {margin:0; font-weight:750; font-size:clamp(20px,2vw,30px); letter-spacing:-.04em;}
-.cadet-entry-brand span,.cadet-entry-brand svg {color:#f0cf88;}
-.entry-showcase {min-height:520px; display:grid; align-content:center; position:relative;}
+.entry-mast {height:76px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff4d8}
+.entry-mast h1 {display:flex;gap:8px;align-items:center;margin:0;font-family:Georgia,serif;font-weight:bold;font-size:clamp(24px,3vw,36px);letter-spacing:-.045em}
+.entry-mast h1 svg {color:#f3c56e}.entry-mast h1 span {font:700 .43em system-ui;letter-spacing:.035em;align-self:flex-start;margin-top:.65em;color:#ffd38b}
+.entry-language label {display:flex;align-items:center;gap:8px;font-size:.84rem}
+.entry-language select {min-height:42px;border:1px solid #83a59a;border-radius:6px;color:#fff7e3;background:#214b44;padding:4px 8px;font:inherit}
+.entry-layout {flex:1;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(340px,.82fr);max-width:1620px;width:100%;margin:auto;overflow:hidden;border:1px solid #809487;border-radius:12px;background:#fff9ea;box-shadow:0 16px 40px #06292266}
+.cadet-entry-scene {position:relative;margin:0;min-height:420px;background:#9dba91 url('/art/entry-courtyard.webp') 12% center / cover no-repeat}
+.cadet-entry-scene figcaption {position:absolute;bottom:20px;left:20px;display:flex;align-items:center;gap:8px;background:#fcf4de;color:#21423a;padding:8px 12px;border-radius:3px;box-shadow:0 3px 10px #253f333d;font-weight:650;font-size:.84rem}
+.cadet-entry-panel {display:grid;align-content:center;padding:clamp(25px,3.5vw,58px);border-left:5px double #dbcfad;background:#fff9eb}
+.cadet-entry-form {display:grid;gap:16px;width:100%;max-width:460px;justify-self:center}
+.cadet-entry-form h2 {margin:4px 0 8px;font:700 clamp(29px,3vw,48px)/1.07 Georgia,serif;letter-spacing:-.035em;color:#173d34;text-wrap:balance}
+.cadet-entry-switch {display:flex;gap:20px;border-bottom:1px solid #c9bfa2}
+.cadet-entry-switch button {padding:8px 2px;min-height:44px;border-bottom:3px solid transparent;font-size:.91rem;font-weight:650;color:#59675e}
+.cadet-entry-switch button[aria-pressed=true] {color:#16483c;border-color:#b85b37}
+.cadet-entry-field {display:grid;gap:6px}
+.cadet-entry-field label,.cadet-entry-avatars legend {font-size:.91rem;font-weight:700}
+.cadet-entry-field input {width:100%;min-height:46px;border:1px solid #99a69a;border-radius:6px;background:#fffdf5;color:#193c33;padding:9px 12px;font-size:16px}
+.cadet-entry-field small {color:#506254;font-size:.77rem;line-height:1.4}
+.cadet-entry-avatars {margin:0;padding:0;border:0;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cadet-entry-avatars legend {margin-bottom:6px}
+.cadet-entry-avatars label {display:flex;align-items:center;gap:6px;padding:6px;min-height:48px;border:1px solid #aeb5a0;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600}
+.cadet-entry-avatars label:has(:checked) {background:#e1eddc;border-color:#427055}
+.cadet-entry-avatars .cadet-portrait {width:clamp(30px,3vw,40px);height:clamp(30px,3vw,40px);flex-shrink:0}
+.cadet-entry input[type=radio],.cadet-entry input[type=checkbox]{accent-color:#206347}
+.entry-preview-link {justify-self:start;display:flex;align-items:center;gap:6px;min-height:34px;text-decoration:underline;color:#285c49;margin-top:-10px}
+.cadet-entry-import {display:flex;align-items:center;gap:8px;min-height:44px;font-size:.84rem}
+.cadet-submit {display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;min-height:49px;border-radius:6px;background:#205847;color:#fff9e8;font-weight:750;box-shadow:0 3px 0 #153d32}
+.cadet-submit:hover:enabled {background:#164736}.cadet-submit:disabled{opacity:.62}
+.cadet-entry-error {color:#803826;background:#f5e2d5;padding:10px;border-radius:4px}
+.cadet-entry :focus-visible {outline:3px solid #bb6a33;outline-offset:3px}
+.entry-preview-dialog {margin:auto;padding:20px;width:min(450px,92vw);max-height:90svh;overflow:auto;border:2px solid #a99c76;border-radius:12px;background:#264a41;color:#fff4d7}
+.entry-preview-dialog::backdrop {background:#092b25bd}
+.entry-preview-dialog header {display:flex;align-items:center;justify-content:space-between}
+.entry-preview-dialog h3 {margin:0;font:700 32px Georgia,serif}
+.entry-preview-dialog header button {display:grid;place-items:center;width:44px;height:44px}
 .entry-model {position:relative; height:clamp(310px,50dvh,520px); touch-action:pan-y; cursor:grab;}
 .entry-model:active {cursor:grabbing;}
 .entry-render,.entry-render canvas {position:absolute; inset:0; width:100%; height:100%;}
@@ -26,115 +48,19 @@
 .entry-rotation span {color:#fff5db; background:#24463ceb; padding:5px 11px; border-radius:20px;}
 .entry-rotation button {width:44px;height:44px;border:1px solid #c3d2b2aa; border-radius:50%; color:#fff7dc; background:#264b40; font-size:23px;line-height:1;}
 .entry-rotation button:disabled {opacity:.45;}
-.entry-identity {margin-top:16px; display:flex; flex-direction:column; align-items:center;}
-.entry-identity span {font-size:.88rem; color:#f5dba1;}
-.entry-identity strong {font-family:Georgia,serif;font-size:clamp(38px,5vw,64px);font-weight:500;line-height:1.1;}
-.cadet-entry-scene :focus-visible {outline:2px solid #ffe7ab;outline-offset:-2px;}
-.cadet-entry-panel {
-  display: grid;
-  align-items: center;
-  justify-items: center;
-  padding: clamp(24px,4vw,65px);
-}
-.cadet-entry-form { display: grid; gap: 13px; width: min(100%,430px); }
-.cadet-entry-form h2 {
-  font-size: clamp(24px,3vw,36px);
-  letter-spacing: -.026em;
-  line-height: 1.13;
-  margin: 6px 0 5px;
-  font-weight: 755;
-}
-.cadet-entry-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 4px;
-  background: #e7dfc8;
-  border-radius: 9px;
-}
-.cadet-entry-switch button {
-  min-height: 43px;
-  border-radius: 6px;
-  font-size: .9rem;
-  font-weight: 700;
-}
-.cadet-entry-switch button[aria-pressed=true] { background: #fbf7e9; color: #174638; }
-.cadet-entry-field { display: grid; gap: 5px; }
-.cadet-entry-field label, .cadet-entry-avatars legend { font-size: .87rem; font-weight: 700; }
-.cadet-entry-field input {
-  color: #16362b;
-  background: #fffcf1;
-  border: 1px solid #929e84;
-  padding: 9px 12px;
-  border-radius: 7px;
-  width: 100%;
-  min-height: 44px;
-  font-size: 16px;
-}
-.cadet-entry-field small { color: #455e4a; font-size: .75rem; line-height: 1.35; }
-.cadet-entry-avatars {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 8px;
-}
-.cadet-entry-avatars legend { padding: 0; margin: 0 0 6px; }
-.cadet-entry-avatars label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  min-height: 50px;
-  border: 1px solid #b7bba3;
-  border-radius: 7px;
-  cursor: pointer;
-  font-weight: 650;
-  font-size: .82rem;
-}
-.cadet-entry-avatars label:focus-within {outline:2px solid #386749;outline-offset:2px}
-.cadet-entry-avatars label:has(input:checked) { background: #e0e8cf; border-color: #527350; }
-.cadet-entry-avatars .cadet-portrait { width: clamp(36px,7vw,48px); height: clamp(36px,7vw,48px); flex: 0 0 auto; }
-.cadet-entry input[type=checkbox], .cadet-entry input[type=radio] { accent-color: #285840; flex-shrink: 0; }
-.cadet-entry-import { display: flex; gap: 9px; align-items: center; min-height: 44px; font-size: .84rem; cursor: pointer; }
-.cadet-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 47px;
-  background: #264e3a;
-  color: #fff2d7;
-  font-weight: 750;
-  border-radius: 8px;
-  margin-top: 3px;
-}
-.cadet-submit:hover:not(:disabled) { background: #163e2e; }
-.cadet-entry-error { border-radius: 7px; padding: 9px 11px; background: #f2deca; color: #743c29; font-size: .84rem; }
-.cadet-entry :focus-visible { outline: 2px solid #2a634a; outline-offset: 3px; }
 .account-game-loading { display: grid; min-height: 100dvh; place-items: center; background: #18342a; color: #f8edcf; }
 .account-menu-state { border-top: 1px solid #68806b; margin-top: 14px; padding-top: 13px; }
 .account-menu-state p { font-size: .84rem; line-height: 1.5; }
 .account-menu-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .account-menu-actions > button { min-height: 44px; }
-.cadet-entry-panel { align-content: center; gap: 14px; }
-.entry-language { width: min(100%,430px); }
-.entry-language label { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.entry-language select { min-height: 40px; border: 1px solid #8c9b81; border-radius: 6px; padding: 4px 8px; background: #fcf8ec; color: #17382c; }
 
-@media(max-width:760px) {
-  .cadet-entry {grid-template-columns:minmax(0,1fr);}
-  .cadet-entry-scene {padding:12px 18px 14px;}
-  .cadet-entry-brand h1 {font-size:19px;}
-  .entry-showcase {min-height:0;}
-  .entry-model {height:clamp(155px,26svh,245px);}
-  .entry-identity {position:absolute;bottom:0;left:0;align-items:flex-start;pointer-events:none;}
-  .entry-identity strong {font-size:30px;}
-  .entry-identity span {font-size:.72rem;}
-  .entry-rotation {margin:2px 0 0;}
-  .entry-rotation button {width:40px;height:40px;}
-  .entry-plinth {width:36%;left:32%;}
-  .cadet-entry-panel {padding:16px max(18px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));}
-  .cadet-entry-form {gap:10px;}
+@media(max-width:760px){
+ .cadet-entry {padding:0 12px 18px}.entry-mast{height:56px}
+ .entry-layout {display:flex;flex-direction:column;flex:initial;margin:0 auto}
+ .cadet-entry-scene {min-height:0;height:clamp(145px,22svh,218px);flex:none;background-position:50% 58%}
+ .cadet-entry-scene figcaption {bottom:9px;left:10px;font-size:.76rem;padding:5px 8px}
+ .cadet-entry-panel {padding:20px 18px 25px;border-left:0;border-top:4px double #dbcfad}
+ .cadet-entry-form {gap:12px}.cadet-entry-form h2 {font-size:31px}
+ .entry-language label {font-size:.76rem}.entry-language select{max-width:105px}
+ .entry-model{height:min(48svh,340px)}
 }

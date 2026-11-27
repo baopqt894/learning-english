@@ -1,3 +1,4 @@
+import {restoreLabRecords,type LabRecords} from './listening-lab.ts';
 import {restoreExamRecords, type ExamRecords} from './computer-exam.ts';
 import { conversationClue } from './conversation-support.ts';
 import { restoreStudent, type StudentSettings } from './student-support.ts';
@@ -13,7 +14,7 @@ export type Place = "courtyard" | "library" | "canteen";
 export type Goal = { id: string; label: string; hint: string; place: Place };
 export type Quest = { title: string; description: string; minutes: string; xp: number; badge: string; goals: Goal[] };
 export type Message = { role: "student" | "npc"; text: string; place: Place };
-export type Progress = { version: 1; student?: StudentSettings; computerExams?: ExamRecords; position?: CampusPosition; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[]; activities?: ActivityRecords; fieldwork?: Fieldwork; campaign?: CampaignProgress; pets?: PetCare; daily?: DailyProgress; challenges?: string[]; residentMissions?: ResidentMissionProgress };
+export type Progress = { version: 1; student?: StudentSettings; computerExams?: ExamRecords; listeningLab?: LabRecords; position?: CampusPosition; name: string; avatar: number; mode: "guided" | "independent"; active: number; completed: number[]; goals: string[]; messages: Message[]; activities?: ActivityRecords; fieldwork?: Fieldwork; campaign?: CampaignProgress; pets?: PetCare; daily?: DailyProgress; challenges?: string[]; residentMissions?: ResidentMissionProgress };
 
 export const SCHOOL = "Phân hiệu 1 – Trường Thiếu sinh quân miền Trung";
 export const STORAGE_KEY = "campusquest-phan-hieu-1-v1";
@@ -73,7 +74,7 @@ export function restoreProgress(raw: string | null): Progress {
     const active = Math.min(completed.length, QUESTS.length - 1);
     const validGoals = QUESTS[active].goals.map(g => g.id);
     return {
-      version: 1, student: restoreStudent(value.student), computerExams:restoreExamRecords(value.computerExams), position: restoreCampusPosition(value.position), residentMissions: restoreResidentMissions(value.residentMissions), challenges: restoreChallenges(value.challenges), daily:restoreDaily(value.daily), pets:normalizePetCare(value.pets), name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0, campaign:restoreCampaign(value.campaign), activities: normalizeActivities(value.activities), fieldwork: restoreFieldwork(value.fieldwork),
+      version: 1, student: restoreStudent(value.student), computerExams:restoreExamRecords(value.computerExams), listeningLab:restoreLabRecords(value.listeningLab), position: restoreCampusPosition(value.position), residentMissions: restoreResidentMissions(value.residentMissions), challenges: restoreChallenges(value.challenges), daily:restoreDaily(value.daily), pets:normalizePetCare(value.pets), name: value.name.slice(0, 30), avatar: value.avatar === 1 ? 1 : 0, campaign:restoreCampaign(value.campaign), activities: normalizeActivities(value.activities), fieldwork: restoreFieldwork(value.fieldwork),
       mode: value.mode === "independent" ? "independent" : "guided", active, completed,
       goals: Array.isArray(value.goals) ? [...new Set<string>(value.goals.filter((id: unknown) => typeof id === "string" && validGoals.includes(id)))] : [],
       messages: Array.isArray(value.messages) ? value.messages.filter((m: Message) => m && (m.role === "student" || m.role === "npc") && typeof m.text === "string" && m.text.length <= 600 && Object.hasOwn(PLACES, m.place)).slice(-80) : [],

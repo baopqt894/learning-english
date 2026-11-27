@@ -3,7 +3,7 @@
 import { StudentContext, LanguageSelect, useStudent } from './student-support';
 import { defaultStudent, type StudentSettings } from '@/lib/student-support';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ACCOUNT_USERNAME, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, type AccountSession } from '@/lib/account';
 import { restoreProgress, STORAGE_KEY, type Progress } from '@/lib/game';
 import { Icon } from './icon';
@@ -97,14 +97,15 @@ function AccountEntry() {
   if (session) return <Game key={session.id} account={session} onExpired={expire} onLogout={logout}/>;
   return (
     <main className="cadet-entry">
-      <div className="cadet-entry-scene">
-        <header className="cadet-entry-brand"><Icon name="compass" size={23}/><h1>CampusQuest <span>AI</span></h1></header>
-        {session === null && <div className="entry-showcase">
-          <Turntable key={avatar} avatar={avatar}/>
-          <div className="entry-identity"><span>{t('Cadet')}</span><strong>{avatar===1?'Linh':'An'}</strong></div>
-        </div>}
-      </div>
-      <div className="cadet-entry-panel"><div className="entry-language"><LanguageSelect disabled={session === undefined && !error}/></div>
+      <header className="entry-mast">
+        <h1><Icon name="compass" size={25}/> CampusQuest <span>AI</span></h1>
+        <div className="entry-language"><LanguageSelect disabled={session === undefined && !error}/></div>
+      </header>
+      <div className="entry-layout">
+        <figure className="cadet-entry-scene">
+          <figcaption><Icon name="map" size={18}/><span>{t('School courtyard')}</span></figcaption>
+        </figure>
+        <div className="cadet-entry-panel">
         {session === undefined ? (
           <div className="cadet-entry-form" role="status">
             <p>{error ? t(error) : t('Đang kiểm tra tài khoản…')}</p>
@@ -120,6 +121,7 @@ function AccountEntry() {
             setSession(account);
           }}/>
         )}
+        </div>
       </div>
     </main>
   );
@@ -132,13 +134,15 @@ function AccountForm({ avatar, setAvatar, previous, notice, onSession }: {
   onSession: (account: AccountSession, imported: boolean) => void;
 }) {
   const { t, settings } = useStudent();
-  const [mode, setMode] = useState<'register' | 'login'>(notice ? 'login' : 'register');
+  const [mode, setMode] = useState<'register' | 'login'>('login');
   const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState(previous?.name ?? '');
   const [password, setPassword] = useState('');
   const [importPrevious, setImportPrevious] = useState(!!previous);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(notice);
+  const preview=useRef<HTMLDialogElement>(null);
+  const [previewOpen,setPreviewOpen]=useState(false);
   const creating = mode === 'register';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -164,8 +168,8 @@ function AccountForm({ avatar, setAvatar, previous, notice, onSession }: {
 
   return <form className="cadet-entry-form" onSubmit={submit}>
     <div className="cadet-entry-switch" role="group" aria-label={t("Chọn cách vào game")}>
-      <button type="button" aria-pressed={creating} disabled={busy} onClick={() => { setMode('register'); setPassword(''); setError(''); }}>{t("Tạo tài khoản")}</button>
       <button type="button" aria-pressed={!creating} disabled={busy} onClick={() => { setMode('login'); setPassword(''); setError(''); }}>{t("Đăng nhập")}</button>
+      <button type="button" aria-pressed={creating} disabled={busy} onClick={() => { setMode('register'); setPassword(''); setError(''); }}>{t("Tạo tài khoản")}</button>
     </div>
     <h2>{creating ? t('Tạo hồ sơ học viên') : t('Chào mừng trở lại')}</h2>
     {creating && <fieldset className="cadet-entry-avatars" disabled={busy}>
@@ -176,6 +180,13 @@ function AccountForm({ avatar, setAvatar, previous, notice, onSession }: {
         <span>{variant === 0 ? t('An · Male') : t('Linh · Female')}</span>
       </label>)}
     </fieldset>}
+    {creating && <button type="button" className="entry-preview-link" onClick={()=>{
+      setPreviewOpen(true);preview.current?.showModal();
+    }}><Icon name="user" size={16}/>{t('Preview character in 3D')}</button>}
+    <dialog aria-label={t('Character preview')} ref={preview} className="entry-preview-dialog" onClose={()=>setPreviewOpen(false)}>
+      {previewOpen && <><header><h3>{avatar===1?'Linh':'An'}</h3><button type="button" aria-label={t('Close')} onClick={()=>preview.current?.close()}><Icon name="close"/></button></header>
+        <Turntable key={avatar} avatar={avatar}/></>}
+    </dialog>
     {creating && <div className="cadet-entry-field">
       <label htmlFor="account-nickname">{t("Biệt danh trong game")}</label>
       <input id="account-nickname" autoComplete="nickname" value={nickname} maxLength={24} required disabled={busy} onChange={event => setNickname(event.target.value)}/>

@@ -1,3 +1,4 @@
+import { outdoorLearningDisplays,roomLearningDisplay } from './campus-learning-displays';
 import { createLearningStudio } from './learning-studio-scene';
 import { loadSchoolProps } from './school-props';
 import { orchardTrees } from './recreation-park';
@@ -438,15 +439,16 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   });
 
-  scene.add(createRecreationPark(),createCampusLandscape());
+  scene.add(createRecreationPark(),createCampusLandscape(),outdoorLearningDisplays());
   for(const p of nurseryPens)sign(p.kind==='rabbits'?'RABBITS':'SHEEP & LAMBS',2.5,.39,p.x,.93,p.z+p.d/2+.10,'#536547');
   EXPANSION_BUILDINGS.forEach((b) => {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
       const shell=createRoomShell(b);scene.add(shell);
-      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createLearningStudio(b) ?? createWorkshopInterior(b.kind);
-      if(interior)scene.add(interior);
+      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createLearningStudio(b) ?? createWorkshopInterior(b.kind) ?? new THREE.Group();
+      const displays=roomLearningDisplay(b); displays.position.set(b.x-interior.position.x,0,b.z-interior.position.z);
+      interior.add(displays);interior.visible=false;scene.add(interior);
       roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
       box(

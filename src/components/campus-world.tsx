@@ -29,7 +29,7 @@ import { preloadCampusCharacters } from "@/lib/campus-character-assets";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
-import { computerLab, examStations, nearbyExamStation } from '@/lib/learning-room-layout';
+import { languageLab,listeningStations,nearbyListeningStation,computerLab, examStations, nearbyExamStation } from '@/lib/learning-room-layout';
 import { nearReadingTable, READING_PAVILION } from '@/lib/reading-pavilion';
 import { campusSunFitter } from "@/lib/campus-sun";
 import { createCampusPeerScene } from '@/lib/campus-peer-scene';
@@ -92,6 +92,7 @@ type Props = {
   storyTarget?:{x:number;z:number};
   onDistrictComplete?:(id:DistrictStationId,tier?:EnglishTier)=>void;
   studying?: boolean;
+  wearingHeadset?:boolean;
   fieldwork?: Fieldwork;
   workKind?: WorkKind | null;
   workTool?: Tool;
@@ -105,7 +106,7 @@ type Props = {
   highQuality?: boolean;
   photoMode?: boolean;
   onNear: (place: Place | null) => void;
-  onInteract: (target?: 'reading' | 'computer') => void;
+  onInteract: (target?: 'reading' | 'computer' | 'listening') => void;
   onMove?: (x: number, z: number, heading: number, route: readonly MapPoint[]) => void;
   onAreaChange?: (name: string) => void;
 };
@@ -129,7 +130,7 @@ const emptyActions = (): WorldHandle => ({
 
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
-    pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, wearingHeadset=false, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
     avatar, initialPosition, onNavigationReady,
     cadetRank, quizHistory, residentMissions, completedChallenges, onResidentAccept, onResidentStart, onResidentClaim,
     enabled,
@@ -171,7 +172,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   const actionRef = useRef<WorldHandle>(emptyActions());
   const fpsRef = useRef<HTMLSpanElement>(null);
   const callbacks = useRef({
-    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
     onNear,
     onInteract,
     enabled,
@@ -183,7 +184,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   });
   useEffect(() => {
     callbacks.current = {
-      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
       onNear,
       onInteract,
       enabled,
@@ -193,7 +194,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       onMove,
       onAreaChange,
     };
-  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, studying]);
+  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, wearingHeadset, studying]);
   useImperativeHandle(
     ref,
     () => ({
@@ -358,6 +359,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const worldLabels = createCampusWorldLabels(labels);
     const environment = createCampusEnvironment(scene, avatar);
     const { floor, player, selection, destination } = environment;
+    const headset=new THREE.Group();
+    const cushion=new THREE.MeshStandardMaterial({color:0x213b40,roughness:.78});
+    const band=new THREE.Mesh(new THREE.TorusGeometry(.35,.03,8,28,Math.PI),cushion);
+    band.position.set(0,1.48,-.025);band.scale.y=1.17;headset.add(band);
+    for(const side of [-1,1]){
+      const cup=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),cushion);
+      cup.scale.set(.09,.14,.11);cup.position.set(side*.34,1.48,-.025);headset.add(cup);
+    }
+    player.group.add(headset);player.head.attach(headset);headset.visible=false;
     if (initialPosition) {
       player.group.position.set(initialPosition.x, campusFloorHeight(initialPosition), initialPosition.z);
       player.group.rotation.y = initialPosition.heading;
@@ -742,8 +752,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return;
       }
       if (key === 'e' && !event.repeat && !overviewMode && !callbacks.current.workKind && !callbacks.current.studying &&
-        nearbyExamStation(player.group.position) && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
-        event.preventDefault(); route = []; keys.clear(); callbacks.current.onInteract('computer'); return;
+        (nearbyListeningStation(player.group.position) || nearbyExamStation(player.group.position)) && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
+        event.preventDefault(); route = []; keys.clear(); callbacks.current.onInteract(nearbyListeningStation(player.group.position)?'listening':'computer'); return;
       }
       const readingShortcut = key === 'e' && !event.repeat && !overviewMode &&
         !callbacks.current.workKind && !callbacks.current.studying && nearReadingTable(player.group.position);
@@ -806,6 +816,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if(holdingWork||districtActive)return;
       raycaster.setFromCamera(pointer, camera);
       const pos = player.group.position;
+      if(!overviewMode && !callbacks.current.workKind && Math.abs(pos.x-languageLab.x)<languageLab.w/2 &&
+        Math.abs(pos.z-languageLab.z)<languageLab.d/2 && raycaster.ray.intersectPlane(desktopPlane,desktopPoint)){
+        const booth=listeningStations.find(s=>Math.abs(s.worldX-desktopPoint.x)<1.25 && Math.abs(s.worldZ-desktopPoint.z)<.98);
+        if(booth){
+          if(nearbyListeningStation(pos)?.id===booth.id){route=[];keys.clear();callbacks.current.onInteract('listening');}
+          else walkTo(booth.approach.x,booth.approach.z);
+          return;
+        }
+      }
       if (!overviewMode && !callbacks.current.workKind && Math.abs(pos.x-computerLab.x)<computerLab.w/2 &&
           Math.abs(pos.z-computerLab.z)<computerLab.d/2 && raycaster.ray.intersectPlane(desktopPlane,desktopPoint)) {
         const station = examStations.find(s=>Math.abs(s.x-desktopPoint.x)<(s.laptop?.52:.80) && Math.abs(s.z-desktopPoint.z)<(s.laptop?.42:.64));
@@ -1063,6 +1082,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         player.body.rotation.x = movementBlend * (running ? 0.12 : 0.04);
 
       }
+      headset.visible=!!callbacks.current.wearingHeadset;
+      if(headset.visible){const booth=nearbyListeningStation(pos);if(booth)player.group.rotation.y=booth.wall*Math.PI/2;}
       const studying=callbacks.current.studying;
       if(studying&&!wasStudying){studyStand.copy(pos);studyElapsed=0;route=[];keys.clear();}
       if(!studying&&wasStudying){pos.copy(studyStand);player.body.position.y=0;player.leftLeg.rotation.x=player.rightLeg.rotation.x=0;player.knees.forEach(k=>k.rotation.x=0);resetCamera(pos.x,pos.z);}

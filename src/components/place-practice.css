@@ -70,3 +70,8 @@
 .practice-signal[data-shape="Red circle"] { color: #ba4234; }
 .practice-signal[data-shape="Blue square"] { color: #286a9e; }
 .practice-signal[data-shape="Yellow triangle"] { color: #ac7700; }
+
+.language-session audio[controls] { display:block; width:min(100%,300px); margin:0 0 16px; }
+.language-session .practice-repeat { margin:12px 0; }
+.language-session li { margin:12px 0; }
+@media(min-width:800px){.language-backdrop { place-items:center end; background:#12271e44; padding-right:3vw; }.language-session {width:min(440px,43vw);}}

@@ -34,9 +34,9 @@
     },
     {
       "name": "PHÒNG NGOẠI NGỮ",
-      "width": 25.5,
+      "width": 31.5,
       "depth": 21,
-      "area": 535.5
+      "area": 661.5
     },
     {
       "name": "NHÀ ĂN HỌC VIÊN",
@@ -152,9 +152,9 @@
   "expandedDistrictObstacles": 132,
   "namedDestinations": 64,
   "orderedRoutes": 4032,
-  "solidFootprints": 656,
+  "solidFootprints": 662,
   "sharedTrees": 183,
-  "circulationPaths": 72,
+  "circulationPaths": 76,
   "productiveBeds": 8,
   "productiveSoilArea": 135.27999999999997,
   "farmAreaMetresSquared": 478.97,
