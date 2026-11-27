@@ -35,7 +35,7 @@ export function createWorkshopInterior(kind:string){
       if(kind==='plant-lab'){
         k.block(x,.56,z,f.w,.48,f.d,wood);
         k.block(x,.815,z,f.w-.18,.04,f.d-.18,0x684c38);
-        const species=side<0?'greens':'tomatoes';
+        const species=x<-16?'greens':'tomatoes';
         for(const sx of [-.61,.61]){
           k.block(x+sx,.86,z,.045,.06,f.d-.25,0x424f46);
           if(species==='tomatoes'){

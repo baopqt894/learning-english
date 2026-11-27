@@ -1,5 +1,5 @@
 import { sceneryKit } from './campus-scenery-kit';
-import { demonstrationBays } from './campus-detail-layout';
+import { demonstrationBays,workshopSupplies } from './campus-detail-layout';
 import { flowerClump, fruitCrate } from './campus-garden-props';
 import type { WORKSHOPS } from './workshop-wing';
 
@@ -127,9 +127,16 @@ export function furnishPracticalBays(k:Kit,b:typeof WORKSHOPS[number]){
     k.block(x,.324,z,5.65,.036,3.42,palette[b.kind]);
     stations[b.kind](k,x,z,f.side<0);
   }
+  furnishRoomLandmarks(k,b);
+  for(const cart of workshopSupplies.filter(s=>s.room===b.kind))furnishSupplies(k,b.kind,cart.x-b.x,cart.z-b.z,cart.index);
+  furnishFloor(k,b.kind);
   // Floor inlays identify the subject from the campus camera. Their surfaces stay walkable.
-  for(const side of [-1,1]){
-    const x=side*b.w*.32,z=0;
+  const floorZones:Record<typeof b.kind,[number,number][]>={
+    kitchen:[[-13,0]],'light-lab':[[10,0],[17,0]],'plant-lab':[[-16,1],[-8,1]],
+    weather:[[0,1]],art:[[-16,-1],[9,2]],music:[[0,-2]],
+  };
+  for(const [x,z] of floorZones[b.kind]){
+    const side=Math.sign(x)||1;
     switch(b.kind){
       case 'kitchen':
         for(let i=0;i<4;i++)for(let j=0;j<7;j++){
@@ -162,7 +169,7 @@ export function furnishPracticalBays(k:Kit,b:typeof WORKSHOPS[number]){
         k.block(x,.32,z,7.15,.03,b.d*.54,0x9f8d9f);
         for(let i=0;i<5;i++)k.block(x+(i-2)*.84,.344,z,.063,.014,b.d*.52,linenColour);
         for(let i=0;i<3;i++){
-          const px=x+((i+(side>0?1:0))%3-1)*.84,pz=(i-1)*4.1;
+          const px=x+((i+(side>0?1:0))%3-1)*.84,pz=z+(i-1)*4.1;
           k.globe(px,.357,pz,1.22,.019,.79,0x6e677a,0,.40);k.block(px+.53,.357,pz-.82,.11,.018,1.8,0x6e677a);
         }
         break;
@@ -170,3 +177,151 @@ export function furnishPracticalBays(k:Kit,b:typeof WORKSHOPS[number]){
   }
 }
 const linenColour=0xede1be;
+
+// These fixtures sit above existing work surfaces or against the walls. The teaching aisle is shared.
+function furnishRoomLandmarks(k:Kit,b:typeof WORKSHOPS[number]){
+  const wall=-b.d/2+.42;
+  switch(b.kind){
+    case 'kitchen':
+      // Suspended copper pan rail over the preparation line; a tiled splashback and order clips.
+      for(const z of [-6,-1,4]){
+        k.block(-13,3.52,z,4.1,.09,.10,ink);
+        for(const dx of [-1.7,1.7])k.drum(-13+dx,3.83,z,.055,.64,.055,brass);
+        for(let n=0;n<4;n++){
+          const x=-14.4+n*.9;k.hoop(x,3.4,z,.15,.23,.15,brass);
+          k.block(x,3.12,z,.08,.45,.09,timber);
+          k.globe(x,2.77,z,.45+n*.05,.51,.14,n%2?0xa96242:0xb68055);
+        }
+      }
+      for(let n=0;n<9;n++)k.block(-18+n*.44,2.1,wall,.37,.53,.065,n%2?ceramic:0xe1b886);
+      break;
+    case 'plant-lab':
+      for(const x of [-19,-13,-7]){
+        for(const z of [-3.8,1,5.8]){
+          for(const s of [-1,1]){
+            k.block(x+s*1.11,1.57,z,.07,2.40,.08,0x788f74);
+            k.block(x+s*.59,3.02,z,1.37,.075,.09,0x99a48a,-s*.48);
+          }
+        }
+        k.block(x,3.34,1,.09,.08,10,0x7b8f70);
+      }
+      break;
+    case 'light-lab':
+      // Blackout fins frame the optics rails; amber task lamps point onto the equipment.
+      for(const x of [6,13,19]){
+        for(let n=0;n<8;n++)k.block(x-1.75+n*.49,2.78,wall+.06, .49,3.65,.20,n%2?0x344958:0x415665,0,n%2?.18:-.18);
+        k.block(x,4.74,wall,4.25,.16,.31,ink);
+        k.drum(x+1.7,2.14,-8,.08,1.66,.08,brass);
+        k.block(x+1.42,2.97,-8,.65,.09,.10,ink);
+        k.pot(x+1.12,2.84,-8,.41,.27,.41,0xb18b4d);
+      }
+      break;
+    case 'weather':
+      // Reference graph with axes and a plotted temperature series across the back wall.
+      k.block(0,3,wall,8.5,3,.12,0x365b67);
+      for(let n=0;n<8;n++)k.block(-3.5+n,3,wall+.08,.034,2.45,.025,0x83a2a0);
+      for(let n=0;n<5;n++)k.block(0,2+n*.5,wall+.08,7.8,.03,.025,0x83a2a0);
+      for(let n=0;n<7;n++){
+        const a=Math.sin(n*.9)*.7,c=Math.sin((n+1)*.9)*.7;
+        k.block(-3+n,3+(a+c)/2,wall+.13,Math.hypot(1,c-a),.08,.06,0xf2bf61,Math.atan2(c-a,1));
+      }
+      break;
+    case 'art':
+      // Display prints pegged to a line and swatch jars at every drawing bench.
+      for(const level of [2.45,4.04]){
+        k.block(0,level,wall+.26,12,.045,.045,timber);
+        for(let n=0;n<8;n++){
+          const x=-5.25+n*1.5;
+          k.block(x,level-.51,wall+.27,1.14,1,.04,ceramic, n%2?.04:-.04);
+          k.leaf(x,level-.56,wall+.32,.82,.56,.035,[0xc37765,0x729b8c,0xcbac59,0x777daa][n%4],n*.64);
+          k.block(x,level,wall+.32,.09,.19,.09,timber);
+        }
+      }
+      break;
+    case 'music':
+      // Low concert platform, curtains, footlights and folding conductor stands.
+      k.block(0,.32,-5,23,.055,11,0xb79571);
+      for(let n=0;n<16;n++)k.block(-11+n*1.45,.355,-5,.018,.015,10.9,0x886d54);
+      for(const side of [-1,1])for(let n=0;n<9;n++)
+        k.block(side*(5+n*.45),2.95,wall+.15, .51,4.5,.35,n%2?0x784f59:0x925f66,0,n%2?.12:-.12);
+      for(const x of [-6,7])for(const dx of [-1.4,1.4]){
+        k.drum(x+dx,1.3,-1.86,.08,1.8,.08,ink);
+        k.block(x+dx,2.16,-1.86,.78,.53,.08,ceramic,0,0,-.20);
+        for(let j=0;j<5;j++)k.block(x+dx,2.03+j*.055,-1.79,.57,.012,.01,ink);
+      }
+      break;
+  }
+}
+
+type Subject=typeof WORKSHOPS[number]['kind'];
+// Continuous floor finishes visually connect student workstations into departments.
+const floors:Record<Subject,[number,number,number,number,number][]>={
+  kitchen:[[10.8,-1,17.8,16.5,0xd3b490],[-12,-.3,17.6,22.7,0xd9c6a5]],
+  'light-lab':[[-12,7.2,20.2,11.2,0xb7c3ae],[11,-1,20.8,19.8,0xa7b9ae]],
+  'plant-lab':[[12.8,7.8,20.5,11.2,0xc4bb91],[-13,1,18,17.8,0xa6ad8b]],
+  weather:[[0,-1,30.4,15.2,0xb7c9bd],[-11.8,7.5,15.6,9.3,0xc5bd9c],[11.8,7.5,15.6,9.3,0xc5bd9c]],
+  art:[[-12,6.8,16.5,12.6,0xc4a388],[10,2.5,15.6,16.6,0xc1b5a3]],
+  music:[[0,-5,32,12.5,0xad8b69],[-11.5,7.9,16.3,10.6,0xb8a79c],[11.5,7.9,16.3,10.6,0xb8a79c]],
+};
+function furnishFloor(k:Kit,room:Subject){
+  for(const [x,z,w,d,col] of floors[room]){
+    k.block(x,.305,z,w,.012,d,col);
+    for(const s of [-1,1]){
+      k.block(x+s*(w/2-.16),.314,z,.065,.008,d-.2,ceramic);
+      k.block(x,.314,z+s*(d/2-.16),w-.2,.008,.065,ceramic);
+    }
+    for(let n=1;n<d/1.55;n++)k.block(x,.315,z-d/2+n*1.55,w-.33,.005,.024,0xaeaa8f);
+  }
+}
+function furnishSupplies(k:Kit,room:Subject,x:number,z:number,i:number){
+  if(room==='music'){
+    // Paired copper timpani with side tension rods and foot pedals.
+    for(const s of [-1,1]){
+      const px=x+s*.73,h=1.34+s*.10;
+      for(const leg of [-1,1])k.block(px+leg*.33,.67,z,.08,.67,.10,ink,-leg*.16);
+      k.globe(px,h,z,1.23,1.24,1.23,i%2?0xac754e:0xa38a60);
+      k.drum(px,h+.38,z,1.27,.12,1.27,ink);k.drum(px,h+.46,z,1.18,.055,1.18,ceramic);
+      for(let n=0;n<6;n++){const a=n*Math.PI/3;k.drum(px+.59*Math.sin(a),h+.13,z+.59*Math.cos(a),.046,.39,.046,brass);}
+    }return;
+  }
+  for(const sx of [-1.32,1.32])for(const sz of [-.59,.59]){
+    k.globe(x+sx,.42,z+sz,.23,.23,.16,ink);k.block(x+sx,1.05,z+sz,.09,1.17,.09,brass);
+  }
+  for(const y of [.59,1.49])k.block(x,y,z,3.05,.12,1.46,room==='light-lab'?ink:timber);
+  if(room==='kitchen'){
+    for(const y of [.73,1.64]){
+      k.block(x,y,z,2.68,.08,1.14,0x728480);
+      for(let n=0;n<6;n++){
+        const px=x+(n%3-1)*.82,pz=z+(n<3?-.25:.25);
+        k.globe(px,y+.16,pz,.68,.29,.42,i===1?0xc47e41:0xdaaa62);
+        for(const s of [-1,1])k.block(px+s*.12,y+.30,pz,.047,.013,.17,ceramic,0,-.35);
+      }
+    }
+  }else if(room==='art'){
+    for(let n=0;n<6;n++){
+      const px=x+(n%3-1)*.84,y=n<3?.68:1.56;
+      k.pot(px,y+.26,z,.59,.43,.59,[0xc28567,0x908977,0x69998c][n%3]);
+      k.hoop(px,y+.5,z,.57,.57,.29,ceramic,0,0,Math.PI/2);
+      if(n>=3)for(const s of [-1,0,1]){k.block(px+s*.11,y+.70,z,.055,.68,.055,timber,s*-.16);k.leaf(px+s*.16,y+1.05,z,.11,.22,.11,0x7d6153);}
+    }
+  }else if(room==='plant-lab'){
+    for(const s of [-1,0,1]){
+      const px=x+s*.86;k.globe(px,.94,z,.74,.57,.87,0xb0996d);
+      k.drum(px,1.65,z,.49,.16,.55,ink);k.block(px,1.95,z-.13,.12,.55,.14,0x819c92,0,0,.3);
+      k.block(px,2.27,z,.23,.42,.21,ink,0,0,-.46);k.drum(px,1.88,z+.15,.36,.04,.36,ceramic);
+    }
+  }else if(room==='light-lab'){
+    k.block(x,2.21,z-.49,2.96,1.46,.13,0x3e5661);
+    for(let n=0;n<5;n++){
+      const px=x+(n-2)*.51;
+      k.globe(px,2.25,z-.36,.40,.65,.09,[0xc97569,0xd7a65d,0xcbbb77,0x79a991,0x6f94ab][n]);
+      k.block(px,.95,z,.42,.59,.38,0x54676d);
+    }
+  }else{
+    k.drum(x-.74,1.95,z,.09,.8,.09,ink);
+    k.globe(x-.74,2.67,z,.76,.96,.76,i===0?0xc68260:0xa0b8ae);
+    k.drum(x+.59,1.91,z,.78,.67,.78,0x789b9c);
+    for(let n=0;n<5;n++)k.block(x+.59,1.67+n*.10,z+.39,.29,.019,.015,ceramic);
+    k.block(x, .82,z,2.43,.33,.96,0x87947b);
+  }
+}

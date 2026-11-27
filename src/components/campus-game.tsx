@@ -1,5 +1,7 @@
 "use client";
 
+import { equipmentNames, nearbyEquipment,type EquipmentName } from '@/lib/campus-detail-layout';
+import { equipmentRound } from '@/lib/equipment-lessons';
 import { ComputerExam } from './computer-exam';
 import { computerExamRound, type ExamItem } from '@/lib/computer-exam';
 import { ListeningLab } from './listening-lab';
@@ -178,7 +180,8 @@ export function CampusGame({ account, onExpired, onLogout }: {
   const [competitionView,setCompetitionView]=useState<CompetitionView|null>(null);
   const [placePractice,setPlacePractice]=useState<(PracticeRequest & {tier:EnglishTier;questions:PlaceQuestion[]})|null>(null);
   const [lab,setLab] = useState<{station:string;items:ListeningLine[]}|null>(null);
-  const [exam,setExam] = useState<{station:string;tier:EnglishTier;items:ExamItem[]}|null>(null);
+  const [equipmentSetting,setEquipmentSetting]=useState('');
+  const [exam,setExam] = useState<{station:string;equipment?:EquipmentName;tier:EnglishTier;items:ExamItem[]}|null>(null);
   const [levelMissionTravel, setLevelMissionTravel] = useState<LevelMissionId | null>(null);
   const [quizHistory] = useState(() => createQuizHistory(account.id));
   const [stationPass,setStationPass]=useState<{station:string;expiresAt:number}|null>(null);
@@ -431,8 +434,25 @@ export function CampusGame({ account, onExpired, onLogout }: {
     quizHistory.record(key, items.map(q=>q.prompt));
     setExam({station:station.id,tier,items});
   }
+  function openEquipment() {
+    const position=worldRef.current?.currentPosition();
+    const station=position && nearbyEquipment(position);
+    if (!station || exam) return;
+    const key='equipment/'+station.name;
+    const items=equipmentRound(station.name,quizHistory.previous(key));
+    quizHistory.record(key,[...new Set(items.map(q=>q.instruction))]);
+    setEquipmentSetting('');
+    setExam({station:station.name,equipment:station.name,tier,items});
+  }
   function finishComputerExam(correct:number) {
     if (!exam) return;
+    if (exam.equipment) {
+      const name=exam.equipment;
+      const best=Math.max(progress.equipmentScores?.[name]?.best??0,correct);
+      saveReward({...progress,equipmentScores:{...progress.equipmentScores,[name]:{last:correct,best}},
+        daily:recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'})});
+      return;
+    }
     const best = Math.max(progress.computerExams?.[exam.tier]?.best ?? 0, correct);
     saveReward({...progress, computerExams:{...progress.computerExams,[exam.tier]:{last:correct,best}},
       daily:recordDaily(progress.daily,campusDay(Date.now()),{type:'quiz'})});
@@ -609,6 +629,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
     requestAnimationFrame(()=>worldRef.current?.goToRegistration(venue));
   };
   const room = nearbyWorkshop(playerPosition);
+  const tool = nearbyEquipment(playerPosition);
   const headset = nearbyListeningStation(playerPosition);
   const examStation = nearbyExamStation(playerPosition);
   const park = nearbyPark(playerPosition);
@@ -906,7 +927,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
             avatar={progress.avatar}
             cadetRank={level.level}
             quizHistory={quizHistory}
-            studying={classStudy} wearingHeadset={!!lab}
+            activeEquipment={exam?.equipment} equipmentSetting={equipmentSetting} studying={classStudy} wearingHeadset={!!lab}
             pets={progress.pets}
             stationPass={stationPass}
             residentMissions={progress.residentMissions}
@@ -929,12 +950,12 @@ export function CampusGame({ account, onExpired, onLogout }: {
             photoMode={photoOpen}
             enabled={!!progress.name && !modalOpen && !talking && !swimOpen}
             onNear={setNear}
-            onInteract={target=>{if (target === "listening") openListeningLab(); else if (target === "computer") openComputerExam(); else if (target === "reading") openPlacePractice({area:"garden",reading:true}); else if (!physicalWork) interactWithStoryNpc();}}
+            onInteract={target=>{if (target === "equipment") openEquipment(); else if (target === "listening") openListeningLab(); else if (target === "computer") openComputerExam(); else if (target === "reading") openPlacePractice({area:"garden",reading:true}); else if (!physicalWork) interactWithStoryNpc();}}
             onMove={updateMapPlayer}
             onAreaChange={setAreaName}
           />
         </div>
-        {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && !placePractice && (
+        {progress.name && !talking && !photoOpen && !physicalWork && !classStudy && !swimOpen && !placePractice && !exam?.equipment && (
           <div className={`campus-hud${mapVisible ? " hud-has-map" : ""}`} inert={modalOpen}>
             <div className="hud-left">
               <button className="player-badge" onClick={() => navigate("journey")} aria-label={t("Mở nhật ký và xem tiến độ")}>
@@ -1000,7 +1021,15 @@ export function CampusGame({ account, onExpired, onLogout }: {
                 {examStation && <kbd>E</kbd>}<Icon name="computer" size={19}/>{examStation ? t('Use computer')+' · '+examStation.id : t('Walk to a computer')}
               </button>
             )}
-            {currentWorkshop && (
+            {room && !levelMissionTravel && (
+              <div className="interact-button workshop-controls" role="group" aria-label={t(room.english)}>
+                {equipmentNames[room.kind].map(name=><button key={name} onClick={()=>{
+                  if(tool?.name===name) openEquipment(); else worldRef.current?.goToEquipment(name);
+                }}><Icon name={room.icon} size={17}/><span><small>{t(tool?.name===name?'Use equipment':'Walk to')}</small>{t(name)}</span></button>)}
+                <button aria-label={t(room.title)} title={t(room.title)} onClick={()=>openPlacePractice({area:room.kind})}><Icon name="book" size={18}/></button>
+              </div>
+            )}
+            {currentWorkshop && !room && (
               <button className="interact-button" onClick={()=>openPlacePractice({area:currentWorkshop.kind})}>
                 <Icon name="book" size={19}/> {t(currentWorkshop.title)}
               </button>
@@ -1089,7 +1118,7 @@ export function CampusGame({ account, onExpired, onLogout }: {
         />
       )}
       {lab && <ListeningLab station={lab.station} items={lab.items} previous={progress.listeningLab?.[lab.items[0].tier]} onFinish={finishListeningLab} onExit={()=>setLab(null)}/>}
-      {exam && <ComputerExam station={exam.station} tier={exam.tier} items={exam.items} best={progress.computerExams?.[exam.tier]?.best} onFinish={finishComputerExam} onClose={()=>setExam(null)}/>}
+      {exam && <ComputerExam station={exam.station} equipment={exam.equipment} onOperate={setEquipmentSetting} tier={exam.tier} items={exam.items} best={exam.equipment ? progress.equipmentScores?.[exam.equipment]?.best : progress.computerExams?.[exam.tier]?.best} onFinish={finishComputerExam} onClose={()=>setExam(null)}/>}
       {placePractice&&<PlacePractice key={`${placePractice.area}-${placePractice.feeding??placePractice.work??placePractice.station??placePractice.resident??''}`}
         area={placePractice.area} feeding={placePractice.feeding} care={progress.pets??{}}
         mission={placePractice.mission} resident={placePractice.resident} tier={placePractice.tier} questions={placePractice.questions}

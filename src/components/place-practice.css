@@ -75,3 +75,16 @@
 .language-session .practice-repeat { margin:12px 0; }
 .language-session li { margin:12px 0; }
 @media(min-width:800px){.language-backdrop { place-items:center end; background:#12271e44; padding-right:3vw; }.language-session {width:min(440px,43vw);}}
+
+.campus-shell .workshop-controls{gap:0;padding:3px;max-width:calc(100% - 20px)}
+.workshop-controls button{display:flex;align-items:center;gap:7px;text-align:left;min-height:44px;padding:4px 10px;color:inherit;background:none;border:0;cursor:pointer}
+.workshop-controls button+button{border-left:1px solid #72552a55}
+.workshop-controls button span{display:grid;line-height:1.22}
+.workshop-controls small{color:#545037;font-size:.7rem;font-weight:500}
+.equipment-backdrop{place-items:center end;background:linear-gradient(90deg,transparent 35%,#18332635);padding:20px}
+.equipment-backdrop .practice-modal{width:min(430px,100%);box-shadow:0 8px 36px #122b2633}
+.equipment-order{background:#edf0e1;border-left:3px solid #758960;padding:10px 14px}
+.equipment-order>span{font-weight:700;font-size:.75rem;color:#466047}
+.equipment-order p{font-size:1rem;line-height:1.4;margin:5px 0}
+.practice-modal .equipment-order button{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;min-height:32px;font-size:.8rem;background:transparent}
+@media(max-width:680px){.equipment-backdrop{align-items:end;padding:6px}.equipment-backdrop .practice-modal{width:100%;max-height:76dvh}.workshop-controls button{padding-inline:6px}}

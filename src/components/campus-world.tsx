@@ -29,6 +29,9 @@ import { preloadCampusCharacters } from "@/lib/campus-character-assets";
 import { CHARACTER_PROFILES } from "@/lib/campus-character-profiles";
 import { createCampusEnvironment } from "@/lib/campus-environment";
 import { createCampusOverview } from "@/lib/campus-overview";
+import { demonstrationBays, nearbyEquipment, type EquipmentName } from '@/lib/campus-detail-layout';
+import { createWorkshopOperation } from '@/lib/workshop-operation';
+import { nearbyWorkshop } from '@/lib/workshop-wing';
 import { languageLab,listeningStations,nearbyListeningStation,computerLab, examStations, nearbyExamStation } from '@/lib/learning-room-layout';
 import { nearReadingTable, READING_PAVILION } from '@/lib/reading-pavilion';
 import { campusSunFitter } from "@/lib/campus-sun";
@@ -51,6 +54,7 @@ import {
 
 export type WorldHandle = {
   currentPosition: () => CampusPosition | undefined;
+  goToEquipment:(name:EquipmentName)=>void;
   goToRegistration:(venue:SportsVenueId)=>void;
   openRegistration:()=>boolean;
   fieldworkAvailable: () => boolean;
@@ -92,6 +96,8 @@ type Props = {
   storyTarget?:{x:number;z:number};
   onDistrictComplete?:(id:DistrictStationId,tier?:EnglishTier)=>void;
   studying?: boolean;
+  equipmentSetting?:string;
+  activeEquipment?:EquipmentName;
   wearingHeadset?:boolean;
   fieldwork?: Fieldwork;
   workKind?: WorkKind | null;
@@ -106,13 +112,13 @@ type Props = {
   highQuality?: boolean;
   photoMode?: boolean;
   onNear: (place: Place | null) => void;
-  onInteract: (target?: 'reading' | 'computer' | 'listening') => void;
+  onInteract: (target?: 'reading' | 'computer' | 'listening' | 'equipment') => void;
   onMove?: (x: number, z: number, heading: number, route: readonly MapPoint[]) => void;
   onAreaChange?: (name: string) => void;
 };
 const emptyActions = (): WorldHandle => ({
   currentPosition: () => undefined,
-  goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{},goToResident:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
+  goToEquipment:()=>{}, goToRegistration:()=>{},openRegistration:()=>false,goToPractice:()=>{},goToResident:()=>{}, fieldworkAvailable: () => false, goToWork: () => {}, holdWork: () => {}, viewWork: () => {},
   goTo: () => {},
   recenter: () => {},
   zoom: () => {},
@@ -130,7 +136,7 @@ const emptyActions = (): WorldHandle => ({
 
 export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   {
-    pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, wearingHeadset=false, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen=false,competitionView=null,onCompetition,storyTarget,onDistrictComplete, activeEquipment, equipmentSetting, wearingHeadset=false, studying = false, fieldwork, workKind = null, workTool = "hands", onWorkCommit, onWorkFrame,
     avatar, initialPosition, onNavigationReady,
     cadetRank, quizHistory, residentMissions, completedChallenges, onResidentAccept, onResidentStart, onResidentClaim,
     enabled,
@@ -172,7 +178,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   const actionRef = useRef<WorldHandle>(emptyActions());
   const fpsRef = useRef<HTMLSpanElement>(null);
   const callbacks = useRef({
-    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+    pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, activeEquipment, equipmentSetting, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
     onNear,
     onInteract,
     enabled,
@@ -184,7 +190,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
   });
   useEffect(() => {
     callbacks.current = {
-      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
+      pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory, activeEquipment, equipmentSetting, wearingHeadset, studying, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame,
       onNear,
       onInteract,
       enabled,
@@ -194,11 +200,12 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       onMove,
       onAreaChange,
     };
-  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, wearingHeadset, studying]);
+  }, [pets,stationPass,onStationQuiz,swimOpen,competitionView,onCompetition,storyTarget,onDistrictComplete,balanceTier,quizHistory,onNear, onInteract, enabled, objective, conversation, speaking, onMove, onAreaChange, fieldwork, workKind, workTool, onWorkCommit, onWorkFrame, activeEquipment, equipmentSetting, wearingHeadset, studying]);
   useImperativeHandle(
     ref,
     () => ({
       currentPosition: () => actionRef.current.currentPosition(),
+      goToEquipment:name=>actionRef.current.goToEquipment(name),
       goToRegistration:venue=>actionRef.current.goToRegistration(venue),
       openRegistration:()=>actionRef.current.openRegistration(),
       goToPractice:id=>actionRef.current.goToPractice(id),
@@ -257,6 +264,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         callbacks.current.onMove?.(initialPosition.x,initialPosition.z,initialPosition.heading,[]);
         callbacks.current.onAreaChange?.(campusAreaName(initialPosition));
       }
+      actionRef.current.goToEquipment = name => {
+        const bay=demonstrationBays.find(b=>b.name===name);
+        if(bay) arrive(bay.approach);
+      };
       actionRef.current.goTo = place => {
         const [x, z] = PLACES[place].position;
         arrive({ x, z: z + 1 }, place);
@@ -358,6 +369,9 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
 
     const worldLabels = createCampusWorldLabels(labels);
     const environment = createCampusEnvironment(scene, avatar);
+    const operateWorkshop=createWorkshopOperation(scene);
+    let operating:EquipmentName|undefined;
+    const beforeEquipment={position:new THREE.Vector3(),target:new THREE.Vector3(),zoom:1};
     const { floor, player, selection, destination } = environment;
     const headset=new THREE.Group();
     const cushion=new THREE.MeshStandardMaterial({color:0x213b40,roughness:.78});
@@ -644,6 +658,10 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     };
     actionRef.current = {
       currentPosition: () => restoreCampusPosition({x:player.group.position.x,z:player.group.position.z,heading:player.group.rotation.y}),
+      goToEquipment:name=>{
+        const bay=demonstrationBays.find(b=>b.name===name);
+        if(bay){renderer.domElement.focus({preventScroll:true});walkTo(bay.approach.x,bay.approach.z);}
+      },
       goToRegistration:venue=>{
         const { x, z } = SPORTS_VENUES[venue].approach;
         renderer.domElement.focus({preventScroll:true});
@@ -752,8 +770,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         return;
       }
       if (key === 'e' && !event.repeat && !overviewMode && !callbacks.current.workKind && !callbacks.current.studying &&
-        (nearbyListeningStation(player.group.position) || nearbyExamStation(player.group.position)) && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
-        event.preventDefault(); route = []; keys.clear(); callbacks.current.onInteract(nearbyListeningStation(player.group.position)?'listening':'computer'); return;
+        (nearbyListeningStation(player.group.position) || nearbyExamStation(player.group.position) || nearbyEquipment(player.group.position)) && (!typing(event.target) || event.target instanceof HTMLButtonElement)) {
+        event.preventDefault(); route = []; keys.clear(); callbacks.current.onInteract(nearbyEquipment(player.group.position)?'equipment':nearbyListeningStation(player.group.position)?'listening':'computer'); return;
       }
       const readingShortcut = key === 'e' && !event.repeat && !overviewMode &&
         !callbacks.current.workKind && !callbacks.current.studying && nearReadingTable(player.group.position);
@@ -816,6 +834,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if(holdingWork||districtActive)return;
       raycaster.setFromCamera(pointer, camera);
       const pos = player.group.position;
+      const workshop=nearbyWorkshop(pos);
+      if(workshop && !overviewMode && !callbacks.current.workKind && raycaster.ray.intersectPlane(desktopPlane,desktopPoint)){
+        const bay=demonstrationBays.find(b=>b.room===workshop.kind && Math.abs(b.x-desktopPoint.x)<b.w/2 && Math.abs(b.z-desktopPoint.z)<b.d/2);
+        if(bay){
+          if(nearbyEquipment(pos)?.name===bay.name){route=[];keys.clear();callbacks.current.onInteract('equipment');}
+          else actionRef.current.goToEquipment(bay.name);
+          return;
+        }
+      }
       if(!overviewMode && !callbacks.current.workKind && Math.abs(pos.x-languageLab.x)<languageLab.w/2 &&
         Math.abs(pos.z-languageLab.z)<languageLab.d/2 && raycaster.ray.intersectPlane(desktopPlane,desktopPoint)){
         const booth=listeningStations.find(s=>Math.abs(s.worldX-desktopPoint.x)<1.25 && Math.abs(s.worldZ-desktopPoint.z)<.98);
@@ -1082,6 +1109,23 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
         player.body.rotation.x = movementBlend * (running ? 0.12 : 0.04);
 
       }
+      const equipment=callbacks.current.activeEquipment;
+      operateWorkshop(equipment,callbacks.current.equipmentSetting??'',dt,reducedMotion.matches);
+      if(equipment && !operating){
+        beforeEquipment.position.copy(camera.position);beforeEquipment.target.copy(controls.target);beforeEquipment.zoom=camera.zoom;
+        player.group.rotation.y=Math.PI;route=[];destination.visible=false;
+      }
+      if(equipment){
+        const mobile=host.clientWidth<681;
+        focusTarget.set(pos.x+(mobile?0:2.6),mobile?-.9:1.65,pos.z+(mobile?1.75:-2.1));
+        camera.position.lerp(focusPosition.set(4.2,7.1,13).add(focusTarget),cameraEase);
+        controls.target.lerp(focusTarget,cameraEase);
+        camera.zoom=THREE.MathUtils.lerp(camera.zoom,mobile?2.25:2.85,cameraEase);camera.lookAt(controls.target);camera.updateProjectionMatrix();
+      }else if(operating){
+        camera.position.copy(beforeEquipment.position);controls.target.copy(beforeEquipment.target);
+        camera.zoom=beforeEquipment.zoom;camera.lookAt(controls.target);camera.updateProjectionMatrix();
+      }
+      operating=equipment;
       headset.visible=!!callbacks.current.wearingHeadset;
       if(headset.visible){const booth=nearbyListeningStation(pos);if(booth)player.group.rotation.y=booth.wall*Math.PI/2;}
       const studying=callbacks.current.studying;
@@ -1229,7 +1273,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       selection.position.set(pos.x, pos.y+.02, pos.z);
       const interior = environment.updateRooms(pos, overviewMode);
       if (
-        !districtActive && !studying && !workKind && !photoSession && !conversationPlace && !returningFromConversation && !overviewMode &&
+        !equipment && !districtActive && !studying && !workKind && !photoSession && !conversationPlace && !returningFromConversation && !overviewMode &&
         (followPlayer || Math.abs(pos.x) > 10 || Math.abs(pos.z) > 9)
       ) {
         followPlayer = true;

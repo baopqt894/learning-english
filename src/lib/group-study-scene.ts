@@ -26,6 +26,59 @@ function table(k: Kit, x: number, z: number, accent: number) {
   k.block(x, 1.20, z, 3.29, .08, 1.60, wood);
 }
 
+function furnishWorkTable(k:Kit,subject:StudySubject,x:number,z:number,accent:number,index:number){
+  if(subject==='language'||subject==='computer'){table(k,x,z,accent);return;}
+  if(subject==='music'){
+    // Instrument bridge and a player's stool facing the conductor.
+    for(const side of [-1,1])k.block(x+side*.86,.82,z,.10,1.04,.16,ink,side*.49);
+    k.block(x,1.20,z,3.16,.11,.85,frame);
+    k.drum(x-.4,.57,z+1.02,.11,.51,.11,ink);
+    k.drum(x-.4,.84,z+1.02,.66,.14,.63,accent);
+    k.drum(x+1.04,1.15,z-.59,.07,1.61,.07,ink);
+    k.block(x+1.04,1.96,z-.59,.85,.61,.06,paper,0,0,-.16);
+    for(let n=0;n<5;n++)k.block(x+1.04,1.82+n*.064,z-.53,.65,.012,.013,ink);
+    return;
+  }
+  if(subject==='kitchen'||subject==='plant-lab'){
+    const cabinets=subject==='kitchen'?0x658f84:0x81946a;
+    k.block(x,.78,z,2.92,.87,1.31,cabinets);
+    k.block(x,1.20,z,3.28,.10,1.60,subject==='kitchen'?0xe9d9b6:wood);
+    for(const dx of [-.94,0,.94]){
+      k.block(x+dx,.77,z+.68,.88,.68,.07,index%2?cabinets:accent);
+      k.block(x+dx,.96,z+.73,.32,.042,.06,frame);
+    }
+    for(const dx of [-.81,.81]){
+      k.drum(x+dx,.56,z+1.14,.14,.49,.14,frame);
+      k.drum(x+dx,.84,z+1.14,.59,.12,.59,wood);
+    }
+    return;
+  }
+  if(subject==='art'){
+    for(const dx of [-1,1])for(const side of [-1,1])
+      k.block(x+dx,.78,z+side*.35,.11,.99,.15,wood,0,0,side*.42);
+    k.block(x,1.20,z,3.26,.09,1.59,0xd5aa76);
+    for(const dx of [-.82,.82]){
+      for(const side of [-1,1])k.block(x+dx+side*.17,.54,z+1.11,.075,.48,.09,wood,-side*.16);
+      k.drum(x+dx,.79,z+1.11,.57,.11,.57,accent);
+    }
+    return;
+  }
+  if(subject==='light-lab'){
+    for(const dx of [-1.26,1.26])k.block(x+dx,.76,z,.22,.89,1.22,ink);
+    k.block(x,1.19,z,3.28,.12,1.54,0x46585e);
+    for(const dx of [-.9,.9]){
+      k.drum(x+dx,.59,z+1.11,.14,.53,.14,ink);k.drum(x+dx,.87,z+1.11,.63,.11,.63,teal);
+    }
+    return;
+  }
+  // Raised map table with two continuous benches for the forecast crew.
+  k.block(x,.78,z,2,.88,.73,frame);k.block(x,1.19,z,3.30,.12,1.64,0xb9c4ae);
+  for(const side of [-1,1]){
+    for(const dx of [-.95,.95])k.block(x+dx,.54,z+side*1.19,.16,.45,.38,frame);
+    k.block(x,.80,z+side*1.19,2.65,.12,.47,wood);
+  }
+}
+
 function notebook(k: Kit, x: number, z: number, cover: number) {
   k.block(x, top + .035, z, .59, .07, .41, cover);
   k.block(x + .02, top + .08, z, .52, .025, .36, paper);
@@ -189,8 +242,10 @@ export function furnishStudyGroups(k: Kit, props: THREE.Group, subject: StudySub
   const material = new THREE.MeshBasicMaterial({map: texture});
   for (const f of studyGroups.filter(f => f.subject === subject)) {
     if (f.unit === 'table') {
-      table(k, f.x, f.z, accent);
-      equip(k, f.x, f.z, f.index);
+      k.at(f.x,f.z,f.yaw,()=>{
+        furnishWorkTable(k,subject,0,0,accent,f.index);
+        equip(k,0,0,f.index);
+      });
     } else {
       bookshelf(k, f.x, f.z, accent);
       k.block(f.x, 1.77, f.z - .23, 2.09, .39, .10, frame);

@@ -1,4 +1,10 @@
 export const UI_PHRASES: ReadonlyArray<readonly [string, string]> = [
+  ["Work order","Phiếu thực hành"],["Workshop assignment","Nhiệm vụ thực hành"],["Operate the equipment","Điều khiển thiết bị"],
+  ["Complete the handover note","Điền từ vào phiếu bàn giao"],["Use equipment","Sử dụng"],
+  ["Bread oven","Lò nướng bánh"],["Soup station","Bếp súp"],["Optical bench","Bàn quang học"],["Prism table","Bàn lăng kính"],
+  ["Seed nursery","Khay ươm hạt"],["Growth bench","Bàn theo dõi cây"],["Weather shelter","Lều khí tượng"],["Wind meter","Máy đo gió"],
+  ["Print drying rack","Giá phơi tranh"],["Pottery wheel","Bàn xoay gốm"],["String instruments","Đàn dây"],["Xylophone","Đàn phiến gỗ"],
+  ["Audio unavailable","Thiết bị chưa phát được giọng đọc."],
   ["Walk to a headset, then listen and repeat.","Đến bàn tai nghe, nghe câu mẫu rồi nói lại."],
   ["Microphone access was denied. Allow it in your browser or type the sentence.","Trình duyệt chưa được dùng mic. Em có thể cho phép dùng mic hoặc gõ câu trả lời."],
   ["This browser blocked speech recognition. You can type the sentence.","Trình duyệt đã chặn nhận dạng giọng nói. Em có thể gõ lại câu."],

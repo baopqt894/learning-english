@@ -27,7 +27,10 @@ test('court equipment and workshop project islands share walkable approaches wit
   }
   for(const p of parkObstacles)assert.equal(canWalkCampus(p.x,p.z),false);
   for(const b of WORKSHOPS){
-    assert.equal(workshopFittings.filter(f=>f.kind===b.kind&&f.unit==='project').length,2);
+    const expected={kitchen:1,'light-lab':2,'plant-lab':3,weather:1,art:1,music:0};
+    const benches=workshopFittings.filter(f=>f.kind===b.kind&&f.unit==='project');
+    assert.equal(benches.length,expected[b.kind]);
+    for(const bench of benches)assert.equal(canWalkCampus(bench.x,bench.z),false);
     assert.ok(canWalkSegment({x:b.x,z:b.z+b.d/2+1},{x:b.x,z:b.z-b.d/2+2}),b.kind);
   }
 });

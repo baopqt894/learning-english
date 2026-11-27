@@ -16,13 +16,22 @@ export function sceneryKit(name:string) {
   const batches=new Map<Shape,{matrix:THREE.Matrix4;color:number}[]>();
   const transform=new THREE.Object3D();
   type Part=[x:number,y:number,z:number,w:number,h:number,d:number,color:number,tilt?:number,yaw?:number,pitch?:number];
+  const placement=new THREE.Matrix4();
+  let usingPlacement=false;
+  function at(x:number,z:number,yaw:number,draw:()=>void){
+    placement.makeRotationY(yaw).setPosition(x,0,z);
+    usingPlacement=true;
+    try{draw();}finally{usingPlacement=false;}
+  }
   function put(shape:Shape,...[x,y,z,w,h,d,color,tilt=0,yaw=0,pitch=0]:Part){
     transform.position.set(x,y,z);
     transform.scale.set(w,h,d);
     transform.rotation.set(pitch,yaw,tilt);
     transform.updateMatrix();
     const batch=batches.get(shape)??[];
-    batch.push({matrix:transform.matrix.clone(),color});
+    const matrix=transform.matrix.clone();
+    if(usingPlacement)matrix.premultiply(placement);
+    batch.push({matrix,color});
     batches.set(shape,batch);
   }
   const block=(...v:Part)=>put('block',...v);
@@ -43,5 +52,5 @@ export function sceneryKit(name:string) {
     }
     return group;
   }
-  return {block,drum,globe,pot,hoop,leaf,finish};
+  return {block,drum,globe,pot,hoop,leaf,at,finish};
 }
