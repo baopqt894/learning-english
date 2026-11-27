@@ -1,4 +1,4 @@
-import {languageFurniture} from './learning-room-layout.ts';
+import {computerLab,computerRows,languageLab,languageMeetingPoint,languageFurniture} from './learning-room-layout.ts';
 import { landscapeObstacles,glasshouseEquipment,nurseryPens } from './campus-landscape-layout.ts';
 import { PARK_ZONES, nearbyPark, parkObstacles } from './recreation-park.ts';
 import { WORKSHOPS, workshopZones, workshopDisplays, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
@@ -74,20 +74,14 @@ export const EXPANSION_BUILDINGS: Building[] = [
     kind: "classroom",
   },
   {
-    x: 29,
-    z: -25.5,
-    w: 16,
-    d: 11,
+    ...computerLab,
     h: 3.6,
     name: "PHÒNG TIN HỌC",
     roof: 0x536f76,
     kind: "computer",
   },
   {
-    x: 29,
-    z: -13.5,
-    w: 16,
-    d: 9,
+    ...languageLab,
     h: 3.6,
     name: "PHÒNG NGOẠI NGỮ",
     roof: 0x667c56,
@@ -150,8 +144,8 @@ export const EXPLORATION_ZONES = [
     id: "computer",
     name: "Phòng tin học",
     english: "Computer lab",
-    x: 29,
-    z: -25,
+    x: computerLab.x,
+    z: computerLab.z+2,
     icon: "computer",
     color: "#7faab2",
   },
@@ -159,8 +153,7 @@ export const EXPLORATION_ZONES = [
     id: "language",
     name: "Phòng ngoại ngữ",
     english: "Language lab",
-    x: 29,
-    z: -11,
+    ...languageMeetingPoint,
     icon: "sound",
     color: "#b6bc7d",
   },
@@ -224,6 +217,9 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
   if (WORKSHOPS.some(workshop => workshop.kind === b.kind)) return [];
   if (b.kind === 'housing' || b.kind === 'pavilion') return [];
   if (b.kind === 'language')return [];
+  if (b.kind === 'computer')return computerRows.flatMap(z=>[-1,1].map(side=>({
+    x:b.x+side*b.w*.28,z:b.z+z,w:2.4,d:.8,kind:b.kind,
+  })));
   if (b.kind === "hall")
     return [
       {
@@ -461,6 +457,9 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   return [];
 }
 export function campusAreaName(point: MapPoint) {
+  for(const [room,area] of [[languageLab,'Phòng ngoại ngữ'],[computerLab,'Phòng tin học']] as const){
+    if(Math.abs(point.x-room.x)<room.w/2 && Math.abs(point.z-room.z)<room.d/2)return area;
+  }
   const park=nearbyPark(point);
   if(park)return park.name;
   const workshop = nearbyWorkshop(point);

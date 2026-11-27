@@ -14,7 +14,7 @@ export const orchardBeds=[121,139,153,173,190,207].map((x,i)=>({x,z:-90.2,w:i%2?
 export const fruitTrolley={x:163.6,z:-90.55,w:2.14,d:1.45};
 export const harvestStand = {x:168.4,z:-81.4,w:5.6,d:3.2};
 export const toolStations = [
-  {x:147,z:-91.5,w:3.6,d:1.5}, {x:164.5,z:36.5,w:3.6,d:1.5},
+  {x:147,z:-91.5,w:3.6,d:1.5}, {x:166,z:36.5,w:3.6,d:1.5},
   {x:128.6,z:92,w:3.6,d:1.5},
 ];
 export const glasshouseEquipment=[

@@ -1,3 +1,4 @@
+import {computerLab,languageLab,labEntrance} from './learning-room-layout.ts';
 import { parkPaths } from './recreation-park.ts';
 import { workshopPaths, WORKSHOPS } from './workshop-wing.ts';
 import type { BalanceRun } from './balance-challenge.ts';
@@ -148,8 +149,11 @@ export const DISTRICT_PATHS=[
  {x:0,z:15.5,w:3.4,d:11},
  // Doors and short paths: no decorative road continues through a room.
  {x:-9,z:-19.5,w:2.6,d:1}, {x:11,z:-19.5,w:2.6,d:1},
- {x:36.5,z:-18.7,w:15,d:1.2}, {x:29,z:-19.65,w:2.6,d:.7},
- {x:36.5,z:-8,w:15,d:1.2}, {x:29,z:-8.8,w:2.6,d:.4},
+ ...[computerLab,languageLab].flatMap(room=>{
+   const door=labEntrance(room), landing=room===computerLab?1.22:1.8;
+   return [{x:door.x,z:door.z+landing/2,w:4.6,d:landing},
+     {x:(door.x+44)/2,z:door.z+landing,w:44-door.x,d:2}];
+ }),
  {x:-21.75,z:-7.5,w:12.5,d:1.6}, {x:-28,z:-8.25,w:2.6,d:.5},
  {x:-21.75,z:6.5,w:12.5,d:1.6}, {x:-28,z:5.75,w:2.6,d:1.5},
  {x:-22.25,z:22.4,w:13.5,d:1.6}, {x:-29,z:21.95,w:2.6,d:.9},

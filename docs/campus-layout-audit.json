@@ -1,18 +1,18 @@
 {
   "scope": "Functional campus layout, stadium and pitch clearance, district markers, farm segregation, room clearance and routes between named destinations and NPCs. Foliage canopy occlusion is visually checked separately; leaves/grass are not collision objects.",
-  "playableAreaMetresSquared": 30687,
+  "playableAreaMetresSquared": 69540,
   "roomAreas": [
     {
       "name": "NHÀ Ở HỌC VIÊN A",
-      "width": 12,
-      "depth": 8,
-      "area": 96
+      "width": 16,
+      "depth": 9,
+      "area": 144
     },
     {
       "name": "NHÀ Ở HỌC VIÊN B",
-      "width": 12,
+      "width": 16,
       "depth": 10,
-      "area": 120
+      "area": 160
     },
     {
       "name": "PHÒNG HỌC A1",
@@ -28,36 +28,72 @@
     },
     {
       "name": "PHÒNG TIN HỌC",
-      "width": 16,
-      "depth": 11,
-      "area": 176
+      "width": 20,
+      "depth": 16,
+      "area": 320
     },
     {
       "name": "PHÒNG NGOẠI NGỮ",
-      "width": 16,
-      "depth": 9,
-      "area": 144
+      "width": 25.5,
+      "depth": 21,
+      "area": 535.5
     },
     {
       "name": "NHÀ ĂN HỌC VIÊN",
-      "width": 16,
-      "depth": 12,
-      "area": 192
+      "width": 19,
+      "depth": 13,
+      "area": 247
     },
     {
       "name": "NHÀ ĐA NĂNG",
-      "width": 20,
-      "depth": 14,
-      "area": 280
+      "width": 24,
+      "depth": 16,
+      "area": 384
     },
     {
       "name": "NHÀ CHÒI ĐỌC SÁCH",
       "width": 9,
       "depth": 7,
       "area": 63
+    },
+    {
+      "name": "Bếp thực hành",
+      "width": 48,
+      "depth": 29,
+      "area": 1392
+    },
+    {
+      "name": "Nhà thực hành ánh sáng",
+      "width": 50,
+      "depth": 30,
+      "area": 1500
+    },
+    {
+      "name": "Nhà thực hành cây trồng",
+      "width": 50,
+      "depth": 29,
+      "area": 1450
+    },
+    {
+      "name": "Trạm khí tượng",
+      "width": 46,
+      "depth": 29,
+      "area": 1334
+    },
+    {
+      "name": "Xưởng mỹ thuật",
+      "width": 47,
+      "depth": 30,
+      "area": 1410
+    },
+    {
+      "name": "Phòng hòa tấu",
+      "width": 46,
+      "depth": 29,
+      "area": 1334
     }
   ],
-  "zones": 16,
+  "zones": 26,
   "sportsRegistration": [
     {
       "id": "pool",
@@ -113,12 +149,12 @@
   "residentApproaches": 12,
   "workStations": 12,
   "districtPracticeStations": 7,
-  "expandedDistrictObstacles": 65,
-  "namedDestinations": 54,
-  "orderedRoutes": 2862,
-  "solidFootprints": 273,
-  "sharedTrees": 116,
-  "circulationPaths": 40,
+  "expandedDistrictObstacles": 132,
+  "namedDestinations": 64,
+  "orderedRoutes": 4032,
+  "solidFootprints": 595,
+  "sharedTrees": 183,
+  "circulationPaths": 69,
   "productiveBeds": 8,
   "productiveSoilArea": 135.27999999999997,
   "farmAreaMetresSquared": 478.97,

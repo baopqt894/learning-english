@@ -1,3 +1,4 @@
+import { languageMeetingPoint } from './learning-room-layout.ts';
 import type { CharacterKind } from './campus-character.ts';
 
 type Position = [x: number, z: number];
@@ -29,7 +30,7 @@ export const CAMPUS_RESIDENTS = [
     line: 'Wait on the dry deck until your group is called.', meaning: 'Đợi trên sàn khô đến khi nhóm của bạn được gọi.' },
   { kind: 'bao', role: 'Đội trưởng bóng đá', route: [[16, -83.2], [18, -83.2]], facing: -.65,
     line: 'Pass to a teammate who has space to move.', meaning: 'Chuyền bóng cho đồng đội đang có khoảng trống.' },
-  { kind: 'tram', role: 'Trợ lý phòng ngoại ngữ', route: [[29, -10.4]], facing: .3,
+  { kind: 'tram', role: 'Trợ lý phòng ngoại ngữ', route: [[languageMeetingPoint.x,languageMeetingPoint.z]], facing: .3,
     line: 'Try saying the whole sentence before you check the transcript.', meaning: 'Thử nói cả câu trước khi xem bản chép lời.' },
   { kind: 'thao', role: 'Phụ trách nhà ăn', route: [[-29.8, 20.5]], facing: .25,
     line: 'Please tell us if you have any food allergies.', meaning: 'Vui lòng báo cho chúng tôi nếu bạn bị dị ứng thức ăn.' },

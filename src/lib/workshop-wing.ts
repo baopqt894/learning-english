@@ -1,14 +1,14 @@
 // World units use the same metre scale as campus doorways and furniture.
 export const WORKSHOPS = [
-  { kind: 'kitchen', x: 137, z: -38, w: 38, d: 25, h: 5.2, roof: 0xa55e41,
+  { kind: 'kitchen', x: 137, z: -38, w: 48, d: 29, h: 5.2, roof: 0xa55e41,
     name: 'Bếp thực hành', english: 'Teaching kitchen', title: 'Prepare a class lunch', color: '#c79264', icon: 'food' },
-  { kind: 'light-lab', x: 143, z: 1, w: 42, d: 24, h: 6.1, roof: 0x517778,
+  { kind: 'light-lab', x: 143, z: 1, w: 50, d: 30, h: 6.1, roof: 0x517778,
     name: 'Nhà thực hành ánh sáng', english: 'Light lab', title: 'Follow the light signals', color: '#72a6a4', icon: 'target' },
-  { kind: 'plant-lab', x: 138, z: 40, w: 42, d: 26, h: 5.1, roof: 0x607f53,
+  { kind: 'plant-lab', x: 138, z: 40, w: 50, d: 29, h: 5.1, roof: 0x607f53,
     name: 'Nhà thực hành cây trồng', english: 'Plant science lab', title: 'Keep a plant diary', color: '#9bae78', icon: 'sprout' },
-  { kind:'weather', x:202,z:-38,w:30,d:22,h:5.5,roof:0x587c85,name:'Trạm khí tượng',english:'Weather station',title:'Read the forecast',color:'#79a5b5',icon:'weather' },
-  { kind:'art', x:205,z:1,w:39,d:25,h:5.3,roof:0xa57155,name:'Xưởng mỹ thuật',english:'Art studio',title:'Mix a colour palette',color:'#bc8866',icon:'palette' },
-  { kind:'music', x:202,z:40,w:36,d:24,h:5.4,roof:0x5e7068,name:'Phòng hòa tấu',english:'Ensemble room',title:'Rehearse with the band',color:'#aba078',icon:'music' },
+  { kind:'weather', x:204.5,z:-38,w:46,d:29,h:5.5,roof:0x587c85,name:'Trạm khí tượng',english:'Weather station',title:'Read the forecast',color:'#79a5b5',icon:'weather' },
+  { kind:'art', x:209.5,z:1,w:47,d:30,h:5.3,roof:0xa57155,name:'Xưởng mỹ thuật',english:'Art studio',title:'Mix a colour palette',color:'#bc8866',icon:'palette' },
+  { kind:'music', x:206.5,z:40,w:46,d:29,h:5.4,roof:0x5e7068,name:'Phòng hòa tấu',english:'Ensemble room',title:'Rehearse with the band',color:'#aba078',icon:'music' },
 ] as const;
 export type WorkshopId = typeof WORKSHOPS[number]['kind'];
 export const workshopZones = WORKSHOPS.map(b => ({
@@ -35,7 +35,7 @@ export const workshopFixtures = WORKSHOPS.flatMap(b =>
   }))));
 
 export function doorwayHalfWidth(kind?:string) {
-  if(kind==='language'||kind==='computer')return 1.78;
+  if(kind==='language'||kind==='computer')return 2.5;
   return WORKSHOPS.some(b=>b.kind===kind)?2.65:1.3;
 }
 export const workshopFittings=WORKSHOPS.flatMap(b=>{

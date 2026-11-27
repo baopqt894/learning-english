@@ -41,3 +41,24 @@ test('storage racks and rear exhibits fit beside teaching and wash stations',()=
         assert.ok(Math.abs(object.x-other.x)>=(object.w+other.w)/2||Math.abs(object.z-other.z)>=(object.d+other.d)/2,room.kind);
   }
 });
+
+test('expanded language and computer labs have clear floor space and room-wide activity detection',async()=>{
+  const {canWalkCampus,campusAreaName}=await import('../src/lib/campus-map.ts');
+  const {roomContainsPlayer}=await import('../src/lib/campus-room-shell.ts');
+  const {nearStoryLocation}=await import('../src/lib/campaign-locations.ts');
+  for(const [kind,minClearArea] of [['language',335],['computer',210]]){
+    const room=EXPANSION_BUILDINGS.find(b=>b.kind===kind);
+    let clearArea=0;
+    for(let x=room.x-room.w/2+.25;x<room.x+room.w/2;x+=.5){
+      for(let z=room.z-room.d/2+.25;z<room.z+room.d/2;z+=.5){
+        if(!canWalkCampus(x,z))continue;
+        clearArea+=.25;
+        assert.equal(campusAreaName({x,z}),kind==='language'?'Phòng ngoại ngữ':'Phòng tin học');
+        assert.ok(nearStoryLocation(kind,{x,z})&&roomContainsPlayer(room,{x,z}));
+      }
+    }
+    assert.ok(clearArea>=minClearArea,kind+' accessible floor area');
+    for(const dx of [-1.8,0,1.8])assert.ok(canWalkSegment(
+      {x:room.x+dx,z:room.z+room.d/2+1},{x:room.x+dx,z:room.z-room.d/2+1.25}),kind+' through aisle');
+  }
+});

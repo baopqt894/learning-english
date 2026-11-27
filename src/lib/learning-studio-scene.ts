@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { sceneryKit } from './campus-scenery-kit';
-import { listeningBooths } from './learning-room-layout';
+import { boothX,cardDesks,computerRows,conversationPods,globe,listeningBooths,pairTables,recordingDesk,shelf } from './learning-room-layout';
 import { placeSchoolProp } from './school-props';
 import { flowerClump } from './campus-garden-props';
 
@@ -47,12 +47,12 @@ function pottedFern(k:Kit,x:number,z:number){
 }
 function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
   const back=-b.d/2;
-  for(let i=0;i<56;i++){
-    const x=-7.68+i*.28;
+  for(let i=0;i<Math.floor((b.w-.4)/.28);i++){
+    const x=-b.w/2+.32+i*.28;
     k.block(x,1.84,back+.15,.21,2.99,.12,i%3?oak:walnut);
   }
   for(const z of listeningBooths){
-    const x=-5.9;
+    const x=boothX;
     k.block(x-.47,.73,z,.24,.83,1.77,walnut);
     for(const edge of [-1,1])k.block(x+.43,.73,z+edge*.65,.10,.83,.10,ink);
     k.block(x,1.19,z,1.56,.13,1.88,oak);
@@ -64,44 +64,57 @@ function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
     equipment(k,x-.13,1.25,z-.27);
     k.hoop(x+.12,1.59,z+.43,.52,.55,.45,ink);
     for(const s of [-1,1])k.globe(x+.12+s*.21,1.47,z+.43,.12,.24,.19,teal);
-    placeSchoolProp(props,'chair',-4.48,.31,z,.89,-Math.PI/2);
+    placeSchoolProp(props,'chair',x+1.42,.31,z,.89,-Math.PI/2);
   }
-  // Two facing settees and a coffee table, all inside one rug footprint.
-  k.drum(4.8,.313,-.4,4.55,.026,3.75,0x558d88);
-  for(const s of [-1,1]){
-    const x=4.8+s*1.32;
-    k.block(x,.64,-.4,.91,.53,2.35,teal);k.block(x+s*.38,1.03,-.4,.20,.68,2.42,0x34746f);
-    for(const e of [-1,1]){
-      k.block(x,.96,-.4+e*1.07,.92,.43,.16,0x4e9891);
-      k.globe(x+s*.13,1.02,-.4+e*.64,.34,.39,.53,e<0?0xdfa15f:ivory,.14);
+  for(const {x,z} of pairTables){
+    k.block(x,1.12,z,2.55,.13,1.12,oak);
+    for(const side of [-1,1]){
+      k.block(x+side*.98,.72,z,.12,.74,.84,walnut);
+      placeSchoolProp(props,'chair',x+side*.55,.31,z+side*.88,.74,side<0?0:Math.PI);
+      k.block(x+side*.61,1.21,z+side*.18,.54,.045,.36,ivory,0,side*.12);
+      for(let n=0;n<3;n++)k.block(x+side*.61,1.24,z+side*.18+(n-1)*.071,.35-n*.035,.012,.021,teal);
     }
   }
-  k.drum(4.8,.69,-.4,.22,.72,.22,walnut);k.drum(4.8,1.07,-.4,1.28,.11,.95,oak);
-  k.block(4.98,1.16,-.42,.49,.06,.34,ivory,0,.27);
-  k.pot(4.48,1.27,-.4,.26,.32,.26,0xdf9160);flowerClump(k,4.48,1.42,-.4,.34,0xeebe72,2);
-  placeSchoolProp(props,'bookshelf',4.9,.31,-3.68,2.68);
-  const gx=2.05,gz=-3.43;
+  // Two facing settees and a coffee table, all inside one rug footprint.
+  for(const pod of conversationPods){
+    k.drum(pod.x,.313,pod.z,4.55,.026,3.75,0x558d88);
+    for(const s of [-1,1]){
+      const x=pod.x+s*1.32;
+      k.block(x,.64,pod.z,.91,.53,2.35,teal);k.block(x+s*.38,1.03,pod.z,.20,.68,2.42,0x34746f);
+      for(const e of [-1,1]){
+        k.block(x,.96,pod.z+e*1.07,.92,.43,.16,0x4e9891);
+        k.globe(x+s*.13,1.02,pod.z+e*.64,.34,.39,.53,e<0?0xdfa15f:ivory,.14);
+      }
+    }
+    k.drum(pod.x,.69,pod.z,.22,.72,.22,walnut);k.drum(pod.x,1.07,pod.z,1.28,.11,.95,oak);
+    k.block(pod.x+.18,1.16,pod.z-.02,.49,.06,.34,ivory,0,.27);
+    k.pot(pod.x-.32,1.27,pod.z,.26,.32,.26,0xdf9160);flowerClump(k,pod.x-.32,1.42,pod.z,.34,0xeebe72,2);
+  }
+  placeSchoolProp(props,'bookshelf',shelf.x,.31,shelf.z,2.68);
+  const {x:gx,z:gz}=globe;
   k.drum(gx,.41,gz,.85,.17,.77,walnut);k.drum(gx,.83,gz,.15,.79,.15,oak);
   k.globe(gx,1.65,gz,.91,.91,.91,0x4d9cae);
   for(const [dx,dy,w,h] of [[-.20,.18,.34,.24],[-.16,-.12,.21,.34],[.20,.11,.31,.21],[.15,-.19,.18,.14]])
     k.leaf(gx+dx,1.65+dy,gz+.37,w,h,.09,0xa5bc73,dx);
   k.hoop(gx,1.64,gz,1.13,1.13,.40,0xccaa66,-.27,.52);
-  k.block(-4.8,.97,back+.61,2.27,1.26,.69,ink);
-  placeSchoolProp(props,'projector',-4.86,1.60,back+.61,.88);
-  k.drum(-4.03,1.90,back+.60,.05,.63,.05,ivory);
-  k.globe(-4.03,2.25,back+.60,.18,.32,.18,ink);
+  k.block(recordingDesk.x,.97,recordingDesk.z,2.27,1.26,.69,ink);
+  placeSchoolProp(props,'projector',recordingDesk.x-.06,1.60,recordingDesk.z,.88);
+  k.drum(recordingDesk.x+.77,1.90,recordingDesk.z,.05,.63,.05,ivory);
+  k.globe(recordingDesk.x+.77,2.25,recordingDesk.z,.18,.32,.18,ink);
   for(const s of [-1,1]){
     k.block(s*5.45,2.42,back+.33,.72,1.12,.35,ink);
     for(const h of [2.22,2.63])k.globe(s*5.45,h,back+.52,.39,.35,.06,0x718f89);
   }
   // A low role-play desk by the exit gives pairs a separate place to practise directions.
-  k.block(4.9,1.04,2.95,2.62,.13,.84,oak);
-  for(const s of [-1,1])k.block(4.9+s*1.05,.69,2.95,.14,.68,.66,ink);
-  for(let i=0;i<3;i++){
-    const px=4.12+i*.68,col=[0x539a99,0xd99062,0xe3b459][i];
-    k.block(px,1.17,2.94,.51,.11,.37,col,0,(i-1)*.12);
-    k.block(px,1.24,2.94,.43,.025,.29,ivory);
-    for(let n=0;n<3;n++)k.block(px-.045,1.258,2.85+n*.074,.24+n*.035,.008,.024,col);
+  for(const desk of cardDesks){
+    k.block(desk.x,1.04,desk.z,2.62,.13,.84,oak);
+    for(const s of [-1,1])k.block(desk.x+s*1.05,.69,desk.z,.14,.68,.66,ink);
+    for(let i=0;i<3;i++){
+      const px=desk.x-.78+i*.68,col=[0x539a99,0xd99062,0xe3b459][i];
+      k.block(px,1.17,desk.z-.01,.51,.11,.37,col,0,(i-1)*.12);
+      k.block(px,1.24,desk.z-.01,.43,.025,.29,ivory);
+      for(let n=0;n<3;n++)k.block(px-.045,1.258,desk.z-.1+n*.074,.24+n*.035,.008,.024,col);
+    }
   }
   for(const s of [-1,1]){
     const px=s*3.5;
@@ -141,8 +154,8 @@ export function createLearningStudio(b:Room){
         for(let n=0;n<3;n++)k.globe(x-.39+n*.13,h,back+.99,.06,.06,.035,n?teal:0xe4ae64);
       }
     }
-    for(const side of [-1,1])for(let i=0;i<4;i++){
-      const x=side*b.w*.28,z=back+1.8+i*1.8;
+    for(const side of [-1,1])for(const row of computerRows){
+      const x=side*b.w*.28,z=row;
       for(const dx of [-.65,.65]){
         k.block(x+dx,1.32,z-.018,.48,.19,.018,ink);
         for(let n=0;n<3;n++)k.block(x+dx-.09,1.26+n*.05,z-.005,.20+n*.07,.018,.01,0x89dfcb);
