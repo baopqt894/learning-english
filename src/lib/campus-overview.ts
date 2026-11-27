@@ -48,7 +48,7 @@ export function createCampusOverview(sky: number) {
   ground({ x: 0, z: -.4, w: 22, d: 18 }, 0xd3c9a6);
   for(const tree of orchardTrees)crowns.push({...tree,w:4,h:3,d:3.6,y:2.6,color:0x7e9d64});
   for(const c of PARK_COURTS){
-    ground(c,c.kind==='basketball'?0xb67355:0xd3be91,.1);
+    ground(c,c.kind==='basketball'?0x497eb3:0xdc8b70,.1);
     ground({...c,d:.19},0xf5e7c8,.14);
   }
   ground(SIGNAL_COURT,0x7f9c90,.1);

@@ -1,3 +1,5 @@
+import { createLearningStudio } from './learning-studio-scene';
+import { loadSchoolProps } from './school-props';
 import { orchardTrees } from './recreation-park';
 import { nurseryPens } from './campus-landscape-layout';
 import { createCampusLandscape } from './campus-landscape-scene';
@@ -443,7 +445,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
       const shell=createRoomShell(b);scene.add(shell);
-      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createWorkshopInterior(b.kind);
+      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createLearningStudio(b) ?? createWorkshopInterior(b.kind);
       if(interior)scene.add(interior);
       roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
@@ -479,7 +481,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         );
       }
       if(b.kind!=="housing")box(2*doorwayHalfWidth(b.kind)+.15, 0.18, 0.25, b.roof, b.x, b.h + 0.24, b.z + b.d / 2);
-      sign(
+      if(b.kind!=="language")sign(
         b.kind === "pavilion" ? "ENGLISH READING ROOM" : b.name,
         b.w * 0.8,
         0.43,
@@ -488,12 +490,10 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         b.z - b.d / 2 + 0.13,
         b.kind === "computer" ? "#345b65" : "#476345",
       );
-      if (b.kind === "classroom" || b.kind === "language") {
+      if (b.kind === "classroom") {
         box(4, 1.2, 0.06, 0x365c4a, b.x, 1.45, b.z - b.d / 2 + 0.16);
         sign(
-          b.kind === "language"
-            ? "HELLO! · LET’S SPEAK ENGLISH"
-            : b.x<0?"GREEN TEAM · MISSION BRIEFING":"WELCOME TO CLASS",
+          b.x<0?"GREEN TEAM · MISSION BRIEFING":"WELCOME TO CLASS",
           3.8,
           0.4,
           b.x,
@@ -639,7 +639,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
   }
 
   ROOM_FURNITURE.forEach((f) => {
-    if (f.kind === "stage" || f.kind === "dining") return;
+    if (f.kind === "stage" || f.kind === "dining" || f.kind === "language") return;
     box(f.w, 0.12, f.d, 0xc59c66, f.x, 0.97, f.z);
     for (const side of [-1, 1]) {
       box(0.08, 0.65, 0.08, 0x686f5a, f.x + side * (f.w / 2 - 0.2), 0.59, f.z);
@@ -650,24 +650,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
         box(0.64, 0.41, 0.02, 0x84c2c3, f.x + side * 0.64, 1.32, f.z - 0.045);
         box(0.05, 0.16, 0.05, 0x354c51, f.x + side * 0.64, 1.07, f.z - 0.1);
         box(0.65, 0.035, 0.2, 0x536b6d, f.x + side * 0.64, 1.05, f.z + 0.2);
-      } else if (f.kind === "language") {
-        box(0.5, 0.035, 0.32, 0xe9e3c1, f.x + side * 0.64, 1.05, f.z);
-        const headphones = mesh(
-          new THREE.TorusGeometry(0.15, 0.035, 6, 12, Math.PI),
-          mat(0x394e5a),
-          [f.x + side * 0.64, 1.14, f.z + 0.12],
-        );
-        headphones.rotation.x = -Math.PI / 2;
-        for (const offset of [-0.15, 0.15])
-          box(
-            0.07,
-            0.08,
-            0.12,
-            0x394e5a,
-            f.x + side * 0.64 + offset,
-            1.1,
-            f.z + 0.12,
-          );
       } else box(0.45, 0.045, 0.32, 0x638997, f.x + side * 0.65, 1.05, f.z);
     }
   });
@@ -1082,6 +1064,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     });
   }
   return {
+    disposeProps: loadSchoolProps(scene),
     updateRooms(point:{x:number;z:number},overview=false){
       let interior="outside";
       for(const {building:b,shell,interior:details} of roomShells){

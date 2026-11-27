@@ -51,7 +51,7 @@ export const CampusTerrain = memo(function CampusTerrain() {
       </g>
       {orchardTrees.map(p=><g key={p.x+":"+p.z}><circle cx={p.x} cy={p.z} r="2.35" fill={["#88a369","#749565","#93aa70"][p.variety]}/><circle cx={p.x+.65} cy={p.z+.5} r=".64" fill="#e5bb75"/></g>)}
       {PARK_COURTS.map(c=><g key={c.x} transform={`translate(${c.x} ${c.z})`} stroke="#fff1d4" strokeWidth=".45">
-        <rect x={-c.w/2} y={-c.d/2} width={c.w} height={c.d} fill={c.kind==='basketball'?'#bd785b':'#d3ae73'}/>
+        <rect x={-c.w/2} y={-c.d/2} width={c.w} height={c.d} fill={c.kind==='basketball'?'#497eb3':'#dc8b70'}/>
         <path d={`M${-c.w/2} 0h${c.w}`}/>
         {c.kind==='basketball'?<><circle r="1.8" fill="none"/>{[-1,1].map(s=><rect key={s} x="-2.45" y={s<0?-c.d/2:c.d/2-5.6} width="4.9" height="5.6" fill="#d29a74"/>)}</>:<path d="M-4.5 -3h9m-9 6h9"/>}
       </g>)}

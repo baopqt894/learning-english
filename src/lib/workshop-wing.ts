@@ -35,6 +35,7 @@ export const workshopFixtures = WORKSHOPS.flatMap(b =>
   }))));
 
 export function doorwayHalfWidth(kind?:string) {
+  if(kind==='language'||kind==='computer')return 1.78;
   return WORKSHOPS.some(b=>b.kind===kind)?2.65:1.3;
 }
 export const workshopFittings=WORKSHOPS.flatMap(b=>{
@@ -46,3 +47,8 @@ export const workshopFittings=WORKSHOPS.flatMap(b=>{
     ...[-1,1].map(side=>({kind:b.kind,unit:'bench' as const,x:b.x+side*b.w*.22,z:b.z+b.d*.40,w:3.3,d:.75})),
   ];
 });
+
+// Paired exhibits sit against the rear wall; entrances and central aisles stay clear.
+export const workshopDisplays=WORKSHOPS.flatMap(b=>[-1,1].map(side=>({
+  kind:b.kind,x:b.x+side*b.w*.28,z:b.z-b.d/2+1.36,w:5.82,d:1.88,
+})));

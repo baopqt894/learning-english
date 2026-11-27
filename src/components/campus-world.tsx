@@ -1344,6 +1344,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       renderer.setAnimationLoop(null);
       window.removeEventListener('pointerup',releaseActions);window.removeEventListener('pointercancel',releaseActions);window.removeEventListener('blur',releaseActions);document.removeEventListener('visibilitychange',visibilityWork);
       observer.disconnect();
+      environment.disposeProps();
       peers.dispose();
       worldLabels.dispose();
       controls.dispose();

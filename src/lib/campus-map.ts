@@ -1,6 +1,7 @@
+import {languageFurniture} from './learning-room-layout.ts';
 import { landscapeObstacles,glasshouseEquipment,nurseryPens } from './campus-landscape-layout.ts';
 import { PARK_ZONES, nearbyPark, parkObstacles } from './recreation-park.ts';
-import { WORKSHOPS, workshopZones, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
+import { WORKSHOPS, workshopZones, workshopDisplays, workshopFixtures, workshopFittings, doorwayHalfWidth, nearbyWorkshop, type WorkshopId } from './workshop-wing.ts';
 import { READING_PAVILION, READING_APPROACH, READING_TABLES, READING_SEATS, BOOKCASES } from './reading-pavilion.ts';
 import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
@@ -222,6 +223,7 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
 ).flatMap<Furniture>((b) => {
   if (WORKSHOPS.some(workshop => workshop.kind === b.kind)) return [];
   if (b.kind === 'housing' || b.kind === 'pavilion') return [];
+  if (b.kind === 'language')return [];
   if (b.kind === "hall")
     return [
       {
@@ -245,12 +247,14 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
 export const DORM_EXTRA_BEDS=[{x:-32,z:-2.6,w:1.35,d:2.45},{x:-32,z:1.6,w:1.35,d:2.45},{x:-26,z:2.1,w:1.35,d:2.45}];
 export const STUDY_DESK=ROOM_FURNITURE.filter(f=>f.kind==='classroom'&&f.x<0).at(-2)!;
 export const STUDY_POSITION={x:STUDY_DESK.x+.65,z:STUDY_DESK.z+.7};
-export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.kind==='dining'?Object.values(diningLayout(b).stations):(b.kind==='classroom'||b.kind==='language')?[{x:b.x,z:b.z-b.d/2+.9,w:1.5,d:.7}]:[]);
+export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.kind==='dining'?Object.values(diningLayout(b).stations):b.kind==='classroom'?[{x:b.x,z:b.z-b.d/2+.9,w:1.5,d:.7}]:[]);
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
-  ...SPORTS_OBSTACLES, ...workshopFixtures, ...workshopFittings, ...parkObstacles, ...landscapeObstacles,
+  ...SPORTS_OBSTACLES, ...workshopDisplays, ...workshopFixtures, ...workshopFittings, ...parkObstacles, ...landscapeObstacles,
   ...WORKSHOPS.filter(b=>b.kind==='plant-lab').flatMap(b=>glasshouseEquipment.map(f=>({...f,x:b.x+f.x,z:b.z+f.z}))),
+  ...EXPANSION_BUILDINGS.filter(b=>b.kind==='language').flatMap(b=>languageFurniture.map(f=>({...f,x:b.x+f.x,z:b.z+f.z}))),
+  ...EXPANSION_BUILDINGS.filter(b=>b.kind==='computer').flatMap(b=>[-1,1].map(side=>({x:b.x+side*6.75,z:b.z-b.d/2+.55,w:1.24,d:.73}))),
   ...CORE_FRONT_FIXTURES, ...ROOM_EXHIBITS,
   ...ROOM_FIXTURES, ...BOOKCASES, ...READING_TABLES, ...READING_SEATS,
   ...DISTRICT_OBSTACLES,
