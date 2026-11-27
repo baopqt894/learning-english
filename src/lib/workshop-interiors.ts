@@ -1,3 +1,4 @@
+import { workshopTeachingBoard } from './workshop-teaching-boards';
 import * as THREE from 'three';
 import { furnishWorkshopDisplays } from './workshop-displays';
 import { furnishGlasshouse } from './glasshouse-tools';
@@ -62,6 +63,14 @@ export function createWorkshopInterior(kind:string){
             k.drum(x,.85,pz,.54,.72,.54,steel);k.block(x,1.24,pz,.78,.13,.75,wood);
             k.drum(x+.6,1.17,pz-.37,.055,1.32,.055,steel);
             k.block(x+.6,1.86,pz-.37,.69,.47,.09,cream);
+            for(let line=0;line<5;line++)k.block(x+.6,1.79+line*.047,pz-.315,.53,.013,.018,steel);
+            for(let note=0;note<3;note++)k.globe(x+.45+note*.14,1.80+note*.045,pz-.29,.063,.059,.018,steel);
+            if(side>0){
+              k.drum(x,1.63,pz-.12,.69,.59,.69,0xa5684e);
+              k.drum(x,1.95,pz-.12,.72,.06,.72,cream);
+              k.drum(x-.74,1.46,pz+.43,.055,1.78,.055,steel);
+              k.globe(x-.74,2.36,pz+.43,.73,.09,.73,0xc6a457);
+            }
           }else{
             for(const a of [-1,1])k.block(x+a*.39,1.31,pz,.10,1.68,.10,wood,a*.16);
             k.block(x,1.78,pz+.12,1.12,1.22,.09,cream);
@@ -81,7 +90,26 @@ export function createWorkshopInterior(kind:string){
               k.globe(x+offset,1.86,pz,.62,.23,.62,0xb9b598);
             }
           }else if(kind==='weather'){
-            k.drum(x,2.05,pz,.84,.69,.84,0x85b4b7);k.drum(x,2.48,pz,1.04,.14,1.04,cream);
+            if(side<0){
+              k.block(x,1.78,pz,1.96,.14,2.18,wood);
+              k.block(x,1.87,pz,1.78,.045,1.97,0xa4c3c2);
+              for(let i=0;i<4;i++){
+                k.leaf(x-.35+i*.22,1.91,pz-.56+i*.32,.74,.035,.43,0x799665,0,i);
+                k.globe(x+.38-i*.21,1.94,pz-.48+i*.33,.13,.07,.13,end<0?0xd98458:0x547eae);
+              }
+            }else{
+              k.drum(x,1.79,pz,1.1,.17,1.1,steel);
+              k.drum(x,2.38,pz,.12,1.14,.12,steel);
+              if(end<0){
+                for(let i=0;i<3;i++){
+                  const a=i*2.094;k.block(x+.36*Math.sin(a),2.93,pz+.36*Math.cos(a),.07,.09,.79,steel,0,a);
+                  k.pot(x+.72*Math.sin(a),2.93,pz+.72*Math.cos(a),.31,.29,.31,0xe9b765,0,a,1.3);
+                }
+              }else{
+                k.pot(x,2.53,pz,.52,.98,.52,0x83b7bd);
+                for(let i=0;i<5;i++)k.block(x,2.19+i*.16,pz+.225,.21,.037,.055,cream);
+              }
+            }
           }else{
             for(const a of [-1,0,1])k.drum(x+a*.63,1.91,pz,.43,.44,.43,[0xdb855b,0xedbd68,0x77b3b1][a+1]);
           }
@@ -147,5 +175,7 @@ export function createWorkshopInterior(kind:string){
   }
   if(kind==='plant-lab')furnishGlasshouse(k,b.w,b.d);
   const props=new THREE.Group();furnishWorkshopDisplays(k,props,b);
+  const board=workshopTeachingBoard(b.kind,Math.min(10.2,b.w*.32));
+  board.position.set(0,2.45,-b.d/2+.27);props.add(board);
   const group=k.finish();group.add(props);group.position.set(b.x,0,b.z);group.visible=false;return group;
 }

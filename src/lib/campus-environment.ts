@@ -7,7 +7,7 @@ import { createWorkshopInterior } from './workshop-interiors';
 import { createRecreationPark } from './recreation-park-scene';
 import { createReadingRoom } from './reading-room';
 import { createDiningRoom } from './dining-room';
-import { workshopFixtures, WORKSHOPS, doorwayHalfWidth } from './workshop-wing';
+import { workshopFixtures, doorwayHalfWidth } from './workshop-wing';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
 import { createCampusCharacter, type CharacterKind } from "./campus-character";
@@ -620,24 +620,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
       box(.18,.12,.08,0xa2dbdc,f.x,1.37,f.z+.24);
     }
   }
-  for (const b of WORKSHOPS) {
-    const back = b.z-b.d/2+.2;
-    if (b.kind === 'light-lab') {
-      const colors = [0xe57853,0xe8bc48,0x608fba];
-      for (const [i, sides] of [32,3,4].entries()) {
-        const x = b.x+(i-1)*4;
-        box(3.5,3,.12,0xe9e6cf,x,2.45,back);
-        const shape = cylinder(1,1,.1,colors[i],x,2.45,back+.14,scene,sides);
-        shape.rotation.x = Math.PI/2;
-        if (sides===4) shape.rotation.y = Math.PI/4;
-      }
-    } else {
-      const signText={kitchen:'PREP   /   COOK   /   SERVE','plant-lab':'SOW   /   OBSERVE   /   RECORD',
-        weather:'TEMPERATURE   /   WIND   /   RAIN',art:'SKETCH   /   MIX   /   PAINT',music:'LISTEN   /   COUNT   /   PLAY'};
-      sign(signText[b.kind],9,.8,b.x,2.6,back+.1,'#39594c');
-    }
-  }
-
   ROOM_FURNITURE.forEach((f) => {
     if (f.kind === "stage" || f.kind === "dining" || f.kind === "language") return;
     box(f.w, 0.12, f.d, 0xc59c66, f.x, 0.97, f.z);

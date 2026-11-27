@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {canWalkSegment,EXPANSION_BUILDINGS,MAP_OBSTACLES} from '../src/lib/campus-map.ts';
 import {courtEquipment,PARK_COURTS,parkPaths} from '../src/lib/recreation-park.ts';
+import {workshopDisplays,workshopFittings,workshopFixtures,WORKSHOPS} from '../src/lib/workshop-wing.ts';
+import {glasshouseEquipment} from '../src/lib/campus-landscape-layout.ts';
 import {languageFurniture} from '../src/lib/learning-room-layout.ts';
 
 test('sideline equipment leaves playing surfaces and meeting paths free',()=>{
@@ -27,5 +29,15 @@ test('the supplied furniture ships with the source colour atlas and bounded mesh
     const p=mesh.primitives[0];
     assert.ok(p.attributes.TEXCOORD_0!==undefined);
     assert.ok(asset.accessors[p.indices].count<=6600);
+  }
+});
+
+test('storage racks and rear exhibits fit beside teaching and wash stations',()=>{
+  for(const room of WORKSHOPS){
+    const furniture=[...workshopDisplays,...workshopFittings,...workshopFixtures].filter(f=>f.kind===room.kind);
+    if(room.kind==='plant-lab')furniture.push(...glasshouseEquipment.map(f=>({...f,x:f.x+room.x,z:f.z+room.z})));
+    for(const object of furniture.filter(f=>f.unit==='rack'||workshopDisplays.includes(f)))
+      for(const other of furniture.filter(f=>f!==object))
+        assert.ok(Math.abs(object.x-other.x)>=(object.w+other.w)/2||Math.abs(object.z-other.z)>=(object.d+other.d)/2,room.kind);
   }
 });
