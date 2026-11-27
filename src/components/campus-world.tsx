@@ -371,6 +371,8 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
     const environment = createCampusEnvironment(scene, avatar);
     const operateWorkshop=createWorkshopOperation(scene);
     let operating:EquipmentName|undefined;
+    const machineView=new THREE.Vector3(4.2,7.1,13).normalize();
+    const machineUp=new THREE.Vector3(0,1,0).addScaledVector(machineView,-machineView.y).normalize();
     const beforeEquipment={position:new THREE.Vector3(),target:new THREE.Vector3(),zoom:1};
     const { floor, player, selection, destination } = environment;
     const headset=new THREE.Group();
@@ -1117,10 +1119,13 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       if(equipment){
         const mobile=host.clientWidth<681;
-        focusTarget.set(pos.x+(mobile?0:2.6),mobile?-.9:1.65,pos.z+(mobile?1.75:-2.1));
-        camera.position.lerp(focusPosition.set(4.2,7.1,13).add(focusTarget),cameraEase);
+        const stationZoom=mobile?(camera.right-camera.left)/10.6:2.85;
+        focusTarget.set(pos.x+(mobile?0:2.6),1.65,pos.z-2.1);
+        // Place the machine in the centre of the strip above the answer sheet on a phone.
+        if(mobile)focusTarget.addScaledVector(machineUp,-.64*camera.top/stationZoom);
+        camera.position.lerp(focusPosition.copy(machineView).multiplyScalar(32).add(focusTarget),cameraEase);
         controls.target.lerp(focusTarget,cameraEase);
-        camera.zoom=THREE.MathUtils.lerp(camera.zoom,mobile?2.25:2.85,cameraEase);camera.lookAt(controls.target);camera.updateProjectionMatrix();
+        camera.zoom=THREE.MathUtils.lerp(camera.zoom,stationZoom,cameraEase);camera.lookAt(controls.target);camera.updateProjectionMatrix();
       }else if(operating){
         camera.position.copy(beforeEquipment.position);controls.target.copy(beforeEquipment.target);
         camera.zoom=beforeEquipment.zoom;camera.lookAt(controls.target);camera.updateProjectionMatrix();

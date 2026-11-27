@@ -87,4 +87,4 @@
 .equipment-order>span{font-weight:700;font-size:.75rem;color:#466047}
 .equipment-order p{font-size:1rem;line-height:1.4;margin:5px 0}
 .practice-modal .equipment-order button{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;min-height:32px;font-size:.8rem;background:transparent}
-@media(max-width:680px){.equipment-backdrop{align-items:end;padding:6px}.equipment-backdrop .practice-modal{width:100%;max-height:76dvh}.workshop-controls button{padding-inline:6px}}
+@media(max-width:680px){.equipment-backdrop{align-items:end;padding:6px}.equipment-backdrop .practice-modal{width:100%;max-height:65dvh}.workshop-controls button{padding-inline:6px}}
