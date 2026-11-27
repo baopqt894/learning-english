@@ -19,6 +19,7 @@ import { advanceBalance, answerBalance, balancePosition, startBalance, type Bala
 import { DISTRICT_STATIONS, BALANCE_START, BALANCE_END, BALANCE_BEAM, DISTRICT_TRANSFORMS, type DistrictFrame, type DistrictStationId } from '@/lib/campus-districts-layout';
 import { FARM_LAYOUT } from "@/lib/campus-spaces";
 import { createFieldworkScene } from "@/lib/fieldwork-scene";
+import { DORMITORY_B } from "@/lib/dormitory-layout";
 import { applyWork, freshFieldwork, nextWorkTask, WORK_STATIONS, type Fieldwork, type WorkKind, type Tool, type WorkFrame } from "@/lib/fieldwork";
 import { ResidentPrompt } from "./resident-prompt";
 import { CAMPUS_RESIDENTS, residentApproaches, residentMeetingPoint, type CampusResident } from "@/lib/campus-residents";
@@ -1277,13 +1278,15 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       if (!route.length) destination.visible = false;
       selection.position.set(pos.x, pos.y+.02, pos.z);
       const interior = environment.updateRooms(pos, overviewMode);
+      const inDormitory = interior === DORMITORY_B.name;
+      workScene.showDormitory(inDormitory);
       if (
         !equipment && !districtActive && !studying && !workKind && !photoSession && !conversationPlace && !returningFromConversation && !overviewMode &&
         (followPlayer || Math.abs(pos.x) > 10 || Math.abs(pos.z) > 9)
       ) {
         followPlayer = true;
         followTarget.set(pos.x, 0, pos.z);
-        const room = interior === diningHall.name ? diningHall : interior === READING_PAVILION.name ? READING_PAVILION : null;
+        const room = inDormitory ? DORMITORY_B : interior === diningHall.name ? diningHall : interior === READING_PAVILION.name ? READING_PAVILION : null;
         if (room) {
           followTarget.x = THREE.MathUtils.lerp(pos.x, room.x, .6);
           followTarget.z = THREE.MathUtils.lerp(pos.z, room.z, .75);
@@ -1416,7 +1419,7 @@ export const CampusWorld = forwardRef<WorldHandle, Props>(function CampusWorld(
       }
       storyMarker.visible=!!callbacks.current.storyTarget&&!photoSession&&!workKind&&!conversationPlace;
       if(callbacks.current.storyTarget){const target=callbacks.current.storyTarget;storyMarker.position.set(target.x,campusFloorHeight(target)+.03,target.z);storyMarker.scale.setScalar(reducedMotion.matches?1:1+Math.sin(time*.002)*.05);}
-      worldLabels.show(interior !== READING_PAVILION.name && !conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive && !residentSession);
+      worldLabels.show(!inDormitory && interior !== READING_PAVILION.name && !conversationPlace && !photoSession && !workKind && !studying && !overviewMode && !districtActive && !residentSession);
       selection.visible = !conversationPlace && !photoSession;
       destination.visible = !photoSession && route.length > 0;
       worldLabels.paint(camera, pos);

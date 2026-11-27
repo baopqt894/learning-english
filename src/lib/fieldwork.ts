@@ -1,4 +1,5 @@
-import { FARM_LAYOUT, FARM_OBSTACLES } from './campus-spaces.ts';
+import { FARM_LAYOUT } from './campus-spaces.ts';
+import { DORMITORY_DUTY } from './dormitory-layout.ts';
 import type { Progress } from './game';
 
 export type WorkKind = 'garden' | 'duty';
@@ -18,15 +19,11 @@ export const WORK_STATIONS: WorkStation[] = [
   ...FARM_LAYOUT.beds.map((bed,i)=>({id:`bed-${i}`,kind:'garden' as const,name:`Vegetable bed ${i+1}`,x:bed.x,z:bed.z,approach:bed.approach,targetY:.3})),
   {id:'tap',kind:'garden',name:'Water tap',...FARM_LAYOUT.tap,targetY:.9},
   {id:'garden-board',kind:'garden',name:'Harvest station',...FARM_LAYOUT.harvest,targetY:1},
-  ...[[-27,-1.1],[-26.1,-3.2],[-28,-4.1]].map(([x,z],i)=>({id:`dust-${i}`,kind:'duty' as const,name:`Floor section ${i+1}`,x,z,approach:{x,z:z+.75},targetY:.28})),
-  {id:'blanket',kind:'duty',name:'Cadet bed',x:-29.2,z:-3.1,approach:{x:-27.95,z:-2.7},targetY:.94},
-  {id:'books',kind:'duty',name:'Study table',x:-24.6,z:-3.7,approach:{x:-25.7,z:-3.5},targetY:1.05},
-  {id:'shelf',kind:'duty',name:'Book shelf',x:-24.1,z:-1.5,approach:{x:-25.25,z:-1.5},targetY:1.3},
-  {id:'duty-board',kind:'duty',name:'Duty board',x:-23.8,z:.8,approach:{x:-23.8,z:1.9},targetY:1.3},
-];
-export const WORK_OBSTACLES = [
-  ...FARM_OBSTACLES,
-  {x:-29.2,z:-3.1,w:1.35,d:2.45}, {x:-24.6,z:-3.7,w:1.35,d:1.1}, {x:-24.1,z:-1.5,w:.75,d:.85},
+  ...DORMITORY_DUTY.dust.map((station,i)=>({id:`dust-${i}`,kind:'duty' as const,name:`Floor section ${i+1}`,...station})),
+  {id:'blanket',kind:'duty',name:'Cadet bed',...DORMITORY_DUTY.blanket},
+  {id:'books',kind:'duty',name:'Study table',...DORMITORY_DUTY.books},
+  {id:'shelf',kind:'duty',name:'Book shelf',...DORMITORY_DUTY.shelf},
+  {id:'duty-board',kind:'duty',name:'Duty board',...DORMITORY_DUTY.board},
 ];
 export const freshFieldwork = ():Fieldwork => ({garden:{beds:[0,0,0],water:0,day:1,reported:false},duty:{swept:0,folds:0,books:0,reported:false}});
 export function restoreFieldwork(raw:unknown):Fieldwork {

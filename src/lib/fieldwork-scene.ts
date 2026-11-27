@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { STUDY_DESK, STUDY_POSITION } from './campus-map';
 import { FARM_LAYOUT } from './campus-spaces';
+import { DORMITORY_BLANKET, DORMITORY_DUTY, DORMITORY_FLOOR } from './dormitory-layout';
 import { createCampusSurfaces, worldAlignedUV } from './campus-surfaces';
 import { createFarmCraft, createVegetableGeometry } from './farm-craft';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -85,32 +86,34 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
     const contents=new THREE.Group();basket.add(contents);basketContents.push(contents);
     for(let leaf=0;leaf<4;leaf++){const vegetable=new THREE.Mesh(plantGeometry,plantMaterial);vegetable.scale.setScalar(.4);vegetable.position.set((leaf%2-.5)*.25,.32,Math.floor(leaf/2)*.2-.1);contents.add(vegetable);}
   }
-  // Open dormitory B. Real bed frame, mattress, pillow and a subdivided cloth sheet.
-  const bx=-29.2,bz=-3.1;
-  for(const x of [bx-.58,bx+.58])for(const z of [bz-1.05,bz+1.05])box(.065,.66,.065,0x53655b,root,x,.5,z);
-  box(1.35,.12,2.45,0x52675b,root,bx,.72,bz);box(1.28,.18,2.32,0xd9d5bf,root,bx,.86,bz);box(1.3,.65,.08,0x53655b,root,bx,1.1,bz-1.15);
-  box(.75,.13,.42,0xe8e0c7,root,bx,.99,bz-.86);
-  const clothGeo=new THREE.PlaneGeometry(1.18,1.85,16,24);clothGeo.rotateX(-Math.PI/2);
+  // The playable blanket and books share their placement with the bunk and study furniture.
+  const dormitory = new THREE.Group();
+  dormitory.name = 'Dormitory B · duty props';
+  dormitory.visible = false;
+  root.add(dormitory);
+  const { blanket: bed, books: desk, shelf } = DORMITORY_DUTY;
+  const { width: clothWidth, length: clothLength } = DORMITORY_BLANKET;
+  const clothGeo = new THREE.PlaneGeometry(clothWidth, clothLength, 16, 24);
+  clothGeo.rotateX(-Math.PI / 2);
   const fabricCanvas=document.createElement('canvas');fabricCanvas.width=fabricCanvas.height=64;const fabricContext=fabricCanvas.getContext('2d')!;
   const fabricPixels=fabricContext.createImageData(64,64);
   for(let y=0;y<64;y++)for(let x=0;x<64;x++){const v=220+((x+y)%2)*17+((x*13+y*7)%11);const i=(y*64+x)*4;fabricPixels.data[i]=fabricPixels.data[i+1]=fabricPixels.data[i+2]=v;fabricPixels.data[i+3]=255;}
   fabricContext.putImageData(fabricPixels,0,0);const clothTexture=new THREE.CanvasTexture(fabricCanvas);clothTexture.wrapS=clothTexture.wrapT=THREE.RepeatWrapping;clothTexture.repeat.set(7,10);clothTexture.colorSpace=THREE.SRGBColorSpace;
   const clothMaterial=mat(0x71815c);clothMaterial.map=clothTexture;clothMaterial.bumpMap=clothTexture;clothMaterial.bumpScale=.006;
-  const blanket=mesh(clothGeo,0x71815c,root,bx,1.02,bz+.17);(blanket.material as THREE.MeshStandardMaterial).side=THREE.DoubleSide;
+  const blanket=mesh(clothGeo,0x71815c,dormitory,bed.x,bed.targetY,bed.z);
+  (blanket.material as THREE.MeshStandardMaterial).side=THREE.DoubleSide;
   const original=Float32Array.from(clothGeo.attributes.position.array);
-  const folded=box(.58,.16,.85,0x71815c,root,bx-.295,1.05,bz-.2925);box(.59,.018,.86,0x9da782,folded,0,.065,0);folded.visible=false;
+  const folded=box(clothWidth/2,.12,clothLength/2,0x71815c,dormitory,bed.x-clothWidth/4,bed.targetY,bed.z-clothLength/4);
+  box(clothWidth/2+.007,.016,clothLength/2+.006,0x9da782,folded,0,.05,0);folded.visible=false;
   const dust:THREE.Group[]=[];
-  for(let i=0;i<3;i++){const station=WORK_STATIONS.find(s=>s.id===`dust-${i}`)!;const group=new THREE.Group();group.position.set(station.x,.305,station.z);root.add(group);group.userData.station=station.id;dust.push(group);
+  for(let i=0;i<3;i++){const station=WORK_STATIONS.find(s=>s.id===`dust-${i}`)!;const group=new THREE.Group();group.position.set(station.x,DORMITORY_FLOOR+.009,station.z);dormitory.add(group);group.userData.station=station.id;dust.push(group);
     for(let j=0;j<24;j++){const l=mesh(new THREE.CircleGeometry(.065,5),j%2?0xa98145:0xbfa06c,group,Math.sin(j*6.7)*.5,.003,Math.cos(j*3.2)*.3);l.rotation.x=-Math.PI/2;l.rotation.z=j;}
   }
-  const pan=box(.48,.035,.45,0x5d7778,root,-27,.29,-.7);box(.5,.1,.035,0x6e8582,pan,0,.035,-.2);
-  // Table and shelf correspond to navigation obstacles, with moving book props.
-  box(1.35,.12,1.1,0xa78a5d,root,-24.6,1,-3.7);for(const x of [-25.15,-24.05])for(const z of [-4.1,-3.3])box(.06,.8,.06,0x53655b,root,x,.58,z);
-  box(.75,1.6,.05,0x8c7656,root,-24.1,1,-1.8);for(const x of [-24.45,-23.75])box(.06,1.6,.65,0x8c7656,root,x,1,-1.5);for(const y of [.5,1,1.5])box(.8,.055,.7,0xc7ad7b,root,-24.1,y,-1.5);
-  const tableBooks=new THREE.Group();tableBooks.position.set(-24.6,1.11,-3.7);root.add(tableBooks);
+  const dustStart = DORMITORY_DUTY.dust[0];
+  const pan=box(.48,.035,.45,0x5d7778,dormitory,dustStart.x+.2,DORMITORY_FLOOR+.014,dustStart.z+.30);box(.5,.1,.035,0x6e8582,pan,0,.035,-.2);
+  const tableBooks=new THREE.Group();tableBooks.position.set(desk.x,desk.targetY,desk.z);dormitory.add(tableBooks);
   function addBooks(parent:THREE.Object3D){for(let j=0;j<3;j++){box(.42,.075,.3,[0x93644c,0x4f7366,0xb59d63][j],parent,0,j*.09,0);box(.38,.04,.27,0xe7d9b3,parent,.012,j*.09+.025,.012);}}
-  addBooks(tableBooks);const shelfBooks=new THREE.Group();shelfBooks.position.set(-24.1,1.04,-1.5);root.add(shelfBooks);addBooks(shelfBooks);
-  sign('DUTY · CLEAN & CARE',-23.8,1.7,.8,2.6);
+  addBooks(tableBooks);const shelfBooks=new THREE.Group();shelfBooks.position.set(shelf.x,shelf.targetY,shelf.z);dormitory.add(shelfBooks);addBooks(shelfBooks);
   const toolRoot=new THREE.Group();scene.add(toolRoot);const tools={} as Record<Tool,THREE.Group>;
   for(const key of ['hands','hoe','seeds','can','basket','broom'] as Tool[]){const g=new THREE.Group();toolRoot.add(g);tools[key]=g;}
   rod(new THREE.Vector3(),new THREE.Vector3(0,0,1.2),.025,0xba925c,tools.hoe);box(.34,.045,.23,0x63736a,tools.hoe,0,-.02,1.17).rotation.x=.4;
@@ -168,7 +171,7 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
     for(let i=0;i<3;i++){
       const complete=!!(f.duty.swept&(1<<i)),p=working&&task?.station===`dust-${i}`?actionProgress:0;
       dust[i].visible=!complete;
-      if(p>0)pan.position.set(dust[i].position.x+.2,.29,dust[i].position.z+.3);
+      if(p>0)pan.position.set(dust[i].position.x+.2,DORMITORY_FLOOR+.014,dust[i].position.z+.3);
       dust[i].children.forEach((leaf,j)=>{leaf.position.x=Math.sin(j*6.7)*.5*(1-p)+p*.2;leaf.position.z=Math.cos(j*3.2)*.3*(1-p)+p*.3;leaf.scale.setScalar(1-p*.9);});
     }
     const foldProgress=f.duty.folds+(working&&task?.action==='fold'?actionProgress:0);
@@ -177,17 +180,17 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
         let x=original[n*3],y=original[n*3+1],z=original[n*3+2];
         const smooth=1-Math.min(1,foldProgress);y+=smooth*(Math.sin(x*23+z*13)*.025+Math.cos(z*27)*.017);
         const a=THREE.MathUtils.clamp(foldProgress-1,0,1)*Math.PI;
-        if(x>0){const curl=Math.sin(a)*Math.sin(x/.59*Math.PI);y+=Math.sin(a)*x-curl*.035+.014*(a/Math.PI);x=Math.cos(a)*x+curl*.07;}
+        if(x>0){const curl=Math.sin(a)*Math.sin(x/(clothWidth/2)*Math.PI);y+=Math.sin(a)*x-curl*.035+.014*(a/Math.PI);x=Math.cos(a)*x+curl*.07;}
         const b=THREE.MathUtils.clamp(foldProgress-2,0,1)*Math.PI;
-        if(z>0){const curl=Math.sin(b)*Math.sin(z/.925*Math.PI);y+=Math.sin(b)*z-curl*.05+.022*(b/Math.PI);z=Math.cos(b)*z+curl*.09;}
+        if(z>0){const curl=Math.sin(b)*Math.sin(z/(clothLength/2)*Math.PI);y+=Math.sin(b)*z-curl*.05+.022*(b/Math.PI);z=Math.cos(b)*z+curl*.09;}
         clothPos.setXYZ(n,x,y,z);
       }clothPos.needsUpdate=true;clothGeo.computeVertexNormals();
     }
     blanket.visible=foldProgress<2.98;folded.visible=foldProgress>=2.98;
-    tableBooks.position.set(-24.6,1.11,-3.7);tableBooks.rotation.y=0;
+    tableBooks.position.set(desk.x,desk.targetY,desk.z);tableBooks.rotation.y=0;
     tableBooks.visible=f.duty.books===0;shelfBooks.visible=f.duty.books===2;carriedBooks.visible=kind==='duty'&&f.duty.books===1;
     const state=`${kind}/${tool}`;if(state!==lastState){lastState=state;Object.entries(tools).forEach(([id,g])=>g.visible=!!kind&&tool===id);}
-    toolRoot.visible=!!kind;particles.visible=false;stream.visible=false;harvestTransfer.visible=false;panLeaves.visible=f.duty.swept!==0;basketProduce.visible=f.garden.beds.some(b=>b===5);
+    toolRoot.visible=!!kind;particles.visible=false;stream.visible=false;harvestTransfer.visible=false;pan.visible=kind==='duty';panLeaves.visible=f.duty.swept!==0;basketProduce.visible=f.garden.beds.some(b=>b===5);
     if(!kind){pose?.();return;}
     const gathering=working&&task?.action==='harvest';
     const sowing=working&&task?.action==='plant';
@@ -261,5 +264,5 @@ export function createFieldworkScene(scene:THREE.Scene,player:CampusCharacter){
   // Object picking includes generous, invisible hit boxes, not only thin leaves.
   const picks:THREE.Mesh[]=[];
   for(const s of WORK_STATIONS){const bed=s.id.startsWith('bed-')?farm.beds[Number(s.id.split('-')[1])]:null;const hit=new THREE.Mesh(new THREE.BoxGeometry(bed?.w??1.3,1.5,bed?.d??1.3),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(s.x,.65,s.z);hit.userData.station=s.id;root.add(hit);picks.push(hit);}
-  return {root,picks,update,study:(active:boolean)=>{openBook.visible=active;},dispose:()=>{mats.forEach(m=>m.dispose());}};
+  return {root,picks,update,showDormitory:(open:boolean)=>{dormitory.visible=open;},study:(active:boolean)=>{openBook.visible=active;},dispose:()=>{mats.forEach(m=>m.dispose());}};
 }

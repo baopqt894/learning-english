@@ -8,8 +8,8 @@ import { READING_PAVILION, READING_APPROACH, READING_TABLES, READING_SEATS, BOOK
 import { diningLayout } from './dining-layout.ts';
 import { PITCH_APPROACH, SPORTS_OBSTACLES, STADIUM, STADIUM_FLOORS, TRACK_OUTER_RADIUS, nearbySportsVenue, stadiumDistance } from './sports-layout.ts';
 import { CAMPUS_EXTENT, DISTRICT_OBSTACLES, NEW_DISTRICT_ZONES, DISTRICT_AREAS } from './campus-districts-layout.ts';
-import { FARM_LAYOUT, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
-import { WORK_OBSTACLES } from './fieldwork.ts';
+import { FARM_LAYOUT, FARM_OBSTACLES, SITE_STATIC_OBSTACLES, ADDITIONAL_STATIC_OBSTACLES, FIXED_SITE_OBSTACLES } from './campus-spaces.ts';
+import { DORMITORY_B, DORMITORY_OBSTACLES, DORMITORY_WALL, dormitoryPoint } from './dormitory-layout.ts';
 export type MapPoint = { x: number; z: number };
 export const MAP_BOUNDS = CAMPUS_EXTENT;
 export const CORE_BUILDINGS = [
@@ -45,16 +45,7 @@ export const EXPANSION_BUILDINGS: Building[] = [
     roof: 0x956044,
     kind: "housing",
   },
-  {
-    x: -28,
-    z: 0,
-    w: 16,
-    d: 10,
-    h: 4.6,
-    name: "NHÀ Ở HỌC VIÊN B",
-    roof: 0x956044,
-    kind: "housing",
-  },
+  DORMITORY_B,
   {
     x: -9,
     z: -25,
@@ -205,7 +196,7 @@ export const ZONE_ART: Partial<Record<ZoneId, number>> = {
   hall: 5,
 };
 export const isOpenRoom = (b: Building) =>
-  b.kind !== "housing" || b.z === 0;
+  b.kind !== "housing" || b === DORMITORY_B;
 /** Furniture positions are shared by rendering and navigation. A clear centre aisle connects every room to its door. */
 type Furniture = MapPoint & {
   w: number;
@@ -238,7 +229,6 @@ export const ROOM_FURNITURE = EXPANSION_BUILDINGS.filter(
     kind: b.kind,
   }));
 });
-export const DORM_EXTRA_BEDS=[{x:-32,z:-2.6,w:1.35,d:2.45},{x:-32,z:1.6,w:1.35,d:2.45},{x:-26,z:2.1,w:1.35,d:2.45}];
 export const STUDY_DESK=ROOM_FURNITURE.filter(f=>f.kind==='classroom'&&f.x<0).at(-2)!;
 export const STUDY_POSITION={x:STUDY_DESK.x+.65,z:STUDY_DESK.z+.7};
 export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.kind==='dining'?Object.values(diningLayout(b).stations):b.kind==='classroom'?[{x:b.x,z:b.z-b.d/2+.9,w:1.5,d:.7}]:[]);
@@ -257,19 +247,18 @@ export const MAP_OBSTACLES = [
   ...ROOM_FIXTURES, ...BOOKCASES, ...READING_TABLES, ...READING_SEATS,
   ...DISTRICT_OBSTACLES,
   ...SITE_STATIC_OBSTACLES, ...ADDITIONAL_STATIC_OBSTACLES, ...FIXED_SITE_OBSTACLES,
-  ...WORK_OBSTACLES,
-  ...DORM_EXTRA_BEDS,
+  ...FARM_OBSTACLES, ...DORMITORY_OBSTACLES,
   ...CORE_BUILDINGS,
   ...EXPANSION_BUILDINGS.filter((b) => !isOpenRoom(b)),
   ...EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap((b) => [
-    { x: b.x - b.w / 2, z: b.z, w: 0.2, d: b.d },
-    { x: b.x + b.w / 2, z: b.z, w: 0.2, d: b.d },
-    { x: b.x, z: b.z - b.d / 2, w: b.w, d: 0.2 },
+    { x: b.x - b.w / 2, z: b.z, w: b === DORMITORY_B ? DORMITORY_WALL : .2, d: b.d },
+    { x: b.x + b.w / 2, z: b.z, w: b === DORMITORY_B ? DORMITORY_WALL : .2, d: b.d },
+    { x: b.x, z: b.z - b.d / 2, w: b.w, d: b === DORMITORY_B ? DORMITORY_WALL : .2 },
     ...[-1, 1].map((side) => ({
       x: b.x + side * (b.w / 4 + doorwayHalfWidth(b.kind)/2),
       z: b.z + b.d / 2,
       w: b.w / 2 - doorwayHalfWidth(b.kind),
-      d: 0.2,
+      d: b === DORMITORY_B ? DORMITORY_WALL : .2,
     })),
   ]),
   ...ROOM_FURNITURE,
@@ -358,20 +347,43 @@ export function advanceCampusRoute(position: MapPoint, route: MapPoint[], budget
 export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
   if (!canWalkCampus(from.x, from.z) || !canWalkCampus(to.x, to.z)) return [];
   if (canWalkSegment(from, to)) return [{ ...to }];
+  const fromDormitory = insideDormitory(from), toDormitory = insideDormitory(to);
+  if (!fromDormitory && !toDormitory) return findGridPath(from, to);
+  if (fromDormitory && toDormitory) return findGridPath(from, to, .125);
+
+  // Join campus routes to the finer indoor grid at the only entrance.
+  const porch = dormitoryPoint(0, DORMITORY_B.d / 2 + .75);
+  const outdoor = fromDormitory ? findGridPath(porch, to) : findGridPath(from, porch);
+  const indoor = fromDormitory ? findGridPath(from, porch, .125) : findGridPath(porch, to, .125);
+  if (!outdoor.length || !indoor.length) return [];
+  return fromDormitory ? [...indoor, ...outdoor] : [...outdoor, ...indoor];
+}
+
+function insideDormitory(point: MapPoint) {
+  return Math.abs(point.x - DORMITORY_B.x) < DORMITORY_B.w / 2 &&
+    Math.abs(point.z - DORMITORY_B.z) < DORMITORY_B.d / 2;
+}
+
+function findGridPath(from: MapPoint, to: MapPoint, step = 1): MapPoint[] {
+  if (canWalkSegment(from, to)) return [{ ...to }];
+  const inSearchArea = (point: MapPoint) => step === 1 || (
+    Math.abs(point.x - DORMITORY_B.x) <= DORMITORY_B.w / 2 &&
+    point.z >= DORMITORY_B.z - DORMITORY_B.d / 2 && point.z <= DORMITORY_B.z + DORMITORY_B.d / 2 + 1
+  );
   const gridAnchor = (point: MapPoint) => {
     const candidates: MapPoint[] = [];
     for (let dx = -2; dx <= 2; dx++)
       for (let dz = -2; dz <= 2; dz++)
         candidates.push({
-          x: Math.round(point.x) + dx,
-          z: Math.round(point.z) + dz,
+          x: (Math.round(point.x / step) + dx) * step,
+          z: (Math.round(point.z / step) + dz) * step,
         });
     candidates.sort(
       (a, b) =>
         Math.hypot(a.x - point.x, a.z - point.z) -
         Math.hypot(b.x - point.x, b.z - point.z),
     );
-    return candidates.find((p) => canWalkSegment(point, p));
+    return candidates.find((p) => inSearchArea(p) && canWalkSegment(point, p));
   };
   const start = gridAnchor(from),
     goal = gridAnchor(to);
@@ -448,8 +460,9 @@ export function findCampusPath(from: MapPoint, to: MapPoint): MapPoint[] {
       return result;
     }
     for (const [dx, dz] of directions) {
-      const next = { x: current.x + dx, z: current.z + dz };
-      const g = current.g + (dx && dz ? Math.SQRT2 : 1);
+      const next = { x: current.x + dx * step, z: current.z + dz * step };
+      const g = current.g + step * (dx && dz ? Math.SQRT2 : 1);
+      if (!inSearchArea(next)) continue;
       if (g >= (scores.get(key(next)) ?? Infinity) || !canWalkSegment(current, next)) continue;
       scores.set(key(next), g);
       parents.set(key(next), { x: current.x, z: current.z });

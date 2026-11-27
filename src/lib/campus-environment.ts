@@ -9,6 +9,8 @@ import { createWorkshopInterior } from './workshop-interiors';
 import { createRecreationPark } from './recreation-park-scene';
 import { createReadingRoom } from './reading-room';
 import { createDiningRoom } from './dining-room';
+import { createDormitoryRoom } from './dormitory-room';
+import { DORMITORY_B } from './dormitory-layout';
 import { workshopFixtures, doorwayHalfWidth } from './workshop-wing';
 import * as THREE from "three";
 import { READING_PLANTERS, PERGOLA, CAMPUS_BENCHES, CAMPUS_TREES, COURTYARD_PLANTERS, EDGE_PLANTERS, BICYCLE_RACK } from "./campus-spaces";
@@ -23,7 +25,7 @@ import { addCampusRoofs } from "./campus-roofs";
 import { createCampusTrees } from "./campus-trees";
 import { addCampusGrass } from "./campus-planting";
 import {
-  MAP_BOUNDS, DORM_EXTRA_BEDS, ROOM_EXHIBITS,
+  MAP_BOUNDS, ROOM_EXHIBITS,
   CORE_BUILDINGS,
   EXPANSION_BUILDINGS,
   ROOM_FURNITURE,
@@ -447,11 +449,17 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     if (isOpenRoom(b)) {
       // Interiors are revealed only after the player crosses the doorway.
       const shell=createRoomShell(b);scene.add(shell);
-      const interior=b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createLearningStudio(b) ?? createWorkshopInterior(b.kind) ?? new THREE.Group();
-      const displays=roomLearningDisplay(b); displays.position.set(b.x-interior.position.x,0,b.z-interior.position.z);
-      interior.add(displays);interior.visible=false;scene.add(interior);
+      const dormitory = b === DORMITORY_B ? createDormitoryRoom(finish) : null;
+      const interior=dormitory?.interior ?? (b.kind==="dining" ? createDiningRoom(b) : b.kind==="pavilion" ? createReadingRoom() : createLearningStudio(b) ?? createWorkshopInterior(b.kind) ?? new THREE.Group());
+      interior.visible=false;scene.add(interior);
       roomShells.push({building:b,shell,interior});
       shell.attach(sign(b.name,Math.min(6,b.w*.65),.42,b.x,b.h-.15,b.z+b.d/2+.15,"#476345"));
+      if (dormitory) {
+        scene.add(dormitory.structure);
+        return;
+      }
+      const displays=roomLearningDisplay(b); displays.position.set(b.x-interior.position.x,0,b.z-interior.position.z);
+      interior.add(displays);
       box(
         b.w,
         0.06,
@@ -642,11 +650,6 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     else if(exhibit.kind===1){for(const side of [-1,1]){cylinder(.32,.27,.24,0xb69c62,exhibit.x+side*.65,1.16,exhibit.z);for(let i=0;i<5;i++){const vegetable=sphere(.12,0x729a4e,exhibit.x+side*.65+Math.sin(i*2.4)*.12,1.33,exhibit.z+Math.cos(i*2.4)*.12);vegetable.scale.y=.65;}}}
     else if(exhibit.kind===2){box(1.8,.025,.75,0xe6dcb6,exhibit.x,1.08,exhibit.z);for(let i=0;i<5;i++)box(.23,.035,.18,[0x8f6650,0x66886e][i%2],exhibit.x-.65+i*.33,1.11,exhibit.z+(i%2?-.16:.16));}
     else {for(const side of [-1,1]){const life=mesh(new THREE.TorusGeometry(.22,.055,8,24),mat(0xd9ab65),[exhibit.x+side*.62,1.15,exhibit.z]);life.rotation.x=-Math.PI/2;}box(.4,.04,.55,0xe6dcb6,exhibit.x,1.08,exhibit.z);}
-  }
-  for(const bed of DORM_EXTRA_BEDS){
-    box(bed.w,.12,bed.d,0x52675b,bed.x,.72,bed.z);box(bed.w-.08,.18,bed.d-.13,0xd9d5bf,bed.x,.86,bed.z);
-    box(bed.w-.16,.08,1.7,0x71815c,bed.x,1.0,bed.z+.2);box(.75,.13,.42,0xe8e0c7,bed.x,.99,bed.z-.86);
-    for(const side of [-1,1])for(const end of [-1,1])box(.065,.66,.065,0x53655b,bed.x+side*.58,.5,bed.z+end*1.05);
   }
   // Southern learning garden with a circular path and planted reading nooks.
   const gardenPath = mesh(
