@@ -1,6 +1,7 @@
+import { furnishStudyGroups } from './group-study-scene';
 import * as THREE from 'three';
 import { sceneryKit } from './campus-scenery-kit';
-import { boothX,cardDesks,computerRows,conversationPods,globe,listeningBooths,pairTables,recordingDesk,shelf } from './learning-room-layout';
+import { boothX,computerRows,conversationPods,globe,listeningBooths,recordingDesk,shelf } from './learning-room-layout';
 import { placeSchoolProp } from './school-props';
 import { flowerClump } from './campus-garden-props';
 
@@ -66,15 +67,6 @@ function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
     for(const s of [-1,1])k.globe(x+.12+s*.21,1.47,z+.43,.12,.24,.19,teal);
     placeSchoolProp(props,'chair',x+1.42,.31,z,.89,-Math.PI/2);
   }
-  for(const {x,z} of pairTables){
-    k.block(x,1.12,z,2.55,.13,1.12,oak);
-    for(const side of [-1,1]){
-      k.block(x+side*.98,.72,z,.12,.74,.84,walnut);
-      placeSchoolProp(props,'chair',x+side*.55,.31,z+side*.88,.74,side<0?0:Math.PI);
-      k.block(x+side*.61,1.21,z+side*.18,.54,.045,.36,ivory,0,side*.12);
-      for(let n=0;n<3;n++)k.block(x+side*.61,1.24,z+side*.18+(n-1)*.071,.35-n*.035,.012,.021,teal);
-    }
-  }
   // Two facing settees and a coffee table, all inside one rug footprint.
   for(const pod of conversationPods){
     k.drum(pod.x,.313,pod.z,4.55,.026,3.75,0x558d88);
@@ -104,17 +96,6 @@ function furnishListeningRoom(k:Kit,props:THREE.Group,b:Room){
   for(const s of [-1,1]){
     k.block(s*5.45,2.42,back+.33,.72,1.12,.35,ink);
     for(const h of [2.22,2.63])k.globe(s*5.45,h,back+.52,.39,.35,.06,0x718f89);
-  }
-  // A low role-play desk by the exit gives pairs a separate place to practise directions.
-  for(const desk of cardDesks){
-    k.block(desk.x,1.04,desk.z,2.62,.13,.84,oak);
-    for(const s of [-1,1])k.block(desk.x+s*1.05,.69,desk.z,.14,.68,.66,ink);
-    for(let i=0;i<3;i++){
-      const px=desk.x-.78+i*.68,col=[0x539a99,0xd99062,0xe3b459][i];
-      k.block(px,1.17,desk.z-.01,.51,.11,.37,col,0,(i-1)*.12);
-      k.block(px,1.24,desk.z-.01,.43,.025,.29,ivory);
-      for(let n=0;n<3;n++)k.block(px-.045,1.258,desk.z-.1+n*.074,.24+n*.035,.008,.024,col);
-    }
   }
   for(const s of [-1,1]){
     const px=s*3.5;
@@ -182,6 +163,7 @@ export function createLearningStudio(b:Room){
     }
   }
   if(studio||computer){
+    furnishStudyGroups(k,props,studio?'language':'computer');
     const print=teachingPrint(computer);print.position.set(0,1.99,back+.31);props.add(print);
     for(const s of [-1,1])pottedFern(k,s*(b.w/2-.55),back+.71);
   }

@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {canWalkSegment,EXPANSION_BUILDINGS,MAP_OBSTACLES} from '../src/lib/campus-map.ts';
+import {canWalkSegment,findCampusPath,EXPANSION_BUILDINGS,MAP_OBSTACLES} from '../src/lib/campus-map.ts';
 import {courtEquipment,PARK_COURTS,parkPaths} from '../src/lib/recreation-park.ts';
 import {workshopDisplays,workshopFittings,workshopFixtures,WORKSHOPS} from '../src/lib/workshop-wing.ts';
 import {glasshouseEquipment} from '../src/lib/campus-landscape-layout.ts';
+import {studyGroups,studyObstacles} from '../src/lib/group-study-layout.ts';
 import {languageFurniture} from '../src/lib/learning-room-layout.ts';
 
 test('sideline equipment leaves playing surfaces and meeting paths free',()=>{
@@ -60,5 +61,31 @@ test('expanded language and computer labs have clear floor space and room-wide a
     assert.ok(clearArea>=minClearArea,kind+' accessible floor area');
     for(const dx of [-1.8,0,1.8])assert.ok(canWalkSegment(
       {x:room.x+dx,z:room.z+room.d/2+1},{x:room.x+dx,z:room.z-room.d/2+1.25}),kind+' through aisle');
+  }
+});
+
+test('every group station has a clear approach and leaves the teaching aisle open for groups', () => {
+  for (const kind of ['language', 'computer', ...WORKSHOPS.map(room => room.kind)]) {
+    const room = EXPANSION_BUILDINGS.find(b => b.kind === kind);
+    const entrance = {x: room.x, z: room.z + room.d / 2 + 1};
+    const groups = studyGroups.filter(f => f.subject === kind);
+    assert.ok(groups.filter(f => f.unit === 'table').length >= 2 && groups.some(f => f.unit === 'shelf'), kind);
+    for (const dx of [-1.8, 0, 1.8]) {
+      assert.ok(canWalkSegment({x: room.x + dx, z: entrance.z}, {x: room.x + dx, z: room.z - room.d / 2 + 1.3}), kind);
+    }
+    for (const f of groups) {
+      const obstacle = studyObstacles[studyGroups.indexOf(f)];
+      assert.ok(MAP_OBSTACLES.includes(obstacle));
+      for (const other of MAP_OBSTACLES) {
+        if (other === obstacle) continue;
+        assert.ok(Math.abs(obstacle.x - other.x) >= (other.w + f.w) / 2 ||
+          Math.abs(obstacle.z - other.z) >= (other.d + f.d) / 2, kind + ' furniture overlaps');
+      }
+      const target = f.unit === 'shelf' ? {x: f.worldX, z: f.worldZ + .94}
+        : {x: f.worldX - Math.sign(f.x) * (f.w / 2 + .65), z: f.worldZ};
+      const route = findCampusPath(entrance, target);
+      assert.deepEqual(route.at(-1), target, kind + ' approach');
+      route.forEach((p, i) => assert.ok(canWalkSegment(i ? route[i - 1] : entrance, p), kind));
+    }
   }
 });

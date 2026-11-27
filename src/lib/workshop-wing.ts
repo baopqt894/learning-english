@@ -31,7 +31,7 @@ export const workshopPaths = [
 // Teaching islands leave a continuous aisle from the door to the demonstration wall.
 export const workshopFixtures = WORKSHOPS.flatMap(b =>
   [-1,1].flatMap(side => [-1,1].map(row => ({
-    kind:b.kind, x:b.x+side*b.w*.28, z:b.z+row*b.d*.23, w:4.2, d:1.5,
+    kind:b.kind, x:b.x+side*b.w*.32, z:b.z+row*b.d*.23, w:4.2, d:1.5,
   }))));
 
 export function doorwayHalfWidth(kind?:string) {
@@ -41,7 +41,7 @@ export function doorwayHalfWidth(kind?:string) {
 export const workshopFittings=WORKSHOPS.flatMap(b=>{
   const row=b.z+(b.kind==='plant-lab'?1:-1)*b.d*.34;
   return [
-    ...[-1,1].map(side=>({kind:b.kind,unit:'project' as const,x:b.x+side*5.6,z:b.z+side*1.4,w:2.45,d:b.d*.42})),
+    ...[-1,1].map(side=>({kind:b.kind,unit:'project' as const,x:b.x+side*9.85,z:b.z+side*1.4,w:2.45,d:b.d*.42})),
     ...[-1,1].map(side=>({kind:b.kind,unit:'rack' as const,x:b.x+side*(b.w/2-3.05),z:row,w:5.2,d:1.25})),
     ...[-1,1].map(side=>({kind:b.kind,unit:'island' as const,x:b.x+side*b.w*.40,z:b.z,w:2.3,d:6})),
     ...[-1,1].map(side=>({kind:b.kind,unit:'bench' as const,x:b.x+side*b.w*.22,z:b.z+b.d*.40,w:3.3,d:.75})),

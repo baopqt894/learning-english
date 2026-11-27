@@ -1,3 +1,4 @@
+import { furnishStudyGroups } from './group-study-scene';
 import { workshopTeachingBoard } from './workshop-teaching-boards';
 import * as THREE from 'three';
 import { furnishWorkshopDisplays } from './workshop-displays';
@@ -26,7 +27,7 @@ export function createWorkshopInterior(kind:string){
   for(const f of workshopFittings.filter(f=>f.kind===kind)){
     const x=f.x-b.x,z=f.z-b.z;
     if(f.unit==='project'){
-      // Pair public work areas along a clear, eight-metre central teaching aisle.
+      // Long project benches flank the group tables and their shared teaching aisle.
       const side=x<0?-1:1;
       for(const sx of [-1,1])k.block(x+sx*f.w/2,.31,z,.07,.035,f.d+.5,accent);
       if(kind==='plant-lab'){
@@ -175,6 +176,7 @@ export function createWorkshopInterior(kind:string){
   }
   if(kind==='plant-lab')furnishGlasshouse(k,b.w,b.d);
   const props=new THREE.Group();furnishWorkshopDisplays(k,props,b);
+  furnishStudyGroups(k,props,b.kind);
   const board=workshopTeachingBoard(b.kind,Math.min(10.2,b.w*.32));
   board.position.set(0,2.45,-b.d/2+.27);props.add(board);
   const group=k.finish();group.add(props);group.position.set(b.x,0,b.z);group.visible=false;return group;

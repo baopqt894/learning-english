@@ -20,7 +20,7 @@ export const toolStations = [
 export const glasshouseEquipment=[
   {unit:'wash',x:-15.3,z:-9.7,w:5,d:2.0},
   {unit:'cart',x:4.5,z:8.2,w:2.25,d:1.25},
-  {unit:'propagate',x:-3.5,z:-9.3,w:3.3,d:1.35},
+  {unit:'propagate',x:-5.6,z:-9.3,w:3.3,d:1.35},
 ] as const;
 
 export const workshopBorders=WORKSHOPS.flatMap(b=>[-1,1].map(side=>({
