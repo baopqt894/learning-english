@@ -108,6 +108,18 @@ export function createRoomShell(b:Room){
     }
     box(4.3,.15,1.3,b.x,3.45,front+.54,tile);
   }
+  // Long teaching halls have sheltered window bays. The supports are wall brackets
+  // so the entire apron stays available to players arriving together.
+  if(b.w>=28){
+    for(const side of [-1,1]){
+      const x=b.x+side*.31*b.w,w=Math.min(9.2,b.w*.25);
+      box(w+.22,.12,1.53,x,3.28,front+.67,timber).rotation.x=.12;
+      for(let i=0;i<8;i++)
+        box(w/8,.065,1.61,x+(i-3.5)*w/8,3.36,front+.67,i%2?tile:trim).rotation.x=.12;
+      for(const edge of [-1,1])
+        box(.105,.12,1.22,x+edge*(w/2-.28),2.95,front+.53,timber).rotation.x=-.46;
+    }
+  }
   // Thin gutters, ridge cap and downpipes make the roof read as construction.
   for(const side of [-1,1]){
     box(b.w+.9,.13,.13,b.x,top+.13,b.z+side*(b.d/2+.38),timber);

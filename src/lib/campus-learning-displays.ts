@@ -1,3 +1,4 @@
+import {furnishRoomAccessories} from './campus-room-accessories';
 import * as THREE from 'three';
 import { paths } from '../components/icon';
 import { DISTRICT_STRUCTURES } from './campus-districts-layout';
@@ -49,6 +50,7 @@ export function roomLearningDisplay(room:Room){
   panel.position.set(-room.w/2+.22,Math.min(room.h-height/2-.12,2.15),0);
   panel.rotation.y=Math.PI/2;group.add(panel);
   const kit=sceneryKit('display-fittings');
+  furnishRoomAccessories(kit,room);
   for(const side of [-1,1])kit.block(panel.position.x-.06,panel.position.y*.57,side*width*.39,.07,panel.position.y*.90,.075,0x715641);
   if(room.kind==='classroom'){
     const geography=room.x>0;

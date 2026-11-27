@@ -1,3 +1,4 @@
+import { furnishPracticalBays } from './campus-practical-bays';
 import { furnishStudyGroups } from './group-study-scene';
 import { workshopTeachingBoard } from './workshop-teaching-boards';
 import * as THREE from 'three';
@@ -13,6 +14,7 @@ export function createWorkshopInterior(kind:string){
   const wood=0xb08760,steel=0x537575,cream=0xe9debd;
   const accents={kitchen:0xb66548,'light-lab':0x408487,'plant-lab':0x628550,art:0xd18a55,music:0x596876,weather:0x648fa0};
   const accent=accents[b.kind];
+  furnishPracticalBays(k,b);
   // Tall glazed bays and tiled skirting make the perimeter legible from the doorway.
   for(const dx of [-.38,-.22,.22,.38]){
     const x=dx*b.w,z=-b.d/2+.19;

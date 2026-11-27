@@ -89,3 +89,21 @@ test('every group station has a clear approach and leaves the teaching aisle ope
     }
   }
 });
+
+test('demonstration equipment and sports shelters leave pathways and other fixtures clear',async()=>{
+  const {demonstrationBays,outdoorFacilities,detailShadeTrees}=await import('../src/lib/campus-detail-layout.ts');
+  const {STADIUM,stadiumDistance,TRACK_OUTER_RADIUS}=await import('../src/lib/sports-layout.ts');
+  const {DISTRICT_PATHS}=await import('../src/lib/campus-districts-layout.ts');
+  const overlaps=(a,b)=>Math.abs(a.x-b.x)<(a.w+b.w)/2 && Math.abs(a.z-b.z)<(a.d+b.d)/2;
+  for(const f of [...demonstrationBays,...outdoorFacilities]){
+    assert.ok(MAP_OBSTACLES.includes(f));
+    assert.ok(!MAP_OBSTACLES.some(o=>o!==f && overlaps(f,o)),f.kind??f.room);
+  }
+  for(const f of outdoorFacilities)assert.ok(![...DISTRICT_PATHS,...PARK_COURTS].some(p=>overlaps(f,p)),f.kind);
+  assert.equal(demonstrationBays.length,12);
+  for(const f of outdoorFacilities.filter(s=>s.kind==='team-bench'))
+    for(const dx of [-f.w/2,f.w/2])for(const dz of [-f.d/2,f.d/2]){
+      const r=stadiumDistance(f.x+dx,f.z+dz);assert.ok(r<STADIUM.innerRadius||r>TRACK_OUTER_RADIUS);
+    }
+  for(const t of detailShadeTrees)assert.ok(!DISTRICT_PATHS.some(p=>overlaps({...t,w:.65*t.scale,d:.65*t.scale},p)));
+});

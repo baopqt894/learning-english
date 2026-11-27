@@ -1,3 +1,4 @@
+import {campusFieldEquipment} from './campus-field-equipment';
 import { outdoorLearningDisplays,roomLearningDisplay } from './campus-learning-displays';
 import { createLearningStudio } from './learning-studio-scene';
 import { loadSchoolProps } from './school-props';
@@ -439,7 +440,7 @@ export function createCampusEnvironment(scene: THREE.Scene, avatar: number) {
     }
   });
 
-  scene.add(createRecreationPark(),createCampusLandscape(),outdoorLearningDisplays());
+  scene.add(createRecreationPark(),createCampusLandscape(),outdoorLearningDisplays(),campusFieldEquipment());
   for(const p of nurseryPens)sign(p.kind==='rabbits'?'RABBITS':'SHEEP & LAMBS',2.5,.39,p.x,.93,p.z+p.d/2+.10,'#536547');
   EXPANSION_BUILDINGS.forEach((b) => {
     box(b.w + 0.5, 0.22, b.d + 0.5, 0xc6bda3, b.x, 0.13, b.z);

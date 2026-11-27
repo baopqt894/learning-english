@@ -1,3 +1,4 @@
+import {detailShadeTrees} from './campus-detail-layout.ts';
 import { CAMPUS_EXTENT, EXPANDED_TREES } from './campus-districts-layout.ts';
 export { SPORTS_FIELD } from './sports-layout.ts';
 /** Shared spatial truth: rendering, navigation, minimap and layout audit use these coordinates. */
@@ -58,11 +59,11 @@ export const SITE_STATIC_OBSTACLES=[
 ];
 export const CORE_TREES=[[-14.5,-9],[-11,-1],[-11,5],[-8,9],[-4.7,9],[4.7,9],[9,8],[11.5,3],[11,-8],[-3.1,-5],[3.1,-5]].map(([x,z],i)=>({x,z,scale:.78+(i%3)*.14,flowering:i===3||i===8}));
 export const PERIMETER_TREES=Array.from({length:64},(_,i)=>{const edge=i%4,t=Math.floor(i/4)/15;const x=edge===0?CAMPUS_EXTENT.minX-2:edge===1?CAMPUS_EXTENT.maxX+2:CAMPUS_EXTENT.minX+t*(CAMPUS_EXTENT.maxX-CAMPUS_EXTENT.minX);const z=edge===2?CAMPUS_EXTENT.minZ-2:edge===3?CAMPUS_EXTENT.maxZ+2:CAMPUS_EXTENT.minZ+t*(CAMPUS_EXTENT.maxZ-CAMPUS_EXTENT.minZ);return {x,z,scale:1.25+(i%3)*.18,flowering:i%11===0};});
-export const CAMPUS_TREES=[...EXPANDED_TREES,...CORE_TREES,...PERIMETER_TREES,...DISTRICT_TREES.map(([x,z])=>({x,z,scale:.85+(Math.abs(x)%3)*.13,flowering:z>15}))];
+export const CAMPUS_TREES=[...detailShadeTrees,...EXPANDED_TREES,...CORE_TREES,...PERIMETER_TREES,...DISTRICT_TREES.map(([x,z])=>({x,z,scale:.85+(Math.abs(x)%3)*.13,flowering:z>15}))];
 export const COURTYARD_PLANTERS=[-10.7,10.7].flatMap(x=>[-.6,6].map(z=>({x,z,w:1.4,d:2.5})));
 export const EDGE_PLANTERS=[-12.8,12.8].flatMap(x=>[-1,3,7].map(z=>({x,z,w:.85,d:1.9})));
 export const BICYCLE_RACK={xs:Array.from({length:4},(_,i)=>-11+i*.85),z:-12,x:-9.725,w:3.85,d:.55};
 export const ADDITIONAL_STATIC_OBSTACLES=[...CORE_TREES,...PERIMETER_TREES].filter(t=>Math.abs(t.x)<36&&Math.abs(t.z)<30).map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale}));
-export const FIXED_SITE_OBSTACLES=[...COURTYARD_PLANTERS,...EDGE_PLANTERS,BICYCLE_RACK,
+export const FIXED_SITE_OBSTACLES=[...detailShadeTrees.map(t=>({x:t.x,z:t.z,w:.65*t.scale,d:.65*t.scale})),...COURTYARD_PLANTERS,...EDGE_PLANTERS,BICYCLE_RACK,
   {x:2.7,z:-1.9,w:1.9,d:1.9},{x:-3,z:-.7,w:1.9,d:1.9},
 ];

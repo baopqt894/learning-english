@@ -1,3 +1,4 @@
+import {demonstrationBays,outdoorFacilities} from './campus-detail-layout.ts';
 import {studyObstacles} from './group-study-layout.ts';
 import {computerLab,computerDesks,examStations,teacherDesk,languageLab,listeningStations,languageFurniture} from './learning-room-layout.ts';
 import { landscapeObstacles,glasshouseEquipment,nurseryPens } from './campus-landscape-layout.ts';
@@ -244,6 +245,7 @@ export const ROOM_FIXTURES=EXPANSION_BUILDINGS.filter(isOpenRoom).flatMap(b=>b.k
 export const ROOM_EXHIBITS=EXPANSION_BUILDINGS.filter(b=>b.kind==='hall').flatMap(b=>['BOOKS & FIELD GUIDE','GARDEN HARVEST','OUR CAMPUS MAP','SAFE TEAMWORK'].map((label,i)=>({x:b.x+(i%2?1:-1)*(b.w/2-1.8),z:b.z-1.8+Math.floor(i/2)*3.5,w:2.8,d:1.2,label,kind:i})));
 export const CORE_FRONT_FIXTURES=[{x:CORE_BUILDINGS[1].x+1.8,z:CORE_BUILDINGS[1].z+CORE_BUILDINGS[1].d/2+.25,w:1.15,d:.35},{x:CORE_BUILDINGS[2].x,z:CORE_BUILDINGS[2].z+CORE_BUILDINGS[2].d/2+.5,w:2.85,d:.85}];
 export const MAP_OBSTACLES = [
+  ...demonstrationBays,...outdoorFacilities,
   ...computerDesks.map(f=>({x:computerLab.x+f.x,z:computerLab.z+f.z,w:f.w,d:f.d})),
   ...examStations.filter(s=>!s.laptop).map(s=>({x:s.x,z:s.z+.85,w:.64,d:.64})),
   {...teacherDesk,x:computerLab.x+teacherDesk.x,z:computerLab.z+teacherDesk.z},
